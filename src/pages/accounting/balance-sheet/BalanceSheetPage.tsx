@@ -88,15 +88,23 @@ export default function BalanceSheetPage() {
       ]);
 
       if (accountResult.error) {
-        setError(`Gagal memuat COA: ${accountResult.error.message}`);
+        setError(
+          `Gagal memuat COA: ${accountResult.error.message}`
+        );
       } else {
-        setAccounts((accountResult.data ?? []) as Account[]);
+        setAccounts(
+          (accountResult.data ?? []) as Account[]
+        );
       }
 
       if (entityResult.error) {
-        setError(`Gagal memuat cabang: ${entityResult.error.message}`);
+        setError(
+          `Gagal memuat cabang: ${entityResult.error.message}`
+        );
       } else {
-        setEntities((entityResult.data ?? []) as Entity[]);
+        setEntities(
+          (entityResult.data ?? []) as Entity[]
+        );
       }
 
       setMasterLoading(false);
@@ -106,26 +114,56 @@ export default function BalanceSheetPage() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
     const loadJournals = async () => {
       setLoading(true);
       setError(null);
 
       try {
+        /**
+         * Balance Sheet membutuhkan seluruh mutasi akun sampai tanggal
+         * laporan. Jadi pagination di sini digunakan sebagai BATCH SERVER-SIDE,
+         * bukan pagination tampilan.
+         *
+         * Yang diambil langsung adalah journal_details + filter journals.
+         * Ini lebih hemat payload dibanding mengambil journals dengan nested
+         * journal_details.
+         */
         const FETCH_SIZE = 1000;
         let offset = 0;
-        const allJournals: Journal[] = [];
+
+        type JournalDetailRow = JournalDetail & {
+          journals:
+            | {
+                entity_id: string | null;
+                tanggal: string;
+              }
+            | {
+                entity_id: string | null;
+                tanggal: string;
+              }[]
+            | null;
+        };
+
+        const allDetails: JournalDetail[] = [];
 
         while (true) {
           let query = supabase
-            .from("journals")
+            .from("journal_details")
             .select(`
-              journal_details (
-                account_id,
-                debit,
-                credit
+              account_id,
+              debit,
+              credit,
+              journals!inner (
+                entity_id,
+                tanggal
               )
             `)
-            .lte("tanggal", asOfDate)
+            .lte("journals.tanggal", asOfDate)
+            .order("journal_id", {
+              ascending: true,
+            })
             .range(
               offset,
               offset + FETCH_SIZE - 1
@@ -133,7 +171,7 @@ export default function BalanceSheetPage() {
 
           if (selectedEntityId) {
             query = query.eq(
-              "entity_id",
+              "journals.entity_id",
               selectedEntityId
             );
           }
@@ -148,9 +186,17 @@ export default function BalanceSheetPage() {
           }
 
           const rows =
-            (data ?? []) as Journal[];
+            (data ?? []) as unknown as JournalDetailRow[];
 
-          allJournals.push(...rows);
+          const details = rows.map(
+            (row) => ({
+              account_id: row.account_id,
+              debit: row.debit,
+              credit: row.credit,
+            })
+          );
+
+          allDetails.push(...details);
 
           if (rows.length < FETCH_SIZE) {
             break;
@@ -159,26 +205,40 @@ export default function BalanceSheetPage() {
           offset += FETCH_SIZE;
         }
 
-        setJournals(allJournals);
+        if (!cancelled) {
+          setJournals(
+            allDetails.map((detail) => ({
+              journal_details: [detail],
+            }))
+          );
+        }
       } catch (journalError) {
         console.error(
-          "Gagal memuat jurnal:",
+          "Gagal memuat jurnal Balance Sheet:",
           journalError
         );
 
-        setError(
-          journalError instanceof Error
-            ? `Gagal memuat jurnal: ${journalError.message}`
-            : "Gagal memuat jurnal."
-        );
+        if (!cancelled) {
+          setError(
+            journalError instanceof Error
+              ? `Gagal memuat jurnal: ${journalError.message}`
+              : "Gagal memuat jurnal."
+          );
 
-        setJournals([]);
+          setJournals([]);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
-    loadJournals();
+    void loadJournals();
+
+    return () => {
+      cancelled = true;
+    };
   }, [asOfDate, selectedEntityId]);
 
   const report = useMemo(() => {
@@ -191,8 +251,12 @@ export default function BalanceSheetPage() {
           credit: 0,
         };
 
-        current.debit += Number(detail.debit ?? 0);
-        current.credit += Number(detail.credit ?? 0);
+        current.debit += Number(
+          detail.debit ?? 0
+        );
+        current.credit += Number(
+          detail.credit ?? 0
+        );
 
         mutations.set(detail.account_id, current);
       });
@@ -489,7 +553,7 @@ export default function BalanceSheetPage() {
 
   return (
     <div className="p-4 bg-white rounded shadow max-w-[1600px] mx-auto">
-      <div className="w-full pr-6 space-y-4">
+      <div className="w-full space-y-4">
         <div className="grid gap-4 rounded-md border border-gray-200 bg-white p-4 md:grid-cols-2">
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">

@@ -1,7 +1,7 @@
 // ======================= JURNAL.tsx =======================
 // FULL ADAPTASI DARI KAS_HARIAN (SIMPLIFIED UNTUK JURNAL)
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { FiEdit, FiTrash2, FiPlus } from "react-icons/fi";
 import { DateRangePicker } from "react-date-range";
@@ -173,7 +173,10 @@ export default function Jurnal() {
   }, []);
 
   const loadAccounts = async () => {
-    const { data } = await supabase.from("accounts").select("*");
+    const { data } = await supabase
+      .from("accounts")
+      .select("id, code, name")
+      .order("code", { ascending: true });
     setAccounts(data || []);
   };
 
@@ -182,7 +185,7 @@ export default function Jurnal() {
   }, []);
 
   // ================= LOAD DATA =================
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
 
     try {
@@ -239,26 +242,30 @@ export default function Jurnal() {
 
       // ================= SEARCH =================
       const keyword = searchKeyword.trim();
+      const escapedKeyword = keyword.replace(
+        /[%_]/g,
+        "\\$&"
+      );
 
       if (keyword) {
         if (filterBy === "reference") {
           query = query.ilike(
             "reference",
-            `%${keyword}%`
+            `%${escapedKeyword}%`
           );
         }
 
         if (filterBy === "description") {
           query = query.ilike(
             "description",
-            `%${keyword}%`
+            `%${escapedKeyword}%`
           );
         }
 
         if (filterBy === "user_id") {
           query = query.ilike(
             "user_id",
-            `%${keyword}%`
+            `%${escapedKeyword}%`
           );
         }
       }
@@ -388,7 +395,15 @@ export default function Jurnal() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    selectedEntity,
+    page,
+    pageSize,
+    searchKeyword,
+    filterBy,
+    range,
+  ]);
+
 
   // ================= FETCH SEMUA DATA UNTUK EXPORT / PRINT =================
   const fetchAllFilteredJournals = async (): Promise<
@@ -397,6 +412,10 @@ export default function Jurnal() {
     const startDate = range[0].startDate;
     const endDate = range[0].endDate;
     const keyword = searchKeyword.trim();
+    const escapedKeyword = keyword.replace(
+      /[%_]/g,
+      "\\$&"
+    );
 
     const PAGE_SIZE = 1000;
     let offset = 0;
@@ -463,21 +482,21 @@ export default function Jurnal() {
         if (filterBy === "reference") {
           query = query.ilike(
             "reference",
-            `%${keyword}%`
+            `%${escapedKeyword}%`
           );
         }
 
         if (filterBy === "description") {
           query = query.ilike(
             "description",
-            `%${keyword}%`
+            `%${escapedKeyword}%`
           );
         }
 
         if (filterBy === "user_id") {
           query = query.ilike(
             "user_id",
-            `%${keyword}%`
+            `%${escapedKeyword}%`
           );
         }
       }
@@ -632,15 +651,18 @@ export default function Jurnal() {
   }, []);
 
   useEffect(() => {
-    loadData();
-  }, [
-      selectedEntity,
-      searchKeyword,
-      filterBy,
-      range,
-      page,
-      pageSize,
-    ]);
+    void loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    if (total > 0 && page > Math.max(1, Math.ceil(total / pageSize))) {
+      setPage(Math.max(1, Math.ceil(total / pageSize)));
+    }
+
+    if (total === 0 && page !== 1) {
+      setPage(1);
+    }
+  }, [total, page, pageSize, setPage]);
 
   // ================= DATE PICKER =================
   useEffect(() => {
@@ -704,10 +726,41 @@ export default function Jurnal() {
 
     if (!confirm("Hapus data?")) return;
 
-    await supabase.from("journal_details").delete().eq("journal_id", row.id);
-    await supabase.from("journals").delete().eq("id", row.id);
+    try {
+      const { error: detailError } = await supabase
+        .from("journal_details")
+        .delete()
+        .eq("journal_id", row.id);
 
-    loadData();
+      if (detailError) {
+        throw detailError;
+      }
+
+      const { error: journalError } = await supabase
+        .from("journals")
+        .delete()
+        .eq("id", row.id);
+
+      if (journalError) {
+        throw journalError;
+      }
+
+      if (
+        data.length === 1 &&
+        page > 1
+      ) {
+        setPage(page - 1);
+      } else {
+        await loadData();
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Gagal menghapus jurnal.";
+
+      alert("❌ Gagal hapus jurnal: " + message);
+    }
   };
 
   // ================== INPUT JURNAL =============
@@ -881,7 +934,7 @@ export default function Jurnal() {
       setEditId(null);
       setShowForm(false);
       resetForm();
-      loadData();
+      await loadData();
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Unknown error";
@@ -1039,7 +1092,7 @@ export default function Jurnal() {
 
   // ================= UI =================
   return (
-    <div className="p-4 bg-white rounded shadow max-w-[1600px] mx-auto">
+    <div className="w-full space-y-4">
 
       {/* ================= HEADER ================= */}
       <div className="mb-4 flex flex-col gap-3">
@@ -1408,14 +1461,34 @@ export default function Jurnal() {
 
                         if (e.key === "ArrowDown") {
                           e.preventDefault();
-                          idx = (idx + 1) % filtered.length;
-                          updateRow(i, "highlightIndex", idx);
+
+                          if (filtered.length > 0) {
+                            idx =
+                              (idx + 1) %
+                              filtered.length;
+
+                            updateRow(
+                              i,
+                              "highlightIndex",
+                              idx
+                            );
+                          }
                         }
 
                         if (e.key === "ArrowUp") {
                           e.preventDefault();
-                          idx = (idx - 1 + filtered.length) % filtered.length;
-                          updateRow(i, "highlightIndex", idx);
+
+                          if (filtered.length > 0) {
+                            idx =
+                              (idx - 1 + filtered.length) %
+                              filtered.length;
+
+                            updateRow(
+                              i,
+                              "highlightIndex",
+                              idx
+                            );
+                          }
                         }
 
                         if (e.key === "Enter") {

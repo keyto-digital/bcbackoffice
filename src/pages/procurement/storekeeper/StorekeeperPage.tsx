@@ -119,7 +119,7 @@ export default function StorekeeperPage(): JSX.Element {
   const exportExcel = useCallback(() => {
     const rows =
       tab === "SUMMARY"
-        ? paginatedStocks.map((row) => ({
+        ? filteredStocks.map((row) => ({
             Store: `${row.store_code} - ${row.store_name}`,
             Kategori: row.category_name ?? "-",
             Subkategori: row.subcategory_name ?? "-",
@@ -132,33 +132,198 @@ export default function StorekeeperPage(): JSX.Element {
           }))
         : filteredMovements.map((row) => ({
             Tanggal: row.movement_date,
-            Store: row.store ? `${row.store.code} - ${row.store.name}` : "-",
-            Kode: row.items[0]?.code ?? "-",
-            Artikel: row.items.length > 1
-              ? `${row.items[0]?.name} (+${row.items.length - 1} artikel)`
-              : row.items[0]?.name ?? "-",
-            Tipe: getMovementLabel(row.movement_type),
+            Store: row.store
+              ? `${row.store.code} - ${row.store.name}`
+              : "-",
+            Kode:
+              row.items[0]?.code ?? "-",
+            Artikel:
+              row.items.length > 1
+                ? `${row.items[0]?.name} (+${row.items.length - 1} artikel)`
+                : row.items[0]?.name ?? "-",
+            Tipe: getMovementLabel(
+              row.movement_type
+            ),
             Masuk: Number(row.quantity_in),
             Keluar: Number(row.quantity_out),
-            "Saldo Setelah": Number(row.quantity_after),
-            Satuan: row.items[0]?.unit_code ?? "-",
-            "Harga Average Setelah": Number(row.average_cost_after),
-            Referensi: row.reference ?? "-",
-            Keterangan: row.description ?? "-",
+            "Saldo Setelah": Number(
+              row.quantity_after
+            ),
+            Satuan:
+              row.items[0]?.unit_code ?? "-",
+            "Harga Average Setelah": Number(
+              row.average_cost_after
+            ),
+            Referensi:
+              row.reference ?? "-",
+            Keterangan:
+              row.description ?? "-",
           }));
 
     const workbook = XLSX.utils.book_new();
-    const sheetName = tab === "SUMMARY" ? "Stok" : "Kartu Stok";
-    const worksheet = XLSX.utils.json_to_sheet(rows);
-    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    const sheetName =
+      tab === "SUMMARY"
+        ? "Stok"
+        : "Kartu Stok";
 
-    const data = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const worksheet =
+      XLSX.utils.json_to_sheet(rows);
+
+    XLSX.utils.book_append_sheet(
+      workbook,
+      worksheet,
+      sheetName
+    );
+
+    const data = XLSX.write(
+      workbook,
+      {
+        bookType: "xlsx",
+        type: "array",
+      }
+    );
+
     const blob = new Blob([data], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
 
-    saveAs(blob, `Storekeeper-${inputDate(new Date())}.xlsx`);
-  }, [tab, filteredStocks, filteredMovements]);
+    saveAs(
+      blob,
+      `Storekeeper-${inputDate(
+        new Date()
+      )}.xlsx`
+    );
+  }, [
+    tab,
+    filteredStocks,
+    filteredMovements,
+  ]);
+
+  /**
+   * Export form Stock Opname.
+   *
+   * Wajib memilih satu store terlebih dahulu.
+   * Export sengaja mengambil seluruh stok store tersebut,
+   * bukan hanya halaman pagination yang sedang tampil.
+   *
+   * Kolom Qty Fisik dan Selisih dibiarkan kosong agar
+   * file dapat langsung dipakai saat opname fisik.
+   */
+  const exportStockOpname = useCallback(() => {
+    if (!storeId) {
+      window.alert(
+        "Pilih Store terlebih dahulu untuk membuat Form Stock Opname."
+      );
+      return;
+    }
+
+    const selectedStore =
+      stores.find(
+        (store) => store.id === storeId
+      );
+
+    if (!selectedStore) {
+      window.alert(
+        "Store yang dipilih tidak ditemukan."
+      );
+      return;
+    }
+
+    const opnameRows = stocks
+      .filter(
+        (row) =>
+          row.store_id === storeId
+      )
+      .sort((a, b) =>
+        String(a.item_code).localeCompare(
+          String(b.item_code),
+          undefined,
+          { numeric: true }
+        )
+      )
+      .map((row, index) => ({
+        No: index + 1,
+        Store: `${selectedStore.code} - ${selectedStore.name}`,
+        Kode: row.item_code,
+        Artikel: row.item_name,
+        Kategori:
+          row.category_name ?? "-",
+        "Sub Kategori":
+          row.subcategory_name ?? "-",
+        Satuan: row.unit_code ?? "-",
+        "Qty Sistem": Number(
+          row.quantity_on_hand ?? 0
+        ),
+        "Harga Average": Number(
+          row.average_cost ?? 0
+        ),
+        "Nilai Sistem": Number(
+          row.stock_value ?? 0
+        ),
+        "Qty Fisik": "",
+        Selisih: "",
+        "Nilai Selisih": "",
+        Keterangan: "",
+      }));
+
+    if (opnameRows.length === 0) {
+      window.alert(
+        "Tidak ada data stok untuk Store yang dipilih."
+      );
+      return;
+    }
+
+    const workbook =
+      XLSX.utils.book_new();
+
+    const worksheet =
+      XLSX.utils.json_to_sheet(
+        opnameRows
+      );
+
+    const widths = [
+      6, 22, 14, 30, 18, 20, 10,
+      14, 16, 16, 14, 12, 16, 30,
+    ];
+
+    worksheet["!cols"] =
+      widths.map((wch) => ({
+        wch,
+      }));
+
+    XLSX.utils.book_append_sheet(
+      workbook,
+      worksheet,
+      "Stock Opname"
+    );
+
+    const data = XLSX.write(
+      workbook,
+      {
+        bookType: "xlsx",
+        type: "array",
+      }
+    );
+
+    const blob = new Blob(
+      [data],
+      {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      }
+    );
+
+    saveAs(
+      blob,
+      `Stock-Opname-${selectedStore.code}-${inputDate(
+        new Date()
+      )}.xlsx`
+    );
+  }, [
+    storeId,
+    stores,
+    stocks,
+  ]);
+
 
   const printSummary = useCallback(() => {
     const rows = filteredStocks
@@ -236,7 +401,7 @@ export default function StorekeeperPage(): JSX.Element {
   const handleAdjustment = () => transaction.openTransaction("ADJUSTMENT");
 
   return (
-    <div className="w-full pr-10 space-y-4">
+    <div className="w-full pr-2 space-y-4">
       {/* Header */}
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
@@ -271,15 +436,23 @@ export default function StorekeeperPage(): JSX.Element {
             Adjustment
           </button>
 
-          {access?.export && (
-            <button
-              type="button"
-              onClick={exportExcel}
-              className="rounded-md border border-emerald-600 px-3 py-2 text-sm font-medium text-emerald-700"
-            >
-              Export Excel
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={exportExcel}
+            disabled={!storeId}
+            className="rounded-md border border-emerald-600 px-3 py-2 text-sm font-medium text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Export Excel
+          </button>
+
+          <button
+            type="button"
+            onClick={exportStockOpname}
+            disabled={!storeId}
+            className="rounded-md border border-amber-600 px-3 py-2 text-sm font-medium text-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Export Form Opname
+          </button>
 
           {access?.print && (
             <button
@@ -664,4 +837,3 @@ export default function StorekeeperPage(): JSX.Element {
     </div>
   );
 }
-

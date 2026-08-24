@@ -4,6 +4,9 @@ import { saveAs } from "file-saver";
 import { hasAccess } from "@/lib/hasAccess";
 import { supabase } from "@/lib/supabaseClient";
 import { getCustomUserId } from "@/lib/authUser";
+import { usePagination } from "@/lib/pagination/usePagination";
+import { createPaginationMeta } from "@/lib/pagination/types";
+import Pagination from "@/components/common/Pagination";
 
 type PoDetail = {
   id: string;
@@ -145,6 +148,15 @@ export default function ReceivingPage() {
   });
   const [error, setError] = useState<string | null>(null);
 
+  const {
+    page,
+    pageSize,
+    setPage,
+    setPageSize,
+  } = usePagination();
+
+  const [totalCount, setTotalCount] = useState(0);
+
   const [showForm, setShowForm] = useState(false);
   const [selectedPoId, setSelectedPoId] = useState("");
   const [storeId, setStoreId] = useState("");
@@ -206,36 +218,20 @@ export default function ReceivingPage() {
     [lines]
   );
 
-  const filteredRecords = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
 
-    if (!keyword) return records;
-
-    return records.filter((record) => {
-      return (
-        record.receiving_number.toLowerCase().includes(keyword) ||
-        record.purchase_order_number_snapshot
-          .toLowerCase()
-          .includes(keyword) ||
-        record.supplier_name_snapshot
-          .toLowerCase()
-          .includes(keyword) ||
-        record.store_name_snapshot
-          .toLowerCase()
-          .includes(keyword) ||
-        record.status.toLowerCase().includes(keyword)
-      );
-    });
-  }, [records, search]);
 
   const loadData = async (): Promise<void> => {
-    
     setLoading(true);
     setError(null);
 
+    const safePage = Math.max(1, Number(page) || 1);
+    const safePageSize = Math.max(1, Number(pageSize) || 25);
+    const from = (safePage - 1) * safePageSize;
+    const to = from + safePageSize - 1;
+
     let recordQuery = supabase
       .from("receiving_records")
-      .select("*")
+      .select("*", { count: "exact" })
       .order(
         statusFilter === "POSTED" ? "posted_at" : "created_at",
         { ascending: false }
@@ -262,66 +258,113 @@ export default function ReceivingPage() {
       );
     }
 
-    const [recordResult, poResult, storeResult, methodResult] =
-      await Promise.all([
-        
-        recordQuery,
+    const keyword = search.trim();
 
-        supabase
-          .from("purchase_orders")
-          .select(`
+    if (keyword) {
+      const safeKeyword = keyword
+        .replace(/[%_]/g, "\\$&")
+        .replace(/,/g, " ");
+
+      recordQuery = recordQuery.or(
+        [
+          `receiving_number.ilike.%${safeKeyword}%`,
+          `purchase_order_number_snapshot.ilike.%${safeKeyword}%`,
+          `supplier_name_snapshot.ilike.%${safeKeyword}%`,
+          `store_name_snapshot.ilike.%${safeKeyword}%`,
+          `status.ilike.%${safeKeyword}%`,
+          `supplier_invoice_number.ilike.%${safeKeyword}%`,
+        ].join(",")
+      );
+    }
+
+    const [
+      recordResult,
+      poResult,
+      storeResult,
+      methodResult,
+    ] = await Promise.all([
+      recordQuery.range(from, to),
+
+      supabase
+        .from("purchase_orders")
+        .select(`
+          id,
+          entity_id,
+          po_number,
+          supplier_id,
+          supplier_name_snapshot,
+          payment_term_days,
+          store_id,
+          purchase_order_details (
             id,
-            entity_id,
-            po_number,
-            supplier_id,
-            supplier_name_snapshot,
-            payment_term_days,
-            store_id,
-            purchase_order_details (
-              id,
-              item_code_snapshot,
-              item_name_snapshot,
-              unit_code_snapshot,
-              quantity_ordered,
-              quantity_received,
-              unit_price
-            )
-          `)
-          .in("status", ["OPEN", "PARTIAL_RECEIVED"])
-          .order("order_date", { ascending: false }),
+            item_code_snapshot,
+            item_name_snapshot,
+            unit_code_snapshot,
+            quantity_ordered,
+            quantity_received,
+            unit_price
+          )
+        `)
+        .in("status", ["OPEN", "PARTIAL_RECEIVED"])
+        .order("order_date", { ascending: false }),
 
-        supabase
-          .from("stores")
-          .select("id, code, name")
-          .eq("is_active", true)
-          .order("code"),
+      supabase
+        .from("stores")
+        .select("id, code, name")
+        .eq("is_active", true)
+        .order("code"),
 
-        supabase
-          .from("purchase_settlement_methods")
-          .select("id, code, name, settlement_type, requires_amount")
-          .eq("is_active", true)
-          .order("code"),
-      ]);
+      supabase
+        .from("purchase_settlement_methods")
+        .select("id, code, name, settlement_type, requires_amount")
+        .eq("is_active", true)
+        .order("code"),
+    ]);
 
-    if (recordResult.error) setError(recordResult.error.message);
-    if (poResult.error) setError(poResult.error.message);
-    if (storeResult.error) setError(storeResult.error.message);
-    if (methodResult.error) setError(methodResult.error.message);
+    if (recordResult.error) {
+      setError(recordResult.error.message);
+      setRecords([]);
+      setTotalCount(0);
+    } else {
+      setRecords(
+        (recordResult.data ?? []) as ReceivingRecord[]
+      );
+      setTotalCount(recordResult.count ?? 0);
+    }
 
+    if (poResult.error) {
+      setError(poResult.error.message);
+    }
 
-    setRecords((recordResult.data ?? []) as ReceivingRecord[]);
+    if (storeResult.error) {
+      setError(storeResult.error.message);
+    }
+
+    if (methodResult.error) {
+      setError(methodResult.error.message);
+    }
+
     setPurchaseOrders(
       (poResult.data ?? []) as unknown as PurchaseOrder[]
     );
     setStores((storeResult.data ?? []) as Store[]);
-    setMethods((methodResult.data ?? []) as SettlementMethod[]);
+    setMethods(
+      (methodResult.data ?? []) as SettlementMethod[]
+    );
 
     setLoading(false);
   };
 
   useEffect(() => {
-    loadData();
-  }, [dateFrom, dateTo, statusFilter]);
+    void loadData();
+  }, [
+    page,
+    pageSize,
+    search,
+    dateFrom,
+    dateTo,
+    statusFilter,
+  ]);
 
   useEffect(() => {
     async function loadAccess() {
@@ -347,6 +390,16 @@ export default function ReceivingPage() {
 
     loadAccess();
   }, []);
+
+  const paginationMeta = useMemo(
+    () =>
+      createPaginationMeta(
+        page,
+        pageSize,
+        totalCount
+      ),
+    [page, pageSize, totalCount]
+  );
 
   const resetForm = () => {
   setEditingId(null);
@@ -852,50 +905,167 @@ export default function ReceivingPage() {
     }
   };
 
-  const exportReceivingExcel = () => {
-    const rows = records.map((record) => ({
-      Tanggal: record.receiving_date,
-      "Nomor Receiving": record.receiving_number,
-      "Invoice Supplier" : record.supplier_invoice_number,
-      "Nomor PO": record.purchase_order_number_snapshot,
-      Supplier: record.supplier_name_snapshot,
-      Store: record.store_name_snapshot,
-      Total: Number(record.grand_total),
-      "Jatuh Tempo" : record.supplier_due_date,
-      Status: record.status,
-    }));
+  const exportReceivingExcel = async () => {
+    try {
+      if (totalCount === 0) {
+        window.alert(
+          "Tidak ada Receiving yang dapat diexport."
+        );
+        return;
+      }
 
-    const worksheet = XLSX.utils.json_to_sheet(rows);
+      const exportRows: ReceivingRecord[] = [];
+      const batchSize = 1000;
+      let offset = 0;
 
-    worksheet["!cols"] = [
-      { wch: 22 },
-      { wch: 14 },
-      { wch: 18 },
-      { wch: 30 },
-      { wch: 24 },
-      { wch: 18 },
-      { wch: 14 },
-    ];
+      const keyword = search.trim();
 
-    const workbook = XLSX.utils.book_new();
+      while (true) {
+        let query = supabase
+          .from("receiving_records")
+          .select("*")
+          .order(
+            statusFilter === "POSTED"
+              ? "posted_at"
+              : "created_at",
+            { ascending: false }
+          );
 
-    XLSX.utils.book_append_sheet(
-      workbook,
-      worksheet,
-      "Receiving Record"
-    );
+        if (statusFilter !== "ALL") {
+          query = query.eq(
+            "status",
+            statusFilter
+          );
+        }
 
-    const file = XLSX.write(workbook, {
-      bookType: "xlsx",
-      type: "array",
-    });
+        const dateColumn =
+          statusFilter === "POSTED"
+            ? "posted_at"
+            : "created_at";
 
-    saveAs(
-      new Blob([file], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      }),
-      `Receiving-${today()}.xlsx`
-    );
+        if (dateFrom) {
+          query = query.gte(
+            dateColumn,
+            `${dateFrom}T00:00:00.000`
+          );
+        }
+
+        if (dateTo) {
+          query = query.lte(
+            dateColumn,
+            `${dateTo}T23:59:59.999`
+          );
+        }
+
+        if (keyword) {
+          const safeKeyword = keyword
+            .replace(/[%_]/g, "\\$&")
+            .replace(/,/g, " ");
+
+          query = query.or(
+            [
+              `receiving_number.ilike.%${safeKeyword}%`,
+              `purchase_order_number_snapshot.ilike.%${safeKeyword}%`,
+              `supplier_name_snapshot.ilike.%${safeKeyword}%`,
+              `store_name_snapshot.ilike.%${safeKeyword}%`,
+              `status.ilike.%${safeKeyword}%`,
+              `supplier_invoice_number.ilike.%${safeKeyword}%`,
+            ].join(",")
+          );
+        }
+
+        const { data, error: exportError } =
+          await query.range(
+            offset,
+            offset + batchSize - 1
+          );
+
+        if (exportError) {
+          throw new Error(
+            exportError.message
+          );
+        }
+
+        const batch =
+          (data ?? []) as ReceivingRecord[];
+
+        exportRows.push(...batch);
+
+        if (batch.length < batchSize) {
+          break;
+        }
+
+        offset += batchSize;
+      }
+
+      const rows = exportRows.map(
+        (record) => ({
+          Tanggal: record.receiving_date,
+          "Nomor Receiving":
+            record.receiving_number,
+          "Invoice Supplier":
+            record.supplier_invoice_number,
+          "Nomor PO":
+            record.purchase_order_number_snapshot,
+          Supplier:
+            record.supplier_name_snapshot,
+          Store:
+            record.store_name_snapshot,
+          Total:
+            Number(record.grand_total),
+          "Jatuh Tempo":
+            record.supplier_due_date,
+          Status:
+            record.status,
+        })
+      );
+
+      const worksheet =
+        XLSX.utils.json_to_sheet(rows);
+
+      worksheet["!cols"] = [
+        { wch: 16 },
+        { wch: 22 },
+        { wch: 24 },
+        { wch: 18 },
+        { wch: 30 },
+        { wch: 24 },
+        { wch: 18 },
+        { wch: 16 },
+        { wch: 14 },
+      ];
+
+      const workbook =
+        XLSX.utils.book_new();
+
+      XLSX.utils.book_append_sheet(
+        workbook,
+        worksheet,
+        "Receiving Record"
+      );
+
+      const file = XLSX.write(
+        workbook,
+        {
+          bookType: "xlsx",
+          type: "array",
+        }
+      );
+
+      saveAs(
+        new Blob([file], {
+          type:
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }),
+        `Receiving-${today()}.xlsx`
+      );
+    } catch (err) {
+      window.alert(
+        err instanceof Error
+          ? err.message
+          : "Gagal export Receiving."
+      );
+    }
   };
 
   const printReceivingA4 = async (record: ReceivingRecord) => {
@@ -1043,7 +1213,7 @@ export default function ReceivingPage() {
   };
 
   return (
-    <div className="w-full pr-10 space-y-4">
+    <div className="w-full pr-2 space-y-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">
@@ -1058,7 +1228,10 @@ export default function ReceivingPage() {
           <input
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm md:w-80"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setPage(1);
+            }}
             placeholder="Cari nomor RR atau supplier..."
           />
           {access.export && (
@@ -1492,6 +1665,7 @@ export default function ReceivingPage() {
                 setDateFrom(firstDayOfCurrentMonth());
                 setDateTo(today());
                 setStatusFilter("ALL");
+                setPage(1);
               }}
               className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
             >
@@ -1515,15 +1689,15 @@ export default function ReceivingPage() {
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50 text-left">
               <tr>
-                <th className="px-4 py-3">Tanggal</th>
-                <th className="px-4 py-3">Nomor Receiving</th>
-                <th className="px-4 py-3">Invoice Supplier</th>
-                <th className="px-4 py-3">PO / Supplier</th>
-                <th className="px-4 py-3">Store</th>
-                <th className="px-4 py-3 text-right">Total</th>
-                <th className="px-4 py-3">Jatuh Tempo</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Aksi</th>
+                <th className="px-4 py-3 font-medium">Tanggal</th>
+                <th className="px-4 py-3 font-medium">Nomor Receiving</th>
+                <th className="px-4 py-3 font-medium">Invoice Supplier</th>
+                <th className="px-4 py-3 font-medium">PO / Supplier</th>
+                <th className="px-4 py-3 font-medium">Store</th>
+                <th className="px-4 py-3 text-right font-medium">Total</th>
+                <th className="px-4 py-3 font-medium">Jatuh Tempo</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Aksi</th>
               </tr>
             </thead>
 
@@ -1534,14 +1708,14 @@ export default function ReceivingPage() {
                     Memuat Receiving...
                   </td>
                 </tr>
-              ) : filteredRecords.length === 0 ? (
+              ) : records.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
                     Belum ada Receiving Record.
                   </td>
                 </tr>
               ) : (
-                filteredRecords.map((record) => (
+                records.map((record) => (
                   <tr key={record.id}>
                     <td className="px-4 py-3">{record.receiving_date}</td>
 
@@ -1641,6 +1815,14 @@ export default function ReceivingPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="border-t border-gray-200 px-5 py-4">
+          <Pagination
+            meta={paginationMeta}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       </div>
     </div>

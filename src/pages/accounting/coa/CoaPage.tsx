@@ -1,8 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CoaForm } from "./components/CoaForm";
 import { CoaTable } from "./components/CoaTable";
 import { useCoa } from "./hooks/useCoa";
 import type { CoaFormData, CoaNode } from "./types";
+import { scrollToElement } from "@/utils/scrollToElement";
+import { exportReport, type ExportColumn, } from "@/utils/exportReport";
 
 interface CoaPageProps {
   entityId?: string | null;
@@ -21,6 +23,15 @@ export function CoaPage({ entityId = null }: CoaPageProps) {
 
   const [editingAccount, setEditingAccount] = useState<CoaNode | null>(null);
   const [search, setSearch] = useState("");
+  const formRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!editingAccount) return;
+
+    requestAnimationFrame(() => {
+      scrollToElement(formRef.current, 24);
+    });
+  }, [editingAccount]);
 
   const filteredAccounts = useMemo(() => {
     const keyword = search.trim().toLowerCase();
@@ -65,8 +76,85 @@ export function CoaPage({ entityId = null }: CoaPageProps) {
     await deleteAccount(account.id);
   };
 
+  const handleExportExcel = () => {
+    const columns: ExportColumn[] = [
+      {
+        label: "Kode",
+        key: "code",
+      },
+      {
+        label: "Nama Account",
+        key: "name",
+      },
+      {
+        label: "Parent Account",
+        key: "parent_account",
+        format: (value: unknown): string =>
+          value == null ? "" : String(value),
+      },
+      {
+        label: "Kategori",
+        key: "category_code",
+      },
+      {
+        label: "Tipe Account",
+        key: "account_type",
+      },
+      {
+        label: "Normal Balance",
+        key: "normal_balance",
+      },
+      {
+        label: "Posting Account",
+        key: "is_posting",
+        format: (value: unknown) =>
+          value ? "Ya" : "Tidak",
+      },
+      {
+        label: "Summary Account",
+        key: "is_summary",
+        format: (value: unknown) =>
+          value ? "Ya" : "Tidak",
+      },
+      {
+        label: "Aktif",
+        key: "is_active",
+        format: (value: unknown) =>
+          value ? "Ya" : "Tidak",
+      },
+    ];
+
+    const rows = filteredAccounts.map((account) => {
+      const parent = accounts.find(
+        (parentAccount) =>
+          parentAccount.id === account.parent_account_id
+      );
+
+      return {
+        code: account.code,
+        name: account.name,
+        parent_account: parent
+          ? `${parent.code} - ${parent.name}`
+          : "",
+        category_code: account.category_code ?? "",
+        account_type: account.account_type ?? "",
+        normal_balance: account.normal_balance ?? "",
+        is_posting: account.is_posting,
+        is_summary: account.is_summary,
+        is_active: account.is_active,
+      };
+    });
+
+    exportReport({
+      filename: "Chart_of_Accounts.xlsx",
+      sheetName: "Chart of Accounts",
+      columns,
+      rows,
+    });
+  };
+
   return (
-    <div className="w-full pr-10 space-y-4">
+    <div className="w-full pr-2 space-y-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">
@@ -77,13 +165,22 @@ export function CoaPage({ entityId = null }: CoaPageProps) {
           </p>
         </div>
 
-        <div className="w-full md:w-80">
+        <div className="flex w-full gap-2 md:w-auto">
           <input
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm md:w-80"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Cari kode, nama, kategori..."
           />
+
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            disabled={loading || filteredAccounts.length === 0}
+            className="whitespace-nowrap rounded-md border border-green-600 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Export Excel
+          </button>
         </div>
       </div>
 
@@ -93,14 +190,20 @@ export function CoaPage({ entityId = null }: CoaPageProps) {
         </div>
       )}
 
-      <CoaForm
-        accounts={accounts}
-        initialValue={editingAccount}
-        entityId={entityId}
-        saving={saving}
-        onSubmit={handleSubmit}
-        onCancel={editingAccount ? () => setEditingAccount(null) : undefined}
-      />
+      <div ref={formRef}>
+        <CoaForm
+          accounts={accounts}
+          initialValue={editingAccount}
+          entityId={entityId}
+          saving={saving}
+          onSubmit={handleSubmit}
+          onCancel={
+            editingAccount
+              ? () => setEditingAccount(null)
+              : undefined
+          }
+        />
+      </div>
 
       <CoaTable
         accounts={filteredAccounts}

@@ -411,7 +411,7 @@ export default function OpnameReportPage() {
   };
 
   return (
-    <div className="w-full pr-2 space-y-4">
+    <div className="w-full space-y-4">
 
       {/* HEADER */}
       <div>

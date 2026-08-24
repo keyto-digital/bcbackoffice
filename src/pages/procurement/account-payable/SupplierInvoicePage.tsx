@@ -1,9 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import {
@@ -11,21 +7,13 @@ import {
   Check,
   X,
   Printer,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
-
 import { hasAccess } from "@/lib/hasAccess";
-
 import { useApInvoices } from "./hooks/useApInvoices";
-
-import type {
-  ApInvoice,
-  ApPaymentRequest,
-  ApPaymentRequestFormData,
-} from "./types";
-
-import type {
-  PaymentRequestDetailItem,
-} from "./hooks/useApInvoices";
+import type { ApInvoice, ApPaymentRequest, ApPaymentRequestFormData } from "./types";
+import type { PaymentRequestDetailItem } from "./hooks/useApInvoices";
 
 type PageTab =
   | "BELUM_DIAJUKAN"
@@ -145,6 +133,8 @@ export function SupplierInvoicePage() {
     approvePaymentRequest,
     cancelPaymentRequest,
     fetchPaymentRequestItems,
+    fetchInvoices,
+    fetchPaymentRequests,
   } = useApInvoices();
 
 
@@ -166,10 +156,29 @@ export function SupplierInvoicePage() {
   const [search, setSearch] =
     useState("");
 
+  const [paymentSearch, setPaymentSearch] = useState("");
+
+  // Pagination hanya untuk tampilan tabel.
+  // Data tetap di-load penuh oleh useApInvoices.
+  const PAGE_SIZE = 25;
+  const [invoicePage, setInvoicePage] = useState(1);
+  const [paymentRequestPage, setPaymentRequestPage] = useState(1);
+
   const [selectedInvoiceIds, setSelectedInvoiceIds] =
     useState<Set<string>>(
       () => new Set<string>()
     );
+
+  const [selectedInvoiceMap, setSelectedInvoiceMap] =
+    useState<Map<string, ApInvoice>>(
+      () => new Map<string, ApInvoice>()
+    );
+
+  const [invoiceTotal, setInvoiceTotal] =
+    useState(0);
+
+  const [paymentRequestTotal, setPaymentRequestTotal] =
+    useState(0);
 
   const [showRequestForm, setShowRequestForm] =
     useState(false);
@@ -246,109 +255,152 @@ export function SupplierInvoicePage() {
 
   /**
    * ==========================================================
-   * INVOICE YANG BELUM DIAJUKAN
+   * SERVER-SIDE SEARCH + PAGINATION
    *
-   * Invoice OPEN/PARTIAL sudah difilter oleh hook.
-   * Di sini kita keluarkan invoice yang sudah masuk
-   * Payment Request aktif.
+   * Tidak ada lagi filter/slice data besar di browser.
+   * Search dan page dikirim ke useApInvoices -> RPC Supabase.
    * ==========================================================
    */
 
-  const activeRequestInvoiceIds =
-    useMemo(() => {
-      const ids = new Set<string>();
+  useEffect(() => {
+    setInvoicePage(1);
+  }, [search]);
 
-      for (const request of paymentRequests) {
-        if (
-          request.status !== "DRAFT" &&
-          request.status !== "APPROVED"
-        ) {
-          continue;
-        }
+  useEffect(() => {
+    setPaymentRequestPage(1);
+  }, [paymentSearch]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const timer = window.setTimeout(async () => {
+      const result = await fetchInvoices(
+        search,
+        invoicePage,
+        PAGE_SIZE
+      );
+
+      if (cancelled || !result) {
+        return;
       }
 
-      return ids;
-    }, [paymentRequests]);
+      setInvoiceTotal(result.total);
+    }, 250);
 
-  /**
-   * Catatan:
-   *
-   * Untuk tahap ini paymentRequests belum membawa
-   * item di query utama.
-   *
-   * Karena itu invoice lama tetap ditampilkan.
-   * Validasi final penggunaan invoice tetap dilakukan
-   * oleh approve_ap_payment_request di database.
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [
+    search,
+    invoicePage,
+    fetchInvoices,
+  ]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const timer = window.setTimeout(async () => {
+      const result = await fetchPaymentRequests(
+        paymentSearch,
+        paymentRequestPage,
+        PAGE_SIZE
+      );
+
+      if (cancelled || !result) {
+        return;
+      }
+
+      setPaymentRequestTotal(
+        result.total
+      );
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [
+    paymentSearch,
+    paymentRequestPage,
+    fetchPaymentRequests,
+  ]);
+
+  /*
+   * Data dari hook sudah merupakan PAGE dari server.
+   * Alias ini sengaja dipertahankan supaya bagian UI lama
+   * tidak berubah struktur/fungsinya.
    */
-  void activeRequestInvoiceIds;
+  const filteredInvoices = invoices;
+  const filteredPaymentRequests =
+    paymentRequests;
 
-  const filteredInvoices = useMemo(() => {
-    const keyword =
-      search.trim().toLowerCase();
-
-    return invoices.filter(
-      (invoice: ApInvoice) => {
-        if (!keyword) {
-          return true;
-        }
-
-        const invoiceNumber =
-          invoice.invoice_number
-            .toLowerCase();
-
-        const supplierName =
-          (
-            invoice.supplier_name ?? ""
-          ).toLowerCase();
-
-        const supplierCode =
-          (
-            invoice.supplier_code ?? ""
-          ).toLowerCase();
-
-        const receivingNumber =
-          (
-            invoice.receiving_number ?? ""
-          ).toLowerCase();
-
-        return (
-          invoiceNumber.includes(keyword) ||
-          supplierName.includes(keyword) ||
-          supplierCode.includes(keyword) ||
-          receivingNumber.includes(keyword)
-        );
-      }
+  const invoiceTotalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        invoiceTotal / PAGE_SIZE
+      )
     );
-  }, [invoices, search]);
+
+  const paymentRequestTotalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        paymentRequestTotal /
+          PAGE_SIZE
+      )
+    );
+
+  const paginatedInvoices =
+    invoices;
+
+  const paginatedPaymentRequests =
+    paymentRequests;
 
   const selectedInvoices =
-    useMemo(() => {
-      return invoices.filter(
-        (invoice: ApInvoice) =>
-          selectedInvoiceIds.has(
-            invoice.id
+    useMemo(
+      () =>
+        Array.from(
+          selectedInvoiceIds
+        )
+          .map((id) =>
+            selectedInvoiceMap.get(id)
           )
-      );
-    }, [
-      invoices,
-      selectedInvoiceIds,
-    ]);
+          .filter(
+            (
+              invoice
+            ): invoice is ApInvoice =>
+              Boolean(invoice)
+          ),
+      [
+        selectedInvoiceIds,
+        selectedInvoiceMap,
+      ]
+    );
 
   const selectedTotal =
-    useMemo(() => {
-      return selectedInvoices.reduce(
-        (total, invoice) =>
-          total +
-          Number(
-            invoice.remaining_amount || 0
-          ),
-        0
-      );
-    }, [selectedInvoices]);
+    useMemo(
+      () =>
+        selectedInvoices.reduce(
+          (total, invoice) =>
+            total +
+            Number(
+              invoice.remaining_amount ||
+                0
+            ),
+          0
+        ),
+      [selectedInvoices]
+    );
 
+  /*
+   * "Pilih semua" berlaku untuk data yang sedang
+   * tampil pada page server-side saat ini.
+   */
   const allFilteredSelected =
-    filteredInvoices.length > 0 &&
-    filteredInvoices.every(
+    paginatedInvoices.length > 0 &&
+    paginatedInvoices.every(
       (invoice) =>
         selectedInvoiceIds.has(
           invoice.id
@@ -356,17 +408,44 @@ export function SupplierInvoicePage() {
     );
 
   const toggleInvoice = (
-    invoiceId: string
+    invoice: ApInvoice
   ) => {
     setSelectedInvoiceIds(
       (current) => {
         const next =
           new Set(current);
 
-        if (next.has(invoiceId)) {
-          next.delete(invoiceId);
+        if (next.has(invoice.id)) {
+          next.delete(invoice.id);
+
+          setSelectedInvoiceMap(
+            (map) => {
+              const nextMap =
+                new Map(map);
+
+              nextMap.delete(
+                invoice.id
+              );
+
+              return nextMap;
+            }
+          );
         } else {
-          next.add(invoiceId);
+          next.add(invoice.id);
+
+          setSelectedInvoiceMap(
+            (map) => {
+              const nextMap =
+                new Map(map);
+
+              nextMap.set(
+                invoice.id,
+                invoice
+              );
+
+              return nextMap;
+            }
+          );
         }
 
         return next;
@@ -382,22 +461,54 @@ export function SupplierInvoicePage() {
 
         if (allFilteredSelected) {
           for (
-            const invoice
-            of filteredInvoices
+            const invoice of
+            paginatedInvoices
           ) {
             next.delete(
               invoice.id
             );
           }
+
+          setSelectedInvoiceMap(
+            (map) => {
+              const nextMap =
+                new Map(map);
+
+              for (
+                const invoice of
+                paginatedInvoices
+              ) {
+                nextMap.delete(
+                  invoice.id
+                );
+              }
+
+              return nextMap;
+            }
+          );
         } else {
-          for (
-            const invoice
-            of filteredInvoices
-          ) {
-            next.add(
-              invoice.id
-            );
-          }
+          setSelectedInvoiceMap(
+            (map) => {
+              const nextMap =
+                new Map(map);
+
+              for (
+                const invoice of
+                paginatedInvoices
+              ) {
+                next.add(
+                  invoice.id
+                );
+
+                nextMap.set(
+                  invoice.id,
+                  invoice
+                );
+              }
+
+              return nextMap;
+            }
+          );
         }
 
         return next;
@@ -462,6 +573,10 @@ export function SupplierInvoicePage() {
 
       setSelectedInvoiceIds(
         new Set<string>()
+      );
+
+      setSelectedInvoiceMap(
+        new Map<string, ApInvoice>()
       );
 
       setShowRequestForm(false);
@@ -1725,7 +1840,7 @@ export function SupplierInvoicePage() {
   };
 
   return (
-    <div className="w-full pr-10 space-y-4">
+    <div className="w-full pr-2 mb-6 space-y-5">
 
       {/* HEADER */}
 
@@ -1767,11 +1882,10 @@ export function SupplierInvoicePage() {
 
         <button
           type="button"
-          onClick={() =>
-            setTab(
-              "BELUM_DIAJUKAN"
-            )
-          }
+          onClick={() => {
+            setTab("BELUM_DIAJUKAN");
+            setInvoicePage(1);
+          }}
           className={`border-b-2 px-5 py-3 text-sm font-medium ${
             tab ===
             "BELUM_DIAJUKAN"
@@ -1784,11 +1898,10 @@ export function SupplierInvoicePage() {
 
         <button
           type="button"
-          onClick={() =>
-            setTab(
-              "PROSES_BAYAR"
-            )
-          }
+          onClick={() => {
+            setTab("PROSES_BAYAR");
+            setPaymentRequestPage(1);
+          }}
           className={`border-b-2 px-5 py-3 text-sm font-medium ${
             tab ===
             "PROSES_BAYAR"
@@ -1899,35 +2012,35 @@ export function SupplierInvoicePage() {
                       />
                     </th>
 
-                    <th className="px-4 py-3 text-left">
+                    <th className="px-4 py-3 font-medium">
                       Supplier
                     </th>
 
-                    <th className="px-4 py-3 text-left">
+                    <th className="px-4 py-3 font-medium">
                       No Invoice
                     </th>
 
-                    <th className="px-4 py-3 text-left">
+                    <th className="px-4 py-3 font-medium">
                       No RR
                     </th>
 
-                    <th className="px-4 py-3 text-left">
+                    <th className="px-4 py-3 font-medium">
                       Tgl Invoice
                     </th>
 
-                    <th className="px-4 py-3 text-left">
+                    <th className="px-4 py-3 font-medium">
                       Jatuh Tempo
                     </th>
 
-                    <th className="px-4 py-3 text-left">
+                    <th className="px-4 py-3 font-medium">
                       Hari
                     </th>
 
-                    <th className="px-4 py-3 text-right">
+                    <th className="px-4 py-3 font-medium">
                       Sisa
                     </th>
 
-                    <th className="px-4 py-3 text-center">
+                    <th className="px-4 py-3 font-medium">
                       Aksi
                     </th>
 
@@ -1958,7 +2071,7 @@ export function SupplierInvoicePage() {
                       </td>
                     </tr>
                   ) : (
-                    filteredInvoices.map(
+                    paginatedInvoices.map(
                       (
                         invoice: ApInvoice
                       ) => (
@@ -1977,7 +2090,7 @@ export function SupplierInvoicePage() {
                               )}
                               onChange={() =>
                                 toggleInvoice(
-                                  invoice.id
+                                  invoice
                                 )
                               }
                             />
@@ -2070,6 +2183,41 @@ export function SupplierInvoicePage() {
             </div>
 
           </div>
+
+          {invoiceTotal > 0 && (
+            <div className="flex items-center justify-between rounded-lg border bg-white px-4 py-3">
+              <div className="text-sm text-gray-500">
+                Menampilkan {(invoicePage - 1) * PAGE_SIZE + 1}
+                –{Math.min(invoicePage * PAGE_SIZE, invoiceTotal)} dari {invoiceTotal} data
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setInvoicePage((page) => Math.max(1, page - 1))}
+                  disabled={invoicePage === 1}
+                  className="rounded border p-2 text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  title="Halaman sebelumnya"
+                >
+                  <ChevronLeft size={17} />
+                </button>
+
+                <span className="min-w-[90px] text-center text-sm text-gray-600">
+                  Halaman {invoicePage} / {invoiceTotalPages}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setInvoicePage((page) => Math.min(invoiceTotalPages, page + 1))}
+                  disabled={invoicePage === invoiceTotalPages}
+                  className="rounded border p-2 text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  title="Halaman berikutnya"
+                >
+                  <ChevronRight size={17} />
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
 
@@ -2079,60 +2227,80 @@ export function SupplierInvoicePage() {
 
       {tab ===
         "PROSES_BAYAR" && (
-        <div className="overflow-hidden rounded-lg border bg-white">
+        <>
+          <div className="mb-4 rounded-lg border bg-white p-4">
+            <label className="mb-1 block text-xs font-medium text-gray-600">
+              Cari Invoice / No RR
+            </label>
 
+            <input
+              type="text"
+              value={paymentSearch}
+              onChange={(event) =>
+                setPaymentSearch(
+                  event.target.value
+                )
+              }
+              placeholder="Cari No. Invoice Supplier / No. RR / No. PV..."
+              className="w-full max-w-xl rounded-md border px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="overflow-hidden rounded-lg border bg-white">
           <div className="overflow-x-auto">
-
             <table className="min-w-full divide-y divide-gray-200 text-sm">
-
               <thead className="bg-gray-50">
-
                 <tr>
-
-                  <th className="px-4 py-3 text-left">
+                  <th className="px-4 py-3 font-medium">
                     No PV
                   </th>
 
-                  <th className="px-4 py-3 text-left">
+                  <th className="px-4 py-3 font-medium">
                     Tanggal
                   </th>
 
-                  <th className="px-4 py-3 text-left">
+                  <th className="px-4 py-3 font-medium">
                     Supplier
                   </th>
 
-                  <th className="px-4 py-3 text-right">
+                  <th className="px-4 py-3 font-medium text-right">
                     Total
                   </th>
 
-                  <th className="px-4 py-3 text-center">
+                  <th className="px-4 py-3 font-medium">
                     Status
                   </th>
 
-                  <th className="px-4 py-3 text-center">
+                  <th className="px-4 py-3 font-medium">
                     Aksi
                   </th>
 
                 </tr>
-
               </thead>
-
               <tbody className="divide-y">
-
-                {paymentRequests.length ===
+                {loading ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="py-8 text-center text-gray-500"
+                    >
+                      Memuat data...
+                    </td>
+                  </tr>
+                ) : filteredPaymentRequests.length ===
                 0 ? (
                   <tr>
                     <td
                       colSpan={6}
                       className="py-8 text-center text-gray-500"
                     >
-                      Belum ada
-                      pengajuan
-                      pembayaran.
+                      {paymentSearch.trim()
+                        ? "Tidak ada Payment Voucher yang sesuai dengan pencarian."
+                        : "Belum ada pengajuan pembayaran."}
                     </td>
                   </tr>
                 ) : (
-                  paymentRequests.map(
+                  paginatedPaymentRequests.map(
                     (
                       request: ApPaymentRequest
                     ) => (
@@ -2255,14 +2423,52 @@ export function SupplierInvoicePage() {
                     )
                   )
                 )}
-
               </tbody>
-
             </table>
-
           </div>
 
-        </div>
+          {paymentRequestTotal > 0 && (
+            <div className="flex items-center justify-between border-t bg-white px-4 py-3">
+              <div className="text-sm text-gray-500">
+                Menampilkan{" "}
+                {(paymentRequestPage - 1) * PAGE_SIZE + 1}
+                –
+                {Math.min(
+                  paymentRequestPage * PAGE_SIZE,
+                  paymentRequestTotal
+                )}{" "}
+                dari {paymentRequestTotal} data
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPaymentRequestPage((page) => Math.max(1, page - 1))}
+                  disabled={paymentRequestPage === 1}
+                  className="rounded border p-2 text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  title="Halaman sebelumnya"
+                >
+                  <ChevronLeft size={17} />
+                </button>
+
+                <span className="min-w-[90px] text-center text-sm text-gray-600">
+                  Halaman {paymentRequestPage} / {paymentRequestTotalPages}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setPaymentRequestPage((page) => Math.min(paymentRequestTotalPages, page + 1))}
+                  disabled={paymentRequestPage === paymentRequestTotalPages}
+                  className="rounded border p-2 text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  title="Halaman berikutnya"
+                >
+                  <ChevronRight size={17} />
+                </button>
+              </div>
+            </div>
+          )}
+          </div>
+        </>
       )}
 
       {/* ======================================================
@@ -2324,41 +2530,32 @@ export function SupplierInvoicePage() {
               </div>
 
               <div className="overflow-hidden rounded border">
-
                 <div className="overflow-x-auto">
-
                   <table className="min-w-full text-sm">
-
                     <thead className="bg-gray-50">
-
                       <tr>
-
-                        <th className="px-3 py-2 text-left">
+                        <th className="px-4 py-3 font-medium">
                           Supplier
                         </th>
 
-                        <th className="px-3 py-2 text-left">
+                        <th className="px-4 py-3 font-medium">
                           Invoice
                         </th>
 
-                        <th className="px-3 py-2 text-left">
+                        <th className="px-4 py-3 font-medium">
                           RR
                         </th>
 
-                        <th className="px-3 py-2 text-left">
+                        <th className="px-4 py-3 font-medium">
                           Jatuh Tempo
                         </th>
 
-                        <th className="px-3 py-2 text-right">
+                        <th className="px-4 py-3 font-medium text-right">
                           Sisa
                         </th>
-
                       </tr>
-
                     </thead>
-
                     <tbody className="divide-y">
-
                       {selectedInvoices.map(
                         (
                           invoice: ApInvoice
@@ -2798,7 +2995,6 @@ export function SupplierInvoicePage() {
               )}
             </div>
           </div>
-
         </div>
       )}
 
@@ -2808,11 +3004,8 @@ export function SupplierInvoicePage() {
 
       {cancelTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-
           <div className="w-full max-w-md rounded-lg bg-white shadow-xl">
-
             <div className="border-b px-6 py-4">
-
               <h2 className="text-lg font-semibold">
                 Batalkan Pengajuan
               </h2>
@@ -2822,11 +3015,9 @@ export function SupplierInvoicePage() {
                   cancelTarget.payment_request_number
                 }
               </p>
-
             </div>
 
             <div className="p-6">
-
               <label className="mb-1 block text-sm font-medium">
                 Alasan Pembatalan
               </label>
@@ -2841,11 +3032,9 @@ export function SupplierInvoicePage() {
                 rows={4}
                 className="w-full rounded border px-3 py-2 text-sm"
               />
-
             </div>
 
             <div className="flex justify-end gap-2 border-t px-6 py-4">
-
               <button
                 type="button"
                 onClick={() =>
@@ -2870,15 +3059,11 @@ export function SupplierInvoicePage() {
                   ? "Memproses..."
                   : "Batalkan Pengajuan"}
               </button>
-
             </div>
-
           </div>
-
         </div>
       )}
-
-    </div>
+    </div> 
   );
 }
 

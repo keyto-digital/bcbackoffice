@@ -1,5 +1,11 @@
-import { useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
+
 import { supabase } from "@/lib/supabaseClient";
+
 import type { PaginationMeta } from "@/lib/pagination/types";
 
 import type {
@@ -11,492 +17,430 @@ import type {
   StoreOption,
 } from "../../types";
 
-type OpnameMovementRow = {
-  reference: string;
-  movement_date: string;
-  created_at: string;
-  created_by: string | null;
-  description: string | null;
+const DEFAULT_PAGE_SIZE = 25;
 
-  quantity_before: number | string | null;
-  quantity_after: number | string | null;
-  average_cost_after: number | string | null;
-  movement_value: number | string | null;
+type OpnameRpcStore = {
+  id: string;
+  code: string;
+  name: string;
+};
 
-  item:
-    | {
-        code: string | null;
-        name: string | null;
-        unit:
-          | {
-              code: string | null;
-            }
-          | {
-              code: string | null;
-            }[]
-          | null;
-      }
-    | {
-        code: string | null;
-        name: string | null;
-        unit:
-          | {
-              code: string | null;
-            }
-          | {
-              code: string | null;
-            }[]
-          | null;
-      }[]
+type OpnameRpcItem = {
+  code: string;
+  name: string;
+  unit_code: string | null;
+
+  qtySystem:
+    | number
+    | string
     | null;
 
-  store:
-    | {
-        id: string;
-        code: string;
-        name: string;
-      }
-    | {
-        id: string;
-        code: string;
-        name: string;
-      }[]
+  qtyOpname:
+    | number
+    | string
+    | null;
+
+  difference:
+    | number
+    | string
+    | null;
+
+  averageCost:
+    | number
+    | string
+    | null;
+
+  value:
+    | number
+    | string
     | null;
 };
 
-const DEFAULT_PAGE_SIZE = 25;
+type OpnameRpcRow = {
+  reference: string;
+
+  movement_date: string;
+
+  created_at: string;
+
+  created_by:
+    | string
+    | null;
+
+  store:
+    | OpnameRpcStore
+    | null;
+
+  items:
+    | OpnameRpcItem[]
+    | null;
+
+  total_difference:
+    | number
+    | string
+    | null;
+
+  total_value:
+    | number
+    | string
+    | null;
+
+  total_count:
+    | number
+    | string
+    | null;
+};
+
+function createEmptyPagination(
+  pageSize: number
+): PaginationMeta {
+  return {
+    page: 1,
+    pageSize,
+    total: 0,
+    from: 0,
+    to: 0,
+    totalPages: 0,
+    hasPreviousPage: false,
+    hasNextPage: false,
+  };
+}
+
+function normalizeDocument(
+  row: OpnameRpcRow
+): OpnameDocument {
+  return {
+    reference:
+      row.reference,
+
+    movement_date:
+      row.movement_date,
+
+    created_at:
+      row.created_at,
+
+    created_by:
+      row.created_by,
+
+    store:
+      row.store,
+
+    items:
+      Array.isArray(row.items)
+        ? row.items.map(
+            (item) => ({
+              code:
+                item.code ?? "",
+
+              name:
+                item.name ?? "",
+
+              unit_code:
+                item.unit_code ??
+                null,
+
+              qtySystem:
+                Number(
+                  item.qtySystem ??
+                    0
+                ),
+
+              qtyOpname:
+                Number(
+                  item.qtyOpname ??
+                    0
+                ),
+
+              difference:
+                Number(
+                  item.difference ??
+                    0
+                ),
+
+              averageCost:
+                Number(
+                  item.averageCost ??
+                    0
+                ),
+
+              value:
+                Number(
+                  item.value ??
+                    0
+                ),
+            })
+          )
+        : [],
+
+    totalDifference:
+      Number(
+        row.total_difference ??
+          0
+      ),
+
+    totalValue:
+      Number(
+        row.total_value ??
+          0
+      ),
+  };
+}
 
 export function useOpnameList() {
-  const [loading, setLoading] =
-    useState(false);
+  const [
+    loading,
+    setLoading,
+  ] = useState(false);
 
-  const [documents, setDocuments] =
-    useState<OpnameDocument[]>([]);
+  const [
+    documents,
+    setDocuments,
+  ] = useState<
+    OpnameDocument[]
+  >([]);
 
-  const [stores, setStores] =
-    useState<StoreOption[]>([]);
+  const [
+    stores,
+    setStores,
+  ] = useState<StoreOption[]>(
+    []
+  );
 
-  const [filter, setFilter] =
-    useState<OpnameFilter>({
-      dateFrom: "",
-      dateTo: "",
-      storeId: "",
-      keyword: "",
-    });
+  const [
+    filter,
+    setFilter,
+  ] = useState<OpnameFilter>({
+    dateFrom: "",
+    dateTo: "",
+    storeId: "",
+    keyword: "",
+  });
 
-  const [paginationMeta, setPaginationMeta] =
-    useState<PaginationMeta>({
-      page: 1,
-      pageSize: DEFAULT_PAGE_SIZE,
-      total: 0,
-      from: 0,
-      to: 0,
-      totalPages: 0,
-      hasPreviousPage: false,
-      hasNextPage: false,
-    });
-
-  // =========================================================
-  // LOAD STORES
-  // =========================================================
-
-  const loadStores = async () => {
-    const {
-      data,
-      error,
-    } = await supabase
-      .from("stores")
-      .select("id,code,name")
-      .order("code");
-
-    if (error) {
-      console.error(
-        "Load stores gagal:",
-        error
-      );
-      return;
-    }
-
-    setStores(
-      (data ?? []) as StoreOption[]
-    );
-  };
-
-  // =========================================================
-  // FETCH MOVEMENTS
-  // =========================================================
-
-  const fetchMovements = async (
-    currentFilter: OpnameFilter
-  ): Promise<OpnameMovementRow[]> => {
-    let query = supabase
-      .from("inventory_movements")
-      .select(`
-        reference,
-        movement_date,
-        created_at,
-        created_by,
-        description,
-        quantity_before,
-        quantity_after,
-        average_cost_after,
-        movement_value,
-
-        item:items(
-          code,
-          name,
-          unit:units(code)
-        ),
-
-        store:stores(
-          id,
-          code,
-          name
-        )
-      `)
-      .eq(
-        "movement_type",
-        "STOCK_OPNAME"
-      );
-
-    if (
-      currentFilter.dateFrom
-    ) {
-      query = query.gte(
-        "movement_date",
-        currentFilter.dateFrom
-      );
-    }
-
-    if (
-      currentFilter.dateTo
-    ) {
-      query = query.lte(
-        "movement_date",
-        currentFilter.dateTo
-      );
-    }
-
-    const {
-      data,
-      error,
-    } = await query.order(
-      "created_at",
-      {
-        ascending: false,
-      }
+  const [
+    paginationMeta,
+    setPaginationMeta,
+  ] =
+    useState<PaginationMeta>(
+      createEmptyPagination(
+        DEFAULT_PAGE_SIZE
+      )
     );
 
-    if (error) {
-      throw error;
-    }
-
-    return (
-      data ?? []
-    ) as unknown as OpnameMovementRow[];
-  };
-
-  // =========================================================
-  // BUILD DOCUMENTS
-  // =========================================================
-
-  const buildDocuments = (
-    data: OpnameMovementRow[],
-    currentFilter: OpnameFilter
-  ): OpnameDocument[] => {
-    const map =
-      new Map<
-        string,
-        OpnameDocument
-      >();
-
-    data.forEach((row) => {
-      let doc =
-        map.get(
-          row.reference
-        );
-
-      if (!doc) {
-        doc = {
-          reference:
-            row.reference,
-
-          movement_date:
-            row.movement_date,
-
-          created_at:
-            row.created_at,
-
-          created_by:
-            row.created_by,
-
-          store: null,
-
-          items: [],
-
-          totalDifference: 0,
-
-          totalValue: 0,
-        };
-
-        map.set(
-          row.reference,
-          doc
-        );
-      }
-
-      const store =
-        Array.isArray(
-          row.store
-        )
-          ? row.store[0]
-          : row.store;
-
-      const item =
-        Array.isArray(
-          row.item
-        )
-          ? row.item[0]
-          : row.item;
-
-      const unit =
-        Array.isArray(
-          item?.unit
-        )
-          ? item.unit[0]
-          : item?.unit;
-
-      doc.store =
-        store
-          ? {
-              id: store.id,
-              code: store.code,
-              name: store.name,
-            }
-          : null;
-
-      const qtySystem =
-        Number(
-          row.quantity_before ??
-            0
-        );
-
-      const qtyOpname =
-        Number(
-          row.quantity_after ??
-            0
-        );
-
-      const difference =
-        qtyOpname -
-        qtySystem;
-
-      const value =
-        Number(
-          row.movement_value ??
-            0
-        );
-
-      doc.totalDifference +=
-        difference;
-
-      doc.totalValue +=
-        value;
-
-      doc.items.push({
-        code:
-          item?.code ??
-          "",
-
-        name:
-          item?.name ??
-          "",
-
-        unit_code:
-          unit?.code ??
-          null,
-
-        qtySystem,
-
-        qtyOpname,
-
-        difference,
-
-        averageCost:
-          Number(
-            row.average_cost_after ??
-              0
-          ),
-
-        value,
-      });
-    });
-
-    // =======================================================
-    // FILTER STORE + KEYWORD
-    // =======================================================
-
-    const keyword =
-      currentFilter.keyword
-        .trim()
-        .toLowerCase();
-
-    return Array.from(
-      map.values()
-    ).filter((doc) => {
-      if (
-        currentFilter.storeId &&
-        doc.store?.id !==
-          currentFilter.storeId
-      ) {
-        return false;
-      }
-
-      if (!keyword) {
-        return true;
-      }
-
-      if (
-        doc.reference
-          .toLowerCase()
-          .includes(keyword)
-      ) {
-        return true;
-      }
-
-      return doc.items.some(
-        (item) =>
-          `${item.code} ${item.name}`
-            .toLowerCase()
-            .includes(keyword)
-      );
-    });
-  };
-
-  // =========================================================
-  // LOAD TABLE
-  // =========================================================
-
-  const load = async (
-    currentFilter: OpnameFilter,
-    requestedPage: number,
-    requestedPageSize: number
-  ) => {
-    setLoading(true);
-
-    try {
-      const movements =
-        await fetchMovements(
-          currentFilter
-        );
-
-      const allDocuments =
-        buildDocuments(
-          movements,
-          currentFilter
-        );
-
-      const total =
-        allDocuments.length;
-
-      const totalPages =
-        total === 0
-          ? 0
-          : Math.ceil(
-              total /
-                requestedPageSize
-            );
-
-      const safePage =
-        totalPages === 0
-          ? 1
-          : Math.min(
-              Math.max(
-                requestedPage,
-                1
-              ),
-              totalPages
-            );
-
-      const from =
-        total === 0
-          ? 0
-          : (safePage - 1) *
-            requestedPageSize;
-
-      const to =
-        total === 0
-          ? 0
-          : Math.min(
-              from +
-                requestedPageSize -
-                1,
-              total - 1
-            );
-
-      const pageDocuments =
-        total === 0
-          ? []
-          : allDocuments.slice(
-              from,
-              to + 1
-            );
-
-      setDocuments(
-        pageDocuments
-      );
-
-      setPaginationMeta({
-        page: safePage,
-        pageSize:
-          requestedPageSize,
-        total,
-        from,
-        to,
-        totalPages,
-        hasPreviousPage:
-          safePage > 1,
-        hasNextPage:
-          safePage <
-          totalPages,
-      });
-    } catch (error) {
-      console.error(
-        "Load stock opname gagal:",
-        error
-      );
-
-      setDocuments([]);
-
-      setPaginationMeta({
-        page: 1,
-        pageSize:
-          requestedPageSize,
-        total: 0,
-        from: 0,
-        to: 0,
-        totalPages: 0,
-        hasPreviousPage:
-          false,
-        hasNextPage:
-          false,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // =========================================================
-  // INITIAL LOAD STORE
-  // =========================================================
+  /*
+   * =========================================================
+   * LOAD STORES
+   * =========================================================
+   */
 
   useEffect(() => {
+    let cancelled = false;
+
+    const loadStores =
+      async () => {
+        const {
+          data,
+          error,
+        } = await supabase
+          .from("stores")
+          .select(
+            "id,code,name"
+          )
+          .order("code", {
+            ascending: true,
+          });
+
+        if (cancelled) {
+          return;
+        }
+
+        if (error) {
+          console.error(
+            "Load stores gagal:",
+            error
+          );
+
+          return;
+        }
+
+        setStores(
+          (data ??
+            []) as StoreOption[]
+        );
+      };
+
     void loadStores();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // =========================================================
-  // FILTER BERUBAH
-  // =========================================================
+  /*
+   * =========================================================
+   * LOAD STOCK OPNAME
+   * =========================================================
+   *
+   * Pagination dilakukan di PostgreSQL.
+   */
+
+  const load = useCallback(
+    async (
+      currentFilter: OpnameFilter,
+      requestedPage: number,
+      requestedPageSize: number
+    ) => {
+      setLoading(true);
+
+      try {
+        const {
+          data,
+          error,
+        } = await supabase.rpc(
+          "get_opname_documents",
+          {
+            p_date_from:
+              currentFilter.dateFrom ||
+              null,
+
+            p_date_to:
+              currentFilter.dateTo ||
+              null,
+
+            p_store_id:
+              currentFilter.storeId ||
+              null,
+
+            p_keyword:
+              currentFilter.keyword
+                .trim() || "",
+
+            p_page:
+              requestedPage,
+
+            p_page_size:
+              requestedPageSize,
+          }
+        );
+
+        if (error) {
+          throw error;
+        }
+
+        const rows =
+          (data ??
+            []) as OpnameRpcRow[];
+
+        const total =
+          Number(
+            rows[0]?.total_count ??
+              0
+          );
+
+        const totalPages =
+          total > 0
+            ? Math.ceil(
+                total /
+                  requestedPageSize
+              )
+            : 0;
+
+        const safePage =
+          totalPages === 0
+            ? 1
+            : Math.min(
+                Math.max(
+                  requestedPage,
+                  1
+                ),
+                totalPages
+              );
+
+        if (
+          safePage !==
+            requestedPage &&
+          total > 0
+        ) {
+          await load(
+            currentFilter,
+            safePage,
+            requestedPageSize
+          );
+
+          return;
+        }
+
+        const normalized =
+          rows.map(
+            normalizeDocument
+          );
+
+        const from =
+          total === 0
+            ? 0
+            : (safePage - 1) *
+              requestedPageSize;
+
+        const to =
+          total === 0
+            ? 0
+            : Math.min(
+                from +
+                  normalized.length -
+                  1,
+                total - 1
+              );
+
+        setDocuments(
+          normalized
+        );
+
+        setPaginationMeta({
+          page:
+            safePage,
+
+          pageSize:
+            requestedPageSize,
+
+          total,
+
+          from,
+
+          to,
+
+          totalPages,
+
+          hasPreviousPage:
+            safePage > 1,
+
+          hasNextPage:
+            safePage <
+            totalPages,
+        });
+      } catch (error) {
+        console.error(
+          "Load stock opname gagal:",
+          error
+        );
+
+        setDocuments([]);
+
+        setPaginationMeta(
+          createEmptyPagination(
+            requestedPageSize
+          )
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  /*
+   * =========================================================
+   * FILTER BERUBAH
+   * =========================================================
+   */
 
   useEffect(() => {
     void load(
@@ -504,67 +448,196 @@ export function useOpnameList() {
       1,
       paginationMeta.pageSize
     );
-  }, [filter]);
+  }, [
+    filter,
+    load,
+    paginationMeta.pageSize,
+  ]);
 
-  // =========================================================
-  // PAGE CHANGE
-  // =========================================================
+  /*
+   * =========================================================
+   * PAGE CHANGE
+   * =========================================================
+   */
 
-  const goToPage = (
-    nextPage: number
-  ) => {
-    void load(
-      filter,
-      nextPage,
-      paginationMeta.pageSize
+  const goToPage =
+    useCallback(
+      (
+        nextPage: number
+      ) => {
+        if (
+          nextPage < 1
+        ) {
+          return;
+        }
+
+        if (
+          paginationMeta.totalPages >
+            0 &&
+          nextPage >
+            paginationMeta.totalPages
+        ) {
+          return;
+        }
+
+        void load(
+          filter,
+          nextPage,
+          paginationMeta.pageSize
+        );
+      },
+      [
+        filter,
+        load,
+        paginationMeta.pageSize,
+        paginationMeta.totalPages,
+      ]
     );
-  };
 
-  // =========================================================
-  // PAGE SIZE CHANGE
-  // =========================================================
+  /*
+   * =========================================================
+   * PAGE SIZE
+   * =========================================================
+   */
 
-  const changePageSize = (
-    nextPageSize: number
-  ) => {
-    void load(
-      filter,
-      1,
-      nextPageSize
+  const changePageSize =
+    useCallback(
+      (
+        nextPageSize: number
+      ) => {
+        if (
+          nextPageSize <= 0
+        ) {
+          return;
+        }
+
+        void load(
+          filter,
+          1,
+          nextPageSize
+        );
+      },
+      [
+        filter,
+        load,
+      ]
     );
-  };
 
-  // =========================================================
-  // FETCH SEMUA DATA SESUAI FILTER
-  // EXPORT + PRINT
-  // =========================================================
+  /*
+   * =========================================================
+   * FETCH ALL
+   * =========================================================
+   *
+   * Khusus Export / Print.
+   *
+   * Tetap menggunakan filter server-side.
+   */
 
   const fetchAllFilteredDocuments =
-    async (): Promise<
-      OpnameDocument[]
-    > => {
-      const movements =
-        await fetchMovements(
-          filter
-        );
+    useCallback(
+      async (): Promise<
+        OpnameDocument[]
+      > => {
+        const batchSize =
+          500;
 
-      return buildDocuments(
-        movements,
-        filter
-      );
-    };
+        let currentPage =
+          1;
 
-  // =========================================================
-  // RELOAD
-  // =========================================================
+        const allDocuments: OpnameDocument[] =
+          [];
 
-  const reload = () => {
-    void load(
-      filter,
-      paginationMeta.page,
-      paginationMeta.pageSize
+        while (true) {
+          const {
+            data,
+            error,
+          } = await supabase.rpc(
+            "get_opname_documents",
+            {
+              p_date_from:
+                filter.dateFrom ||
+                null,
+
+              p_date_to:
+                filter.dateTo ||
+                null,
+
+              p_store_id:
+                filter.storeId ||
+                null,
+
+              p_keyword:
+                filter.keyword
+                  .trim() || "",
+
+              p_page:
+                currentPage,
+
+              p_page_size:
+                batchSize,
+            }
+          );
+
+          if (error) {
+            throw error;
+          }
+
+          const rows =
+            (data ??
+              []) as OpnameRpcRow[];
+
+          if (
+            rows.length === 0
+          ) {
+            break;
+          }
+
+          allDocuments.push(
+            ...rows.map(
+              normalizeDocument
+            )
+          );
+
+          const total =
+            Number(
+              rows[0]?.total_count ??
+                0
+            );
+
+          if (
+            allDocuments.length >=
+            total
+          ) {
+            break;
+          }
+
+          currentPage += 1;
+        }
+
+        return allDocuments;
+      },
+      [filter]
     );
-  };
+
+  /*
+   * =========================================================
+   * RELOAD
+   * =========================================================
+   */
+
+  const reload =
+    useCallback(() => {
+      void load(
+        filter,
+        paginationMeta.page,
+        paginationMeta.pageSize
+      );
+    }, [
+      filter,
+      load,
+      paginationMeta.page,
+      paginationMeta.pageSize,
+    ]);
 
   return {
     loading,

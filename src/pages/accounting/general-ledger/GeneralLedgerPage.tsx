@@ -145,6 +145,8 @@ export default function GeneralLedgerPage() {
    * Data diambil bertahap 1000 baris sampai selesai.
    */
   useEffect(() => {
+    let cancelled = false;
+
     const loadOpeningBalance = async () => {
       if (
         !selectedAccountId ||
@@ -161,26 +163,23 @@ export default function GeneralLedgerPage() {
       try {
         while (true) {
           let query = supabase
-            .from("journals")
-            .select(
-              `
-                id,
-                tanggal,
+            .from("journal_details")
+            .select(`
+              debit,
+              credit,
+              journals!inner (
                 entity_id,
-                journal_details!inner (
-                  debit,
-                  credit
-                )
-              `
-            )
+                tanggal
+              )
+            `)
             .eq(
-              "journal_details.account_id",
+              "account_id",
               selectedAccountId
             )
-            .lt("tanggal", startDate)
-            .order("tanggal", {
-              ascending: true,
-            })
+            .lt(
+              "journals.tanggal",
+              startDate
+            )
             .range(
               offset,
               offset + OPENING_FETCH_SIZE - 1
@@ -188,7 +187,7 @@ export default function GeneralLedgerPage() {
 
           if (selectedEntityId) {
             query = query.eq(
-              "entity_id",
+              "journals.entity_id",
               selectedEntityId
             );
           }
@@ -202,20 +201,19 @@ export default function GeneralLedgerPage() {
             throw openingError;
           }
 
-          const rows =
-            (data ?? []) as Journal[];
+          const rows = (data ?? []) as Array<{
+            debit: number | null;
+            credit: number | null;
+          }>;
 
-          for (const journal of rows) {
-            for (const detail of
-              journal.journal_details ?? []) {
-              balance +=
-                getBalanceChangeForAccount(
-                  detail.debit,
-                  detail.credit,
-                  selectedAccountId,
-                  accounts
-                );
-            }
+          for (const detail of rows) {
+            balance +=
+              getBalanceChangeForAccount(
+                detail.debit,
+                detail.credit,
+                selectedAccountId,
+                accounts
+              );
           }
 
           if (
@@ -227,23 +225,31 @@ export default function GeneralLedgerPage() {
           offset += OPENING_FETCH_SIZE;
         }
 
-        setOpeningBalance(balance);
+        if (!cancelled) {
+          setOpeningBalance(balance);
+        }
       } catch (openingError) {
         console.error(
           "Gagal menghitung saldo awal:",
           openingError
         );
 
-        setOpeningBalance(0);
-        setError(
-          openingError instanceof Error
-            ? `Gagal menghitung saldo awal: ${openingError.message}`
-            : "Gagal menghitung saldo awal."
-        );
+        if (!cancelled) {
+          setOpeningBalance(0);
+          setError(
+            openingError instanceof Error
+              ? `Gagal menghitung saldo awal: ${openingError.message}`
+              : "Gagal menghitung saldo awal."
+          );
+        }
       }
     };
 
-    loadOpeningBalance();
+    void loadOpeningBalance();
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     selectedAccountId,
     selectedEntityId,
@@ -263,6 +269,7 @@ export default function GeneralLedgerPage() {
   useEffect(() => {
     const loadLedgerData = async () => {
       if (
+        masterLoading ||
         !selectedAccountId ||
         !startDate ||
         !endDate ||
@@ -368,6 +375,7 @@ export default function GeneralLedgerPage() {
     endDate,
     page,
     pageSize,
+    masterLoading,
   ]);
 
   /*
@@ -381,6 +389,21 @@ export default function GeneralLedgerPage() {
     startDate,
     endDate,
   ]);
+
+  useEffect(() => {
+    const maxPage = Math.max(
+      1,
+      Math.ceil(total / pageSize)
+    );
+
+    if (page > maxPage) {
+      setPage(maxPage);
+    }
+
+    if (total === 0 && page !== 1) {
+      setPage(1);
+    }
+  }, [total, page, pageSize]);
 
   const selectedAccount = accounts.find(
     (account) =>
@@ -549,6 +572,9 @@ export default function GeneralLedgerPage() {
           ascending: true,
         })
         .order("waktu", {
+          ascending: true,
+        })
+        .order("id", {
           ascending: true,
         })
         .range(
@@ -828,7 +854,7 @@ export default function GeneralLedgerPage() {
   };
 
   return (
-    <div className="w-full pr-10 space-y-4">
+    <div className="w-full pr-2 space-y-4">
       
         <div className="grid gap-4 rounded-md border border-gray-200 bg-white p-4 md:grid-cols-4">
           <div>

@@ -36,8 +36,17 @@ type JournalDetail = {
   credit: number | null;
 };
 
-type Journal = {
-  journal_details: JournalDetail[];
+type JournalDetailRow = JournalDetail & {
+  journals:
+    | {
+        entity_id: string | null;
+        tanggal: string;
+      }
+    | {
+        entity_id: string | null;
+        tanggal: string;
+      }[]
+    | null;
 };
 
 type ReportRow = {
@@ -71,7 +80,9 @@ function getNormalBalance(account: Account): "D" | "C" {
 export default function IncomeStatementPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [entities, setEntities] = useState<Entity[]>([]);
-  const [journals, setJournals] = useState<Journal[]>([]);
+  const [journalDetails, setJournalDetails] = useState<
+    JournalDetail[]
+  >([]);
 
   const [selectedEntityId, setSelectedEntityId] = useState("");
   const [startDate, setStartDate] = useState(firstDayOfMonth);
@@ -124,9 +135,16 @@ export default function IncomeStatementPage() {
   }, []);
 
   useEffect(() => {
-    const loadJournals = async () => {
-      if (startDate > endDate) {
-        setJournals([]);
+    let cancelled = false;
+
+    const loadJournalDetails = async () => {
+      if (
+        masterLoading ||
+        !startDate ||
+        !endDate ||
+        startDate > endDate
+      ) {
+        setJournalDetails([]);
         return;
       }
 
@@ -136,20 +154,25 @@ export default function IncomeStatementPage() {
       try {
         const FETCH_SIZE = 1000;
         let offset = 0;
-        const allJournals: Journal[] = [];
+        const allDetails: JournalDetail[] = [];
 
         while (true) {
           let query = supabase
-            .from("journals")
+            .from("journal_details")
             .select(`
-              journal_details (
-                account_id,
-                debit,
-                credit
+              account_id,
+              debit,
+              credit,
+              journals!inner (
+                entity_id,
+                tanggal
               )
             `)
-            .gte("tanggal", startDate)
-            .lte("tanggal", endDate)
+            .gte("journals.tanggal", startDate)
+            .lte("journals.tanggal", endDate)
+            .order("id", {
+              ascending: true,
+            })
             .range(
               offset,
               offset + FETCH_SIZE - 1
@@ -157,7 +180,7 @@ export default function IncomeStatementPage() {
 
           if (selectedEntityId) {
             query = query.eq(
-              "entity_id",
+              "journals.entity_id",
               selectedEntityId
             );
           }
@@ -172,9 +195,15 @@ export default function IncomeStatementPage() {
           }
 
           const rows =
-            (data ?? []) as Journal[];
+            (data ?? []) as unknown as JournalDetailRow[];
 
-          allJournals.push(...rows);
+          allDetails.push(
+            ...rows.map((row) => ({
+              account_id: row.account_id,
+              debit: row.debit,
+              credit: row.credit,
+            }))
+          );
 
           if (rows.length < FETCH_SIZE) {
             break;
@@ -183,43 +212,64 @@ export default function IncomeStatementPage() {
           offset += FETCH_SIZE;
         }
 
-        setJournals(allJournals);
+        if (!cancelled) {
+          setJournalDetails(allDetails);
+        }
       } catch (journalError) {
         console.error(
-          "Gagal memuat jurnal:",
+          "Gagal memuat jurnal Income Statement:",
           journalError
         );
 
-        setError(
-          journalError instanceof Error
-            ? `Gagal memuat jurnal: ${journalError.message}`
-            : "Gagal memuat jurnal."
-        );
-
-        setJournals([]);
+        if (!cancelled) {
+          setJournalDetails([]);
+          setError(
+            journalError instanceof Error
+              ? `Gagal memuat jurnal: ${journalError.message}`
+              : "Gagal memuat jurnal."
+          );
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
-    loadJournals();
-  }, [startDate, endDate, selectedEntityId]);
+    void loadJournalDetails();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    startDate,
+    endDate,
+    selectedEntityId,
+    masterLoading,
+  ]);
 
   const report = useMemo(() => {
     const mutations = new Map<string, { debit: number; credit: number }>();
 
-    journals.forEach((journal) => {
-      journal.journal_details?.forEach((detail) => {
-        const current = mutations.get(detail.account_id) ?? {
+    journalDetails.forEach((detail) => {
+      const current =
+        mutations.get(detail.account_id) ?? {
           debit: 0,
           credit: 0,
         };
 
-        current.debit += Number(detail.debit ?? 0);
-        current.credit += Number(detail.credit ?? 0);
+      current.debit += Number(
+        detail.debit ?? 0
+      );
 
-        mutations.set(detail.account_id, current);
-      });
+      current.credit += Number(
+        detail.credit ?? 0
+      );
+
+      mutations.set(
+        detail.account_id,
+        current
+      );
     });
 
     const grouped: Record<AccountCategory, ReportRow[]> = {
@@ -282,7 +332,7 @@ export default function IncomeStatementPage() {
       otherExpense,
       netProfit,
     };
-  }, [accounts, journals]);
+  }, [accounts, journalDetails]);
 
   const buildReportRows = () => {
     const rows: Array<Record<string, unknown>> = [];
@@ -480,7 +530,7 @@ export default function IncomeStatementPage() {
 
   return (
     <div className="p-4 bg-white rounded shadow max-w-[1600px] mx-auto">
-      <div className="w-full pr-6 space-y-4">
+      <div className="w-full space-y-4">
         <div className="grid gap-4 rounded-md border border-gray-200 bg-white p-4 md:grid-cols-3">
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">

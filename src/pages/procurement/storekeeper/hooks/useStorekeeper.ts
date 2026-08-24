@@ -314,7 +314,6 @@ export function useStorekeeper() {
       );
     }
 
-    setLoading(false);
     }
 
     catch (err) {

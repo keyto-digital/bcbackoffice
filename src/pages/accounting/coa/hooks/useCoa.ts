@@ -46,12 +46,11 @@ export function useCoa(entityId?: string | null) {
     const { error: createError } = await supabase
       .from(TABLE_NAME)
       .insert({
-        code: payload.code,
-        name: payload.name,
+        code: payload.code.trim(),
+        name: payload.name.trim(),
         parent_account_id: payload.parent_account_id || null,
         category_code: payload.category_code,
 
-        // Kedua kolom diisi karena struktur database saat ini memakainya.
         type: payload.account_type,
         account_type: payload.account_type,
 
@@ -86,7 +85,6 @@ export function useCoa(entityId?: string | null) {
         category_code: payload.category_code,
 
         // Selalu sinkronkan kedua kolom.
-        type: payload.account_type,
         account_type: payload.account_type,
 
         normal_balance: payload.normal_balance,

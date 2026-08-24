@@ -142,6 +142,7 @@ export function CoaForm({
             value={formData.code}
             onChange={(event) => updateField("code", event.target.value)}
             placeholder="Contoh: 101.001"
+            maxLength={20}
             required
           />
         </div>

@@ -580,7 +580,12 @@ useEffect(() => {
   };
 
   // Export Excel (Set Manual sesuai frontend)
-  const handleExportExcel = () => {    
+  const handleExportExcel = () => {
+    if (!entityCtx) {
+      alert("Entity belum tersedia.");
+      return;
+    }
+
     const columns: ColumnConfig[] = [
     { label: "Tanggal", key: "tanggal", type: "date", format: toDate, formatString: "dd/mm/yyyy" },
     { label: "Waktu", key: "waktu" },
@@ -604,22 +609,6 @@ useEffect(() => {
     { label: "Updated At", key: "updated_at", type: "date", format: toDate, formatString: "dd/mm/yyyy hh:mm:ss" },
   ];
 
-    const sampleRow = dataWithSaldo[0];
-    const normalized = columns.map((col) => {
-      let val = sampleRow[col.key as keyof typeof sampleRow];
-      if (col.format) val = col.format(val, sampleRow);
-      if (col.type === "date") {
-        const d = new Date(val as string | number | Date);
-        return isNaN(d.getTime()) ? "" : d;
-      }
-      if (col.type === "currency") {
-        return typeof val === "number" ? val : Number(val) || "";
-      }
-      return val ?? "";
-    });
-
-    console.log("🔍 Normalized row:", normalized);
-
     // ============================
     // Nama file berdasarkan Date Range
     // ============================
@@ -631,8 +620,26 @@ useEffect(() => {
     const month = format(end, "MMMM", { locale: id });
     const year = format(end, "yy");
 
+    // ============================
+    // Nama file berdasarkan Entity + Date Range
+    // ============================
+
+    const targetEntityId =
+      entityCtx.tipe === "pusat"
+        ? selectedEntity ?? entityCtx.entity_id
+        : entityCtx.entity_id;
+
+    const exportEntity = entities.find(
+      (ent) => ent.id === targetEntityId
+    );
+
+    const entityLabel =
+      exportEntity?.kode ||
+      entityCtx.kode ||
+      "Entity";
+
     const exportFilename =
-      `KasHarian ${startDay}-${endDay} ${month} ${year}.xlsx`;
+      `KasHarian ${entityLabel} ${startDay}-${endDay} ${month} ${year}.xlsx`;
 
     exportTableToExcel(dataWithSaldo, {
       filename: exportFilename,

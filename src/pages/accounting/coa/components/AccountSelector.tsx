@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CoaNode } from "../types";
 import { AccountTree } from "./AccountTree";
 
@@ -28,6 +28,23 @@ export function AccountSelector({
   const selectedAccount = useMemo(() => {
     return accounts.find((account) => account.id === value) ?? null;
   }, [accounts, value]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
 
   return (
     <div className="relative space-y-1">

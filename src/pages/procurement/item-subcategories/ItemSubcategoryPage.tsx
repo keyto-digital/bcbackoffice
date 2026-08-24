@@ -154,7 +154,7 @@ export function ItemSubcategoryPage({
   };
 
   return (
-    <div className="w-full pr-10 space-y-4">
+    <div className="w-full pr-2 space-y-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">
@@ -403,22 +403,22 @@ export function ItemSubcategoryPage({
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">
+                <th className="px-4 py-3 font-medium">
                   Kategori
                 </th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">
+                <th className="px-4 py-3 font-medium">
                   Kode
                 </th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">
+                <th className="px-4 py-3 font-medium">
                   Nama Subkategori
                 </th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">
+                <th className="px-4 py-3 font-medium">
                   Override Persediaan
                 </th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">
+                <th className="px-4 py-3 font-medium">
                   Status
                 </th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">
+                <th className="px-4 py-3 font-medium">
                   Aksi
                 </th>
               </tr>
@@ -476,7 +476,7 @@ export function ItemSubcategoryPage({
                         {subcategory.is_active ? "Aktif" : "Tidak Aktif"}
                       </span>
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right">
+                    <td className="whitespace-nowrap px-4 py-3">
                       <button
                         type="button"
                         onClick={() => handleEdit(subcategory)}

@@ -80,6 +80,8 @@ type ReceivingLookup = {
 export function useApPayments() {
   const [payments, setPayments] = useState<ApPayment[]>([]);
 
+  const [paymentsTotalCount, setPaymentsTotalCount] = useState(0);
+
   const [
     paymentRequests,
     setPaymentRequests,
@@ -135,102 +137,328 @@ export function useApPayments() {
    * ==========================================================
    */
 
-  const fetchPayments = useCallback(async () => {
-    if (!entityId) {
-      setPayments([]);
-      setPaymentRequests([]);
-      return;
-    }
+  const fetchPayments = useCallback(
+    async (
+      keyword = "",
+      dateFrom = "",
+      dateTo = "",
+      page = 1,
+      pageSize = 25
+    ) => {
+      if (!entityId) {
+        setPayments([]);
+        setPaymentRequests([]);
+        setPaymentsTotalCount(0);
+        return { rows: [], totalCount: 0 };
+      }
 
-    setLoading(true);
-    setError(null);
+      setLoading(true);
+      setError(null);
 
-    try {
-      /* Ambil per batch agar daftar AP Payment tidak berhenti di 1000 row. */
-      const pageSize = 1000;
+      try {
+        const safePage = Math.max(1, page);
+        const safePageSize = Math.max(1, pageSize);
+        const from = (safePage - 1) * safePageSize;
+        const to = from + safePageSize - 1;
+        const normalizedKeyword = keyword.trim();
+
+        let query = supabase
+          .from("ap_payments")
+          .select("*", { count: "exact" })
+          .eq("entity_id", entityId)
+          .order("payment_date", { ascending: false })
+          .order("created_at", { ascending: false })
+          .range(from, to);
+
+        if (dateFrom) {
+          query = query.gte("payment_date", dateFrom);
+        }
+
+        if (dateTo) {
+          query = query.lte("payment_date", dateTo);
+        }
+
+        if (normalizedKeyword) {
+          const escaped = normalizedKeyword.replace(/[%_]/g, "\\$&");
+
+          const { data: matchingRequests, error: matchingRequestError } =
+            await supabase
+              .from("ap_payment_requests")
+              .select("id")
+              .eq("entity_id", entityId)
+              .ilike(
+                "payment_request_number",
+                `%${escaped}%`
+              );
+
+          if (matchingRequestError) {
+            throw matchingRequestError;
+          }
+
+          const matchingRequestIds =
+            (matchingRequests ?? []).map((row) => row.id);
+
+          const paymentConditions = [
+            `payment_number.ilike.%${escaped}%`,
+            `reference_number.ilike.%${escaped}%`,
+          ];
+
+          if (matchingRequestIds.length > 0) {
+            paymentConditions.push(
+              `payment_request_id.in.(${matchingRequestIds.join(",")})`
+            );
+          }
+
+          query = query.or(paymentConditions.join(","));
+        }
+
+        const {
+          data: pageData,
+          error: pageError,
+          count,
+        } = await query;
+
+        if (pageError) throw pageError;
+
+        const rows = (pageData ?? []) as unknown as ApPayment[];
+
+        const requestIds = [
+          ...new Set(
+            rows
+              .map((row) => row.payment_request_id)
+              .filter((id): id is string => Boolean(id))
+          ),
+        ];
+
+        if (requestIds.length > 0) {
+          const { data: requestData, error: requestError } =
+            await supabase
+              .from("ap_payment_requests")
+              .select("id, payment_request_number")
+              .eq("entity_id", entityId)
+              .in("id", requestIds);
+
+          if (requestError) {
+            console.warn(
+              "Gagal mengambil Payment Voucher AP Payment:",
+              requestError.message
+            );
+            setPaymentRequests([]);
+          } else {
+            setPaymentRequests(
+              (requestData ?? []) as PaymentRequestLookup[]
+            );
+          }
+        } else {
+          setPaymentRequests([]);
+        }
+
+        const methodIds = [
+          ...new Set(
+            rows
+              .map((row) => row.payment_method_id)
+              .filter((id): id is string => Boolean(id))
+          ),
+        ];
+
+        if (methodIds.length > 0) {
+          const { data: methodData, error: methodError } =
+            await supabase
+              .from("purchase_settlement_methods")
+              .select("id, code, name, settlement_type")
+              .in("id", methodIds);
+
+          if (methodError) {
+            console.warn(
+              "Gagal mengambil payment method AP Payment:",
+              methodError.message
+            );
+            setPayments(rows);
+          } else {
+            const methodMap = new Map(
+              (methodData ?? []).map((method) => [method.id, method])
+            );
+
+            setPayments(
+              rows.map((row) => ({
+                ...row,
+                purchase_settlement_methods: row.payment_method_id
+                  ? methodMap.get(row.payment_method_id) ?? null
+                  : null,
+              })) as unknown as ApPayment[]
+            );
+          }
+        } else {
+          setPayments(rows);
+        }
+
+        const totalCount = count ?? 0;
+        setPaymentsTotalCount(totalCount);
+
+        return {
+          rows,
+          totalCount,
+        };
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Gagal mengambil data AP Payment.";
+
+        console.error("=== FETCH AP PAYMENTS ERROR ===", err);
+        setError(message);
+        setPayments([]);
+        setPaymentRequests([]);
+        setPaymentsTotalCount(0);
+
+        return {
+          rows: [],
+          totalCount: 0,
+        };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [entityId]
+  );
+
+  /**
+   * ==========================================================
+   * FETCH PAYMENTS FOR EXPORT
+   *
+   * Tetap server-side. Data diambil bertahap berdasarkan filter,
+   * bukan mengambil seluruh tabel tanpa filter.
+   * ==========================================================
+   */
+
+  const fetchPaymentsForExport = useCallback(
+    async (
+      keyword = "",
+      dateFrom = "",
+      dateTo = ""
+    ): Promise<ApPayment[]> => {
+      if (!entityId) return [];
+
+      const batchSize = 1000;
       let from = 0;
       const allRows: ApPayment[] = [];
 
       while (true) {
-        const { data: pageData, error: pageError } = await supabase
+        let query = supabase
           .from("ap_payments")
           .select("*")
           .eq("entity_id", entityId)
-          .order("payment_date", { ascending: false })
-          .order("created_at", { ascending: false })
-          .range(from, from + pageSize - 1);
+          .order("payment_date", {
+            ascending: false,
+          })
+          .order("created_at", {
+            ascending: false,
+          })
+          .range(
+            from,
+            from + batchSize - 1
+          );
 
-        if (pageError) throw pageError;
-
-        const pageRows = (pageData ?? []) as unknown as ApPayment[];
-        allRows.push(...pageRows);
-
-        if (pageRows.length < pageSize) break;
-        from += pageSize;
-      }
-
-      const rows = allRows;
-
-      /* Ambil nomor PV dari payment_request_id. */
-      const requestIds = [...new Set(
-        rows.map((row) => row.payment_request_id)
-          .filter((id): id is string => Boolean(id))
-      )];
-
-      if (requestIds.length > 0) {
-        const { data: requestData, error: requestError } = await supabase
-          .from("ap_payment_requests")
-          .select("id, payment_request_number")
-          .eq("entity_id", entityId)
-          .in("id", requestIds);
-
-        if (requestError) {
-          console.warn("Gagal mengambil Payment Voucher AP Payment:", requestError.message);
-          setPaymentRequests([]);
-        } else {
-          setPaymentRequests((requestData ?? []) as PaymentRequestLookup[]);
+        if (dateFrom) {
+          query = query.gte(
+            "payment_date",
+            dateFrom
+          );
         }
-      } else {
-        setPaymentRequests([]);
-      }
 
-      /* Ambil master metode pembayaran. */
-      const methodIds = [...new Set(
-        rows.map((row) => row.payment_method_id)
-          .filter((id): id is string => Boolean(id))
-      )];
-
-      if (methodIds.length > 0) {
-        const { data: methodData, error: methodError } = await supabase
-          .from("purchase_settlement_methods")
-          .select("id, code, name, settlement_type")
-          .in("id", methodIds);
-
-        if (methodError) {
-          console.warn("Gagal mengambil payment method AP Payment:", methodError.message);
-          setPayments(rows);
-        } else {
-          const methodMap = new Map((methodData ?? []).map((method) => [method.id, method]));
-          setPayments(rows.map((row) => ({
-            ...row,
-            purchase_settlement_methods: row.payment_method_id
-              ? methodMap.get(row.payment_method_id) ?? null
-              : null,
-          })) as unknown as ApPayment[]);
+        if (dateTo) {
+          query = query.lte(
+            "payment_date",
+            dateTo
+          );
         }
-      } else {
-        setPayments(rows);
+
+        const normalizedKeyword =
+          keyword.trim();
+
+        if (normalizedKeyword) {
+          const escaped =
+            normalizedKeyword.replace(
+              /[%_]/g,
+              "\\$&"
+            );
+
+          const {
+            data: matchingRequests,
+            error: matchingRequestError,
+          } = await supabase
+            .from(
+              "ap_payment_requests"
+            )
+            .select("id")
+            .eq(
+              "entity_id",
+              entityId
+            )
+            .ilike(
+              "payment_request_number",
+              `%${escaped}%`
+            );
+
+          if (matchingRequestError) {
+            throw matchingRequestError;
+          }
+
+          const matchingRequestIds =
+            (
+              matchingRequests ?? []
+            ).map(
+              (row: { id: string }) =>
+                row.id
+            );
+
+          const conditions: string[] = [
+            `payment_number.ilike.%${escaped}%`,
+            `reference_number.ilike.%${escaped}%`,
+          ];
+
+          if (
+            matchingRequestIds.length
+          ) {
+            conditions.push(
+              `payment_request_id.in.(${matchingRequestIds.join(
+                ","
+              )})`
+            );
+          }
+
+          query = query.or(
+            conditions.join(",")
+          );
+        }
+
+        const {
+          data,
+          error,
+        } = await query;
+
+        if (error) {
+          throw error;
+        }
+
+        const rows =
+          (data ?? []) as unknown as ApPayment[];
+
+        allRows.push(...rows);
+
+        if (
+          rows.length < batchSize
+        ) {
+          break;
+        }
+
+        from += batchSize;
       }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Gagal mengambil data AP Payment.";
-      console.error("=== FETCH AP PAYMENTS ERROR ===", err);
-      setError(message);
-      setPayments([]);
-      setPaymentRequests([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [entityId]);
+
+      return allRows;
+    },
+    [entityId]
+  );
 
   /**
  * ==========================================================
@@ -987,18 +1215,19 @@ const fetchApprovedPaymentRequests =
   useEffect(() => {
     if (!entityId) {
       setPayments([]);
+      setPaymentsTotalCount(0);
       setSuppliers([]);
       setSettlementMethods([]);
       setOutstandingInvoices([]);
       return;
     }
 
-    void fetchPayments();
     void fetchMasters();
     void fetchApprovedPaymentRequests();
   }, [
     entityId,
     fetchPayments,
+    fetchPaymentsForExport,
     fetchMasters,
     fetchApprovedPaymentRequests,
   ]);
@@ -1530,6 +1759,7 @@ const fetchApprovedPaymentRequests =
      * Data
      */
     payments,
+    paymentsTotalCount,
     paymentRequests,
     suppliers,
     settlementMethods,
@@ -1559,6 +1789,7 @@ const fetchApprovedPaymentRequests =
      * Fetch
      */
     fetchPayments,
+    fetchPaymentsForExport,
     fetchMasters,
     fetchSuppliers,
     fetchSettlementMethods,

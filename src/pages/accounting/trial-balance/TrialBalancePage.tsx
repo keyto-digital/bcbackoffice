@@ -21,8 +21,11 @@ type JournalDetail = {
   credit: number | null;
 };
 
-type Journal = {
-  journal_details: JournalDetail[];
+type JournalDetailRow = JournalDetail & {
+  journals: {
+    entity_id: string | null;
+    tanggal: string;
+  } | null;
 };
 
 type TrialBalanceRow = {
@@ -57,7 +60,7 @@ function getNormalBalance(account: Account): "D" | "C" {
 export default function TrialBalancePage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [entities, setEntities] = useState<Entity[]>([]);
-  const [journals, setJournals] = useState<Journal[]>([]);
+  const [journalDetails, setJournalDetails] = useState<JournalDetail[]>([]);
 
   const [selectedEntityId, setSelectedEntityId] = useState("");
   const [asOfDate, setAsOfDate] = useState(today);
@@ -102,55 +105,124 @@ export default function TrialBalancePage() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
     const loadJournalData = async () => {
+      if (!asOfDate || masterLoading) {
+        setJournalDetails([]);
+        return;
+      }
+
       setLoading(true);
       setError(null);
 
-      let query = supabase
-        .from("journals")
-        .select(`
-          journal_details (
-            account_id,
-            debit,
-            credit
-          )
-        `)
-        .lte("tanggal", asOfDate);
+      try {
+        const batchSize = 1000;
+        let offset = 0;
+        const allDetails: JournalDetail[] = [];
 
-      if (selectedEntityId) {
-        query = query.eq("entity_id", selectedEntityId);
+        while (true) {
+          let query = supabase
+            .from("journal_details")
+            .select(`
+              account_id,
+              debit,
+              credit,
+              journals!inner (
+                entity_id,
+                tanggal
+              )
+            `)
+            .lte("journals.tanggal", asOfDate)
+            .order("id", { ascending: true })
+            .range(
+              offset,
+              offset + batchSize - 1
+            );
+
+          if (selectedEntityId) {
+            query = query.eq(
+              "journals.entity_id",
+              selectedEntityId
+            );
+          }
+
+          const {
+            data,
+            error: journalError,
+          } = await query;
+
+          if (journalError) {
+            throw journalError;
+          }
+
+          const rows =
+            (data ?? []) as unknown as JournalDetailRow[];
+
+          allDetails.push(
+            ...rows.map((row) => ({
+              account_id: row.account_id,
+              debit: row.debit,
+              credit: row.credit,
+            }))
+          );
+
+          if (rows.length < batchSize) {
+            break;
+          }
+
+          offset += batchSize;
+        }
+
+        if (!cancelled) {
+          setJournalDetails(allDetails);
+        }
+      } catch (journalError) {
+        console.error(
+          "Gagal memuat jurnal Trial Balance:",
+          journalError
+        );
+
+        if (!cancelled) {
+          setJournalDetails([]);
+          setError(
+            journalError instanceof Error
+              ? `Gagal memuat jurnal: ${journalError.message}`
+              : "Gagal memuat jurnal."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
-
-      const { data, error: journalError } = await query;
-
-      if (journalError) {
-        setError(`Gagal memuat jurnal: ${journalError.message}`);
-        setJournals([]);
-      } else {
-        setJournals((data ?? []) as Journal[]);
-      }
-
-      setLoading(false);
     };
 
-    loadJournalData();
-  }, [asOfDate, selectedEntityId]);
+    void loadJournalData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    asOfDate,
+    selectedEntityId,
+    masterLoading,
+  ]);
+
 
   const report = useMemo(() => {
     const mutations = new Map<string, { debit: number; credit: number }>();
 
-    journals.forEach((journal) => {
-      journal.journal_details?.forEach((detail) => {
-        const current = mutations.get(detail.account_id) ?? {
-          debit: 0,
-          credit: 0,
-        };
+    journalDetails.forEach((detail) => {
+      const current = mutations.get(detail.account_id) ?? {
+        debit: 0,
+        credit: 0,
+      };
 
-        current.debit += Number(detail.debit ?? 0);
-        current.credit += Number(detail.credit ?? 0);
+      current.debit += Number(detail.debit ?? 0);
+      current.credit += Number(detail.credit ?? 0);
 
-        mutations.set(detail.account_id, current);
-      });
+      mutations.set(detail.account_id, current);
     });
 
     const rows: TrialBalanceRow[] = accounts.map((account) => {
@@ -200,11 +272,11 @@ export default function TrialBalancePage() {
       totalCredit,
       difference: Math.abs(totalDebit - totalCredit),
     };
-  }, [accounts, journals]);
+  }, [accounts, journalDetails]);
 
   return (
     <div className="p-4 bg-white rounded shadow max-w-[1600px] mx-auto">
-      <div className="w-full pr-6 space-y-4">
+      <div className="w-full space-y-4">
         <div className="grid gap-4 rounded-md border border-gray-200 bg-white p-4 md:grid-cols-2">
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">

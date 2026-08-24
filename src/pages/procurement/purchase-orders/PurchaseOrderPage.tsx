@@ -1,16 +1,42 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import {
+  createPaginationMeta,
+} from "@/lib/pagination/types";
+
+import {
+  usePagination,
+} from "@/lib/pagination/usePagination";
+
+import Pagination from "@/components/common/Pagination";
+
 import { supabase } from "@/lib/supabaseClient";
+
 import * as XLSX from "xlsx";
+
 import { saveAs } from "file-saver";
+
 import { hasAccess } from "@/lib/hasAccess";
-import { usePurchaseOrders } from "./hooks/usePurchaseOrders";
-import { getCustomUser } from "@/lib/authUser";
+
+import {
+  usePurchaseOrders,
+} from "./hooks/usePurchaseOrders";
+
+import {
+  getCustomUser,
+} from "@/lib/authUser";
+
 import type {
   PurchaseOrder,
   PurchaseOrderFormData,
   PurchaseOrderLineForm,
   PurchaseOrderStatus,
 } from "./types";
+
 
 type Store = {
   id: string;
@@ -20,34 +46,65 @@ type Store = {
   is_active?: boolean;
 };
 
-const statusLabels: Record<PurchaseOrderStatus, string> = {
-  DRAFT: "Draft",
-  APPROVED: "Approved",
-  OPEN: "Open",
-  PARTIAL_RECEIVED: "Sebagian Diterima",
-  CLOSED: "Closed",
-  CANCELLED: "Cancelled",
-};
 
-const statusClasses: Record<PurchaseOrderStatus, string> = {
-  DRAFT: "bg-gray-100 text-gray-700",
-  APPROVED: "bg-blue-100 text-blue-700",
-  OPEN: "bg-green-100 text-green-700",
-  PARTIAL_RECEIVED: "bg-yellow-100 text-yellow-700",
-  CLOSED: "bg-purple-100 text-purple-700",
-  CANCELLED: "bg-red-100 text-red-700",
-};
+const statusLabels:
+  Record<
+    PurchaseOrderStatus,
+    string
+  > = {
+    DRAFT: "Draft",
+    APPROVED: "Approved",
+    OPEN: "Open",
+    PARTIAL_RECEIVED:
+      "Sebagian Diterima",
+    CLOSED: "Closed",
+    CANCELLED: "Cancelled",
+  };
+
+
+const statusClasses:
+  Record<
+    PurchaseOrderStatus,
+    string
+  > = {
+    DRAFT:
+      "bg-gray-100 text-gray-700",
+
+    APPROVED:
+      "bg-blue-100 text-blue-700",
+
+    OPEN:
+      "bg-green-100 text-green-700",
+
+    PARTIAL_RECEIVED:
+      "bg-yellow-100 text-yellow-700",
+
+    CLOSED:
+      "bg-purple-100 text-purple-700",
+
+    CANCELLED:
+      "bg-red-100 text-red-700",
+  };
+
 
 function todayInputValue() {
   const now = new Date();
-  const timezoneOffset = now.getTimezoneOffset() * 60_000;
 
-  return new Date(now.getTime() - timezoneOffset)
+  const timezoneOffset =
+    now.getTimezoneOffset() *
+    60_000;
+
+  return new Date(
+    now.getTime() -
+      timezoneOffset
+  )
     .toISOString()
     .slice(0, 10);
 }
 
-function createEmptyLine(): PurchaseOrderLineForm {
+
+function createEmptyLine():
+  PurchaseOrderLineForm {
   return {
     item_id: "",
     quantity_ordered: 1,
@@ -58,307 +115,513 @@ function createEmptyLine(): PurchaseOrderLineForm {
   };
 }
 
-function createInitialForm(): PurchaseOrderFormData {
-  const entityId = getCustomUser()?.entity_id ?? null;
+
+function createInitialForm():
+  PurchaseOrderFormData {
+  const entityId =
+    getCustomUser()?.entity_id ??
+    null;
 
   return {
     entity_id: entityId,
-    order_date: todayInputValue(),
-    expected_delivery_date: "",
+    order_date:
+      todayInputValue(),
+    expected_delivery_date:
+      "",
     supplier_id: "",
     store_id: "",
     payment_term_days: 0,
     notes: "",
-    details: [createEmptyLine()],
+    details: [
+      createEmptyLine(),
+    ],
   };
 }
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(Number(value || 0));
+
+function formatCurrency(
+  value: number
+) {
+  return new Intl.NumberFormat(
+    "id-ID",
+    {
+      style: "currency",
+      currency: "IDR",
+      maximumFractionDigits: 0,
+    }
+  ).format(
+    Number(value || 0)
+  );
 }
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("id-ID", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 4,
-  }).format(Number(value || 0));
+
+function formatNumber(
+  value: number
+) {
+  return new Intl.NumberFormat(
+    "id-ID",
+    {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 4,
+    }
+  ).format(
+    Number(value || 0)
+  );
 }
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("id-ID", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  }).format(new Date(`${value}T00:00:00`));
+
+function formatDate(
+  value: string
+) {
+  return new Intl.DateTimeFormat(
+    "id-ID",
+    {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    }
+  ).format(
+    new Date(
+      `${value}T00:00:00`
+    )
+  );
 }
+
+
+/*
+ * ==========================================================
+ * PRINT PURCHASE ORDER
+ *
+ * Tidak diubah.
+ * ==========================================================
+ */
 
 function printPurchaseOrder(
   purchaseOrder: PurchaseOrder,
   details: PurchaseOrderLineForm[]
 ) {
   const rows = details
-    .map((detail, index) => {
+    .map(
+      (
+        detail,
+        index
+      ) => {
+        const total =
+          Number(
+            detail.quantity_ordered
+          ) *
+            Number(
+              detail.unit_price
+            ) -
+          Number(
+            detail.discount_amount
+          ) +
+          Number(
+            detail.tax_amount
+          );
 
-      const total =
-        Number(detail.quantity_ordered) * Number(detail.unit_price) -
-        Number(detail.discount_amount) +
-        Number(detail.tax_amount);
-
-      return `
-        <tr>
-          <td>${index + 1}</td>
-          <td>${detail.item_code_snapshot ?? "-"}</td>
-          <td>${detail.item_name_snapshot ?? "-"}</td>
-          <td class="right">${Number(detail.quantity_ordered)}</td>
-          <td>${detail.unit_code_snapshot ?? "-"}</td>
-          <td class="right">${formatCurrency(Number(detail.unit_price))}</td>
-          <td class="right">${formatCurrency(total)}</td>
-        </tr>
-      `;
-    })
+        return `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${detail.item_code_snapshot ?? "-"}</td>
+            <td>${detail.item_name_snapshot ?? "-"}</td>
+            <td class="right">${Number(
+              detail.quantity_ordered
+            )}</td>
+            <td>${detail.unit_code_snapshot ?? "-"}</td>
+            <td class="right">${formatCurrency(
+              Number(
+                detail.unit_price
+              )
+            )}</td>
+            <td class="right">${formatCurrency(
+              total
+            )}</td>
+          </tr>
+        `;
+      }
+    )
     .join("");
 
-  const printWindow = window.open("", "_blank", "width=1000,height=800");
+
+  const printWindow =
+    window.open(
+      "",
+      "_blank",
+      "width=1000,height=800"
+    );
+
 
   if (!printWindow) {
-    window.alert("Popup print diblokir browser.");
+    window.alert(
+      "Popup print diblokir browser."
+    );
+
     return;
   }
+
 
   printWindow.document.write(`
     <!doctype html>
     <html>
       <head>
-        <title>PO ${purchaseOrder.po_number}</title>
-          <style>
-            @page { size: A4 portrait; margin: 15mm; }
-            * { box-sizing: border-box; }
-            body {
-              font-family: Arial, sans-serif;
-              color: #111827;
-              font-size: 12px;
-            }
-            h1 { margin: 0; font-size: 22px; }
-            h2 { margin: 4px 0 20px; font-size: 14px; font-weight: normal; }
-            .header{
-                display:grid;
-                grid-template-columns:140px 1fr;
-                grid-template-rows:auto auto;
-                border-bottom:2px solid #111827;
-                padding-bottom:10px;
-                margin-bottom:20px;
-                column-gap:20px;
-            }
+        <title>
+          PO ${purchaseOrder.po_number}
+        </title>
 
-            .logo{
-                width:200px;
-                height:auto;
-                display:block;
-                margin-top:2px;
-            }
+        <style>
+          @page {
+            size: A4 portrait;
+            margin: 15mm;
+          }
 
-            .logo-wrap{
-                grid-column:1;
-                grid-row:1;
-            }
+          * {
+            box-sizing: border-box;
+          }
 
-            .company{
-                grid-column:2;
-                grid-row:1;
-                width:100%;
-                text-align:right;
-            }
+          body {
+            font-family: Arial, sans-serif;
+            color: #111827;
+            font-size: 12px;
+          }
 
-            .company h1{
-                margin:0;
-                font-size:24px;
-                font-weight:700;
-                letter-spacing:2px;
-                line-height:1;
-            }
+          h1 {
+            margin: 0;
+            font-size: 22px;
+          }
 
-            .company h2{
-                margin:6px 0 0;
-                font-size:13px;
-                font-weight:normal;
-                color:#666;
-            }
+          h2 {
+            margin: 4px 0 20px;
+            font-size: 14px;
+            font-weight: normal;
+          }
 
-            .address{
-                grid-column:2;
-                grid-row:2;
-                width:100%;
-                text-align:right;
-                white-space:nowrap;
-                font-size:11px;
-                color:#555;
-                margin-top:10px;
-            }
+          .header {
+            display: grid;
+            grid-template-columns: 140px 1fr;
+            grid-template-rows: auto auto;
+            border-bottom: 2px solid #111827;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            column-gap: 20px;
+          }
 
-            .info-header{
-                display:grid;
-                grid-template-columns:1fr 230px;
-                column-gap:40px;
-                align-items:start;
-                margin-bottom:18px;
-            }
+          .logo {
+            width: 200px;
+            height: auto;
+            display: block;
+            margin-top: 2px;
+          }
 
-            .info{
-                display:grid;
-                grid-template-columns:130px 10px 1fr;
-                row-gap:6px;
-            }
+          .logo-wrap {
+            grid-column: 1;
+            grid-row: 1;
+          }
 
-            .info strong{
-                font-weight:bold;
-            }
+          .company {
+            grid-column: 2;
+            grid-row: 1;
+            width: 100%;
+            text-align: right;
+          }
 
-            .info .colon{
-                text-align:center;
-            }
+          .company h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            line-height: 1;
+          }
 
-            .po-info{
-                display:grid;
-                grid-template-columns:80px 10px 1fr;
-                row-gap:6px;
-                align-self:start;
-                justify-self:end;
-                width:220px;
-            }
+          .company h2 {
+            margin: 6px 0 0;
+            font-size: 13px;
+            font-weight: normal;
+            color: #666;
+          }
 
-            .po-info strong{
-                display:block;
-                text-align:left;
-            }
+          .address {
+            grid-column: 2;
+            grid-row: 2;
+            width: 100%;
+            text-align: right;
+            white-space: nowrap;
+            font-size: 11px;
+            color: #555;
+            margin-top: 10px;
+          }
 
-            .po-info .colon{
-                text-align:right;
-                padding-right:2px;
-            }
+          .info-header {
+            display: grid;
+            grid-template-columns: 1fr 230px;
+            column-gap: 40px;
+            align-items: start;
+            margin-bottom: 18px;
+          }
 
-            .po-info .value{
-                text-align:right;
-            }
+          .info {
+            display: grid;
+            grid-template-columns: 130px 10px 1fr;
+            row-gap: 6px;
+          }
 
-            thead th{
-                background:#dbeafe;
-                font-weight:bold;
-                text-align:center;
-            }
+          .info strong {
+            font-weight: bold;
+          }
 
-            tbody td{
-                height:28px;
-            }
+          .info .colon {
+            text-align: center;
+          }
 
-            .total{
-                margin-top:20px;
-                width:340px;
-                font-size:13px;
-            }
+          .po-info {
+            display: grid;
+            grid-template-columns: 80px 10px 1fr;
+            row-gap: 6px;
+            align-self: start;
+            justify-self: end;
+            width: 220px;
+          }
 
-            .total tr:last-child{
-                background:#f3f4f6;
-                font-size:14px;
-            }
+          .po-info strong {
+            display: block;
+            text-align: left;
+          }
 
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-top: 12px;
-            }
-            th, td {
-              border: 1px solid #374151;
-              padding: 7px;
-              vertical-align: top;
-            }
-            th { background: #e5e7eb; }
-            .right { text-align: right; }
-            .total {
-              width: 320px;
-              margin-left: auto;
-              margin-top: 14px;
-              border-collapse: collapse;
-            }
-            .total td { border: 1px solid #374151; }
-            .notes {
-              margin-top: 18px;
-              border: 1px solid #9ca3af;
-              min-height: 60px;
-              padding: 8px;
-            }
-            .signature {
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 80px;
-              margin-top: 60px;
-              text-align: center;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div>
-                <img src="/logo.png" class="logo">
-            </div>
-            <div class="company">
-                <h1>PURCHASE ORDER</h1>
-            </div>
+          .po-info .colon {
+            text-align: right;
+            padding-right: 2px;
+          }
 
-            <div class="address">
-                Sendangadi, Mlati, Sleman, Yogyakarta 55285 &nbsp;&nbsp; | &nbsp;&nbsp;
-                Purchasing : 0811 2656 028 &nbsp;&nbsp; | &nbsp;&nbsp;
-                E-mail : bcb.financeadmin@gmail.com
-            </div>
+          .po-info .value {
+            text-align: right;
+          }
+
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+          }
+
+          thead th {
+            background: #dbeafe;
+            font-weight: bold;
+            text-align: center;
+          }
+
+          tbody td {
+            height: 28px;
+          }
+
+          th,
+          td {
+            border: 1px solid #374151;
+            padding: 7px;
+            vertical-align: top;
+          }
+
+          th {
+            background: #e5e7eb;
+          }
+
+          .right {
+            text-align: right;
+          }
+
+          .total {
+            width: 320px;
+            margin-left: auto;
+            margin-top: 14px;
+            border-collapse: collapse;
+          }
+
+          .total td {
+            border: 1px solid #374151;
+          }
+
+          .total tr:last-child {
+            background: #f3f4f6;
+            font-size: 14px;
+          }
+
+          .notes {
+            margin-top: 18px;
+            border: 1px solid #9ca3af;
+            min-height: 60px;
+            padding: 8px;
+          }
+
+          .signature {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 80px;
+            margin-top: 60px;
+            text-align: center;
+          }
+        </style>
+      </head>
+
+      <body>
+
+        <div class="header">
+
+          <div class="logo-wrap">
+            <img
+              src="/logo.png"
+              class="logo"
+            />
           </div>
-            <div class="info-header">
-              <div class="info">
-                  <strong>Supplier</strong>
-                  <span class="colon">:</span>
-                  <span>${purchaseOrder.supplier_name_snapshot}</span>
 
-                  <strong>Kode Supplier</strong>
-                  <span class="colon">:</span>
-                  <span>${purchaseOrder.supplier_code_snapshot}</span>
+          <div class="company">
+            <h1>
+              PURCHASE ORDER
+            </h1>
+          </div>
 
-                  <strong>Estimasi Datang</strong>
-                  <span class="colon">:</span>
-                  <span>${
-                    purchaseOrder.expected_delivery_date
-                      ? formatDate(purchaseOrder.expected_delivery_date)
-                      : "-"
-                  }</span>
+          <div class="address">
+            Sendangadi, Mlati, Sleman, Yogyakarta 55285
+            &nbsp;&nbsp; | &nbsp;&nbsp;
+            Purchasing : 0811 2656 028
+            &nbsp;&nbsp; | &nbsp;&nbsp;
+            E-mail : bcb.financeadmin@gmail.com
+          </div>
 
-                  <strong>Termin</strong>
-                  <span class="colon">:</span>
-                  <span>${purchaseOrder.payment_term_days} hari</span>
-              </div>
+        </div>
 
-              <div class="po-info">
 
-                <strong>No. PO</strong>
-                <span class="colon">:</span>
-                <span class="value">${purchaseOrder.po_number}</span>
+        <div class="info-header">
 
-                <strong>Tanggal</strong>
-                <span class="colon">:</span>
-                <span class="value">${formatDate(purchaseOrder.order_date)}</span>
+          <div class="info">
 
-                <strong>Status</strong>
-                <span class="colon">:</span>
-                <span class="value">${statusLabels[purchaseOrder.status]}</span>
+            <strong>
+              Supplier
+            </strong>
 
-                <strong>Store Tujuan</strong>
-                <span class="colon">:</span>
-                <span class="value">${purchaseOrder.store_name ?? "-"}</span>
+            <span class="colon">
+              :
+            </span>
 
-               </div>
-            </div>
+            <span>
+              ${purchaseOrder.supplier_name_snapshot}
+            </span>
+
+
+            <strong>
+              Kode Supplier
+            </strong>
+
+            <span class="colon">
+              :
+            </span>
+
+            <span>
+              ${purchaseOrder.supplier_code_snapshot}
+            </span>
+
+
+            <strong>
+              Estimasi Datang
+            </strong>
+
+            <span class="colon">
+              :
+            </span>
+
+            <span>
+              ${
+                purchaseOrder.expected_delivery_date
+                  ? formatDate(
+                      purchaseOrder.expected_delivery_date
+                    )
+                  : "-"
+              }
+            </span>
+
+
+            <strong>
+              Termin
+            </strong>
+
+            <span class="colon">
+              :
+            </span>
+
+            <span>
+              ${purchaseOrder.payment_term_days}
+              hari
+            </span>
+
+          </div>
+
+
+          <div class="po-info">
+
+            <strong>
+              No. PO
+            </strong>
+
+            <span class="colon">
+              :
+            </span>
+
+            <span class="value">
+              ${purchaseOrder.po_number}
+            </span>
+
+
+            <strong>
+              Tanggal
+            </strong>
+
+            <span class="colon">
+              :
+            </span>
+
+            <span class="value">
+              ${formatDate(
+                purchaseOrder.order_date
+              )}
+            </span>
+
+
+            <strong>
+              Status
+            </strong>
+
+            <span class="colon">
+              :
+            </span>
+
+            <span class="value">
+              ${
+                statusLabels[
+                  purchaseOrder.status
+                ]
+              }
+            </span>
+
+
+            <strong>
+              Store Tujuan
+            </strong>
+
+            <span class="colon">
+              :
+            </span>
+
+            <span class="value">
+              ${
+                purchaseOrder.store_name ??
+                "-"
+              }
+            </span>
+
+          </div>
+
+        </div>
+
 
         <table>
+
           <thead>
             <tr>
               <th>No</th>
@@ -370,81 +633,242 @@ function printPurchaseOrder(
               <th>Total</th>
             </tr>
           </thead>
-          <tbody>${rows}</tbody>
+
+          <tbody>
+            ${rows}
+          </tbody>
+
         </table>
+
 
         <table class="total">
+
           <tr>
-            <td><strong>Subtotal</strong></td>
-            <td class="right">${formatCurrency(purchaseOrder.subtotal)}</td>
+            <td>
+              <strong>
+                Subtotal
+              </strong>
+            </td>
+
+            <td class="right">
+              ${formatCurrency(
+                purchaseOrder.subtotal
+              )}
+            </td>
           </tr>
+
+
           <tr>
-            <td><strong>Diskon</strong></td>
-            <td class="right">${formatCurrency(purchaseOrder.discount_amount)}</td>
+            <td>
+              <strong>
+                Diskon
+              </strong>
+            </td>
+
+            <td class="right">
+              ${formatCurrency(
+                purchaseOrder.discount_amount
+              )}
+            </td>
           </tr>
+
+
           <tr>
-            <td><strong>Pajak</strong></td>
-            <td class="right">${formatCurrency(purchaseOrder.tax_amount)}</td>
+            <td>
+              <strong>
+                Pajak
+              </strong>
+            </td>
+
+            <td class="right">
+              ${formatCurrency(
+                purchaseOrder.tax_amount
+              )}
+            </td>
           </tr>
+
+
           <tr>
-            <td><strong>Grand Total</strong></td>
-            <td class="right"><strong>${formatCurrency(
-              purchaseOrder.grand_total
-            )}</strong></td>
+            <td>
+              <strong>
+                Grand Total
+              </strong>
+            </td>
+
+            <td class="right">
+              <strong>
+                ${formatCurrency(
+                  purchaseOrder.grand_total
+                )}
+              </strong>
+            </td>
           </tr>
+
         </table>
 
+
         <div class="notes">
-          <strong>Catatan:</strong><br />
-          ${purchaseOrder.notes || "-"}
+
+          <strong>
+            Catatan:
+          </strong>
+
+          <br />
+
+          ${
+            purchaseOrder.notes ||
+            "-"
+          }
+
         </div>
 
+
         <div class="signature">
+
           <div>
-            Dibuat Oleh,<br /><br /><br /><br /><br /><br />
+            Dibuat Oleh,
+            <br /><br /><br /><br /><br /><br />
+
             ______________________
           </div>
+
           <div>
-            Mengetahui,<br /><br /><br /><br /><br /><br />
+            Mengetahui,
+            <br /><br /><br /><br /><br /><br />
+
             ______________________
           </div>
+
         </div>
+
 
         <script>
           window.onload = () => {
             window.print();
-            window.onafterprint = () => window.close();
+
+            window.onafterprint = () =>
+              window.close();
           };
         </script>
+
       </body>
     </html>
   `);
 
+
   printWindow.document.close();
 }
 
+
+/*
+ * ==========================================================
+ * PAGE
+ * ==========================================================
+ */
+
 export function PurchaseOrderPage() {
+
+  /*
+   * ========================================================
+   * PAGINATION STANDARD PROJECT
+   *
+   * HANYA page/pageSize yang dipakai.
+   * from/to tidak diperlukan karena server yang melakukan
+   * range.
+   * ========================================================
+   */
+
+  const {
+    page,
+    pageSize,
+    setPage,
+    setPageSize,
+  } = usePagination();
+
+
+  /*
+   * ========================================================
+   * SEARCH
+   *
+   * Search akan masuk ke hook dan Supabase.
+   * ========================================================
+   */
+
+  const [
+    search,
+    setSearchState,
+  ] = useState("");
+
+
+  const setSearch = (
+    value: string
+  ) => {
+    setSearchState(value);
+
+    /*
+     * Setiap search berubah,
+     * kembali ke halaman pertama.
+     */
+
+    setPage(1);
+  };
+
+
+  /*
+   * ========================================================
+   * PURCHASE ORDER HOOK
+   * ========================================================
+   */
+
   const {
     purchaseOrders,
+    totalCount,
+
     suppliers,
     items,
+
     loading,
     loadingMasters,
     saving,
     error,
+
     createPurchaseOrder,
     updatePurchaseOrderDraft,
     deletePurchaseOrderDraft,
+
     fetchPurchaseOrderDetails,
+
     openPurchaseOrder,
     cancelPurchaseOrder,
     closePurchaseOrderOutstanding,
-  } = usePurchaseOrders();
 
-  const [showForm, setShowForm] = useState(false);
-  const [editingPurchaseOrder, setEditingPurchaseOrder] =
-    useState<PurchaseOrder | null>(null);
-  const [access, setAccess] = useState({
+    exportPurchaseOrders,
+  } = usePurchaseOrders(
+    page,
+    pageSize,
+    search
+  );
+
+
+  const [
+    showForm,
+    setShowForm,
+  ] = useState(false);
+
+
+  const [
+    editingPurchaseOrder,
+    setEditingPurchaseOrder,
+  ] =
+    useState<PurchaseOrder | null>(
+      null
+    );
+
+
+  const [
+    access,
+    setAccess,
+  ] = useState({
     create: false,
     editDraft: false,
     deleteDraft: false,
@@ -454,34 +878,85 @@ export function PurchaseOrderPage() {
     print: false,
     export: false,
   });
-  const [search, setSearch] = useState("");
-  const [formData, setFormData] = useState<PurchaseOrderFormData>(() =>
-    createInitialForm()
-  );
 
-  const [stores, setStores] = useState<Store[]>([]);
+
+  const [
+    formData,
+    setFormData,
+  ] =
+    useState<PurchaseOrderFormData>(
+      () =>
+        createInitialForm()
+    );
+
+
+  const [
+    stores,
+    setStores,
+  ] =
+    useState<Store[]>([]);
+
+
+  /*
+   * ========================================================
+   * LOAD STORES
+   *
+   * Tetap seperti fungsi sebelumnya.
+   * ========================================================
+   */
 
   useEffect(() => {
-    const loadStores = async () => {
-      const { data, error } = await supabase
-        .from("stores")
-        .select("id, code, name, entity_id, is_active")
-        .eq("is_active", true)
-        .order("code");
 
-      if (error) {
-        console.error("Gagal memuat store:", error);
-        return;
-      }
+    const loadStores =
+      async () => {
 
-      setStores((data ?? []) as Store[]);
-    };
+        const {
+          data,
+          error,
+        } = await supabase
+          .from("stores")
+          .select(
+            "id, code, name, entity_id, is_active"
+          )
+          .eq(
+            "is_active",
+            true
+          )
+          .order("code");
 
-    loadStores();
+
+        if (error) {
+          console.error(
+            "Gagal memuat store:",
+            error
+          );
+
+          return;
+        }
+
+
+        setStores(
+          (data ??
+            []) as Store[]
+        );
+      };
+
+
+    void loadStores();
+
   }, []);
 
+
+  /*
+   * ========================================================
+   * ACCESS
+   * ========================================================
+   */
+
   useEffect(() => {
+
     async function loadAccess() {
+
       const [
         create,
         editDraft,
@@ -491,16 +966,41 @@ export function PurchaseOrderPage() {
         closeOutstanding,
         print,
         exportExcel,
-      ] = await Promise.all([
-        hasAccess("purchase_order.create"),
-        hasAccess("purchase_order.edit_draft"),
-        hasAccess("purchase_order.delete_draft"),
-        hasAccess("purchase_order.open"),
-        hasAccess("purchase_order.cancel"),
-        hasAccess("purchase_order.close_outstanding"),
-        hasAccess("purchase_order.print"),
-        hasAccess("purchase_order.export"),
-      ]);
+      ] =
+        await Promise.all([
+          hasAccess(
+            "purchase_order.create"
+          ),
+
+          hasAccess(
+            "purchase_order.edit_draft"
+          ),
+
+          hasAccess(
+            "purchase_order.delete_draft"
+          ),
+
+          hasAccess(
+            "purchase_order.open"
+          ),
+
+          hasAccess(
+            "purchase_order.cancel"
+          ),
+
+          hasAccess(
+            "purchase_order.close_outstanding"
+          ),
+
+          hasAccess(
+            "purchase_order.print"
+          ),
+
+          hasAccess(
+            "purchase_order.export"
+          ),
+        ]);
+
 
       setAccess({
         create,
@@ -510,362 +1010,908 @@ export function PurchaseOrderPage() {
         cancel,
         closeOutstanding,
         print,
-        export: exportExcel,
+        export:
+          exportExcel,
       });
     }
 
-    loadAccess();
+
+    void loadAccess();
+
   }, []);
-  
 
-  const selectedSupplier = useMemo(
-    () => suppliers.find((supplier) => supplier.id === formData.supplier_id),
-    [suppliers, formData.supplier_id]
-  );
 
-  const formSubtotal = useMemo(() => {
-    return formData.details.reduce((total, line) => {
-      return total + Number(line.quantity_ordered || 0) * Number(line.unit_price || 0);
-    }, 0);
-  }, [formData.details]);
+  /*
+   * ========================================================
+   * PAGINATION META
+   *
+   * totalCount berasal dari Supabase count: exact.
+   * ========================================================
+   */
 
-  const formDiscount = useMemo(() => {
-    return formData.details.reduce(
-      (total, line) => total + Number(line.discount_amount || 0),
-      0
+  const paginationMeta =
+    useMemo(
+      () =>
+        createPaginationMeta(
+          page,
+          pageSize,
+          totalCount
+        ),
+      [
+        page,
+        pageSize,
+        totalCount,
+      ]
     );
-  }, [formData.details]);
 
-  const formTax = useMemo(() => {
-    return formData.details.reduce(
-      (total, line) => total + Number(line.tax_amount || 0),
-      0
+
+  /*
+   * ========================================================
+   * FORM CALCULATION
+   * ========================================================
+   */
+
+  const selectedSupplier =
+    useMemo(
+      () =>
+        suppliers.find(
+          (supplier) =>
+            supplier.id ===
+            formData.supplier_id
+        ),
+
+      [
+        suppliers,
+        formData.supplier_id,
+      ]
     );
-  }, [formData.details]);
 
-  const formGrandTotal = formSubtotal - formDiscount + formTax;
 
-  const filteredPurchaseOrders = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
+  const formSubtotal =
+    useMemo(() => {
 
-    if (!keyword) return purchaseOrders;
+      return formData.details.reduce(
+        (
+          total,
+          line
+        ) => {
 
-    return purchaseOrders.filter((purchaseOrder) => {
-      return (
-        purchaseOrder.po_number.toLowerCase().includes(keyword) ||
-        purchaseOrder.supplier_code_snapshot
-          .toLowerCase()
-          .includes(keyword) ||
-        purchaseOrder.supplier_name_snapshot
-          .toLowerCase()
-          .includes(keyword) ||
-        purchaseOrder.status.toLowerCase().includes(keyword)
+          return (
+            total +
+            Number(
+              line.quantity_ordered ||
+                0
+            ) *
+              Number(
+                line.unit_price ||
+                  0
+              )
+          );
+
+        },
+        0
       );
-    });
-  }, [purchaseOrders, search]);
 
-  const openCreateForm = () => {
-    setEditingPurchaseOrder(null);
-    setFormData(createInitialForm());
-    setShowForm(true);
-  };
+    }, [
+      formData.details,
+    ]);
 
-  const cancelCreateForm = () => {
-    setEditingPurchaseOrder(null);
-    setFormData(createInitialForm());
-    setShowForm(false);
-  };
 
-  const handleSupplierChange = (supplierId: string) => {
-    const supplier = suppliers.find((row) => row.id === supplierId);
+  const formDiscount =
+    useMemo(() => {
 
-    setFormData((previous) => ({
-      ...previous,
-      supplier_id: supplierId,
-      payment_term_days: supplier?.default_payment_term_days ?? 0,
-    }));
-  };
+      return formData.details.reduce(
+        (
+          total,
+          line
+        ) =>
+          total +
+          Number(
+            line.discount_amount ||
+              0
+          ),
 
-  const addLine = () => {
-    setFormData((previous) => ({
-      ...previous,
-      details: [...previous.details, createEmptyLine()],
-    }));
-  };
+        0
+      );
 
-  const removeLine = (index: number) => {
-    setFormData((previous) => ({
-      ...previous,
-      details: previous.details.filter((_, lineIndex) => lineIndex !== index),
-    }));
-  };
+    }, [
+      formData.details,
+    ]);
 
-  const updateLine = (
-    index: number,
-    field: keyof PurchaseOrderLineForm,
-    value: string | number
-  ) => {
-    setFormData((previous) => ({
-      ...previous,
-      details: previous.details.map((line, lineIndex) =>
-        lineIndex === index
-          ? {
-              ...line,
-              [field]: value,
-            }
-          : line
-      ),
-    }));
-  };
 
-  const handleItemChange = (index: number, itemId: string) => {
-    const item = items.find((row) => row.id === itemId);
+  const formTax =
+    useMemo(() => {
 
-    setFormData((previous) => ({
-      ...previous,
-      details: previous.details.map((line, lineIndex) =>
-        lineIndex === index
-          ? {
-              ...line,
-              item_id: itemId,
-              unit_price: Number(item?.standard_cost || 0),
-            }
-          : line
-      ),
-    }));
-  };
+      return formData.details.reduce(
+        (
+          total,
+          line
+        ) =>
+          total +
+          Number(
+            line.tax_amount ||
+              0
+          ),
 
-  const handleEditDraft = async (purchaseOrder: PurchaseOrder) => {
-    const details = await fetchPurchaseOrderDetails(purchaseOrder.id);
+        0
+      );
 
-    if (!details) {
-      return;
-    }
+    }, [
+      formData.details,
+    ]);
 
-    setEditingPurchaseOrder(purchaseOrder);
 
-    setFormData({
-      entity_id: purchaseOrder.entity_id,
-      order_date: purchaseOrder.order_date,
-      expected_delivery_date:
-        purchaseOrder.expected_delivery_date ?? "",
-      supplier_id: purchaseOrder.supplier_id,
-      store_id: purchaseOrder.store_id ?? "",
-      payment_term_days: Number(
-        purchaseOrder.payment_term_days || 0
-      ),
-      notes: purchaseOrder.notes ?? "",
-      details,
-    });
+  const formGrandTotal =
+    formSubtotal -
+    formDiscount +
+    formTax;
 
-    setShowForm(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
 
-  const handleDeleteDraft = async (purchaseOrder: PurchaseOrder) => {
-    const confirmed = window.confirm(
-      `Hapus Draft PO ${purchaseOrder.po_number}?`
-    );
+  /*
+   * ========================================================
+   * FORM OPEN
+   * ========================================================
+   */
 
-    if (!confirmed) {
-      return;
-    }
+  const openCreateForm =
+    () => {
 
-    const result = await deletePurchaseOrderDraft(purchaseOrder.id);
+      setEditingPurchaseOrder(
+        null
+      );
 
-    if (result?.success) {
-      window.alert(`Draft PO ${result.po_number} berhasil dihapus.`);
-    }
-  };
+      setFormData(
+        createInitialForm()
+      );
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
+      setShowForm(true);
+    };
 
-    if (!formData.supplier_id) {
-      window.alert("Supplier wajib dipilih.");
-      return;
-    }
 
-    if (!formData.store_id) {
-      window.alert("Store/Gudang tujuan wajib dipilih.");
-      return;
-    }
+  const cancelCreateForm =
+    () => {
 
-    if (formData.details.length === 0) {
-      window.alert("Purchase Order minimal memiliki satu item.");
-      return;
-    }
+      setEditingPurchaseOrder(
+        null
+      );
 
-    for (let index = 0; index < formData.details.length; index += 1) {
-      const line = formData.details[index];
+      setFormData(
+        createInitialForm()
+      );
 
-      if (!line.item_id) {
-        window.alert(`Item pada baris ${index + 1} wajib dipilih.`);
+      setShowForm(false);
+    };
+
+
+  /*
+   * ========================================================
+   * SUPPLIER
+   * ========================================================
+   */
+
+  const handleSupplierChange =
+    (
+      supplierId: string
+    ) => {
+
+      const supplier =
+        suppliers.find(
+          (row) =>
+            row.id ===
+            supplierId
+        );
+
+
+      setFormData(
+        (previous) => ({
+          ...previous,
+
+          supplier_id:
+            supplierId,
+
+          payment_term_days:
+            supplier
+              ?.default_payment_term_days ??
+            0,
+        })
+      );
+    };
+
+
+  /*
+   * ========================================================
+   * DETAIL LINE
+   * ========================================================
+   */
+
+  const addLine =
+    () => {
+
+      setFormData(
+        (previous) => ({
+          ...previous,
+
+          details: [
+            ...previous.details,
+            createEmptyLine(),
+          ],
+        })
+      );
+    };
+
+
+  const removeLine =
+    (
+      index: number
+    ) => {
+
+      setFormData(
+        (previous) => ({
+          ...previous,
+
+          details:
+            previous.details.filter(
+              (
+                _,
+                lineIndex
+              ) =>
+                lineIndex !==
+                index
+            ),
+        })
+      );
+    };
+
+
+  const updateLine =
+    (
+      index: number,
+      field:
+        keyof PurchaseOrderLineForm,
+      value:
+        | string
+        | number
+    ) => {
+
+      setFormData(
+        (previous) => ({
+          ...previous,
+
+          details:
+            previous.details.map(
+              (
+                line,
+                lineIndex
+              ) =>
+                lineIndex ===
+                index
+                  ? {
+                      ...line,
+                      [field]:
+                        value,
+                    }
+                  : line
+            ),
+        })
+      );
+    };
+
+
+  /*
+   * ========================================================
+   * ITEM CHANGE
+   * ========================================================
+   */
+
+  const handleItemChange =
+    (
+      index: number,
+      itemId: string
+    ) => {
+
+      const item =
+        items.find(
+          (row) =>
+            row.id ===
+            itemId
+        );
+
+
+      setFormData(
+        (previous) => ({
+          ...previous,
+
+          details:
+            previous.details.map(
+              (
+                line,
+                lineIndex
+              ) =>
+                lineIndex ===
+                index
+                  ? {
+                      ...line,
+
+                      item_id:
+                        itemId,
+
+                      unit_price:
+                        Number(
+                          item?.standard_cost ||
+                            0
+                        ),
+                    }
+                  : line
+            ),
+        })
+      );
+    };
+
+
+  /*
+   * ========================================================
+   * EDIT DRAFT
+   * ========================================================
+   */
+
+  const handleEditDraft =
+    async (
+      purchaseOrder: PurchaseOrder
+    ) => {
+
+      const details =
+        await fetchPurchaseOrderDetails(
+          purchaseOrder.id
+        );
+
+
+      if (!details) {
         return;
       }
 
-      if (Number(line.quantity_ordered) <= 0) {
-        window.alert(`Kuantitas pada baris ${index + 1} harus lebih dari nol.`);
+
+      setEditingPurchaseOrder(
+        purchaseOrder
+      );
+
+
+      setFormData({
+        entity_id:
+          purchaseOrder.entity_id,
+
+        order_date:
+          purchaseOrder.order_date,
+
+        expected_delivery_date:
+          purchaseOrder.expected_delivery_date ??
+          "",
+
+        supplier_id:
+          purchaseOrder.supplier_id,
+
+        store_id:
+          purchaseOrder.store_id ??
+          "",
+
+        payment_term_days:
+          Number(
+            purchaseOrder.payment_term_days ||
+              0
+          ),
+
+        notes:
+          purchaseOrder.notes ??
+          "",
+
+        details,
+      });
+
+
+      setShowForm(true);
+
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    };
+
+
+  /*
+   * ========================================================
+   * DELETE DRAFT
+   * ========================================================
+   */
+
+  const handleDeleteDraft =
+    async (
+      purchaseOrder: PurchaseOrder
+    ) => {
+
+      const confirmed =
+        window.confirm(
+          `Hapus Draft PO ${purchaseOrder.po_number}?`
+        );
+
+
+      if (!confirmed) {
         return;
       }
+
+
+      const result =
+        await deletePurchaseOrderDraft(
+          purchaseOrder.id
+        );
+
+
+      if (result?.success) {
+
+        window.alert(
+          `Draft PO ${result.po_number} berhasil dihapus.`
+        );
+      }
+    };
+
+
+  /*
+   * ========================================================
+   * SUBMIT
+   * ========================================================
+   */
+
+  const handleSubmit =
+    async (
+      event: React.FormEvent
+    ) => {
+
+      event.preventDefault();
+
 
       if (
-        Number(line.unit_price) < 0 ||
-        Number(line.discount_amount) < 0 ||
-        Number(line.tax_amount) < 0
+        !formData.supplier_id
       ) {
+
         window.alert(
-          `Harga, diskon, dan pajak pada baris ${index + 1} tidak boleh negatif.`
+          "Supplier wajib dipilih."
         );
+
         return;
       }
-    }
 
-    const result = editingPurchaseOrder
-      ? await updatePurchaseOrderDraft(editingPurchaseOrder.id, formData)
-      : await createPurchaseOrder(formData);
 
-    if (result?.success) {
-      window.alert(
+      if (
+        !formData.store_id
+      ) {
+
+        window.alert(
+          "Store/Gudang tujuan wajib dipilih."
+        );
+
+        return;
+      }
+
+
+      if (
+        formData.details.length ===
+        0
+      ) {
+
+        window.alert(
+          "Purchase Order minimal memiliki satu item."
+        );
+
+        return;
+      }
+
+
+      for (
+        let index = 0;
+        index <
+        formData.details.length;
+        index += 1
+      ) {
+
+        const line =
+          formData.details[
+            index
+          ];
+
+
+        if (!line.item_id) {
+
+          window.alert(
+            `Item pada baris ${
+              index + 1
+            } wajib dipilih.`
+          );
+
+          return;
+        }
+
+
+        if (
+          Number(
+            line.quantity_ordered
+          ) <= 0
+        ) {
+
+          window.alert(
+            `Kuantitas pada baris ${
+              index + 1
+            } harus lebih dari nol.`
+          );
+
+          return;
+        }
+
+
+        if (
+          Number(
+            line.unit_price
+          ) < 0 ||
+          Number(
+            line.discount_amount
+          ) < 0 ||
+          Number(
+            line.tax_amount
+          ) < 0
+        ) {
+
+          window.alert(
+            `Harga, diskon, dan pajak pada baris ${
+              index + 1
+            } tidak boleh negatif.`
+          );
+
+          return;
+        }
+      }
+
+
+      const result =
         editingPurchaseOrder
-          ? `Draft PO ${result.po_number} berhasil diperbarui.`
-          : `Purchase Order ${result.po_number} berhasil dibuat sebagai Draft.`
+          ? await updatePurchaseOrderDraft(
+              editingPurchaseOrder.id,
+              formData
+            )
+          : await createPurchaseOrder(
+              formData
+            );
+
+
+      if (result?.success) {
+
+        window.alert(
+          editingPurchaseOrder
+            ? `Draft PO ${result.po_number} berhasil diperbarui.`
+            : `Purchase Order ${result.po_number} berhasil dibuat sebagai Draft.`
+        );
+
+
+        cancelCreateForm();
+      }
+    };
+
+
+  /*
+   * ========================================================
+   * OPEN PO
+   * ========================================================
+   */
+
+  const handleOpenPurchaseOrder =
+    async (
+      purchaseOrder: PurchaseOrder
+    ) => {
+
+      const confirmed =
+        window.confirm(
+          `Buka PO ${purchaseOrder.po_number} agar dapat diproses Receiving?`
+        );
+
+
+      if (!confirmed) {
+        return;
+      }
+
+
+      const success =
+        await openPurchaseOrder(
+          purchaseOrder.id
+        );
+
+
+      if (success) {
+
+        window.alert(
+          `PO ${purchaseOrder.po_number} sudah berstatus Open dan siap untuk Receiving.`
+        );
+      }
+    };
+
+
+  /*
+   * ========================================================
+   * CANCEL PO
+   * ========================================================
+   */
+
+  const handleCancelPurchaseOrder =
+    async (
+      purchaseOrder: PurchaseOrder
+    ) => {
+
+      const reason =
+        window.prompt(
+          `Alasan Cancel PO ${purchaseOrder.po_number}:`
+        );
+
+
+      if (!reason?.trim()) {
+        return;
+      }
+
+
+      const result =
+        await cancelPurchaseOrder(
+          purchaseOrder.id,
+          reason.trim()
+        );
+
+
+      if (result?.success) {
+
+        window.alert(
+          `PO ${result.po_number} berhasil dibatalkan.`
+        );
+      }
+    };
+
+
+  /*
+   * ========================================================
+   * CLOSE OUTSTANDING
+   * ========================================================
+   */
+
+  const handleCloseOutstanding =
+    async (
+      purchaseOrder: PurchaseOrder
+    ) => {
+
+      const reason =
+        window.prompt(
+          `Alasan Close Outstanding PO ${purchaseOrder.po_number}:`
+        );
+
+
+      if (!reason?.trim()) {
+        return;
+      }
+
+
+      const result =
+        await closePurchaseOrderOutstanding(
+          purchaseOrder.id,
+          reason.trim()
+        );
+
+
+      if (result?.success) {
+
+        window.alert(
+          `PO ${result.po_number} berhasil ditutup.`
+        );
+      }
+    };
+
+
+  /*
+   * ========================================================
+   * PRINT
+   * ========================================================
+   */
+
+  const handlePrintPurchaseOrder =
+    async (
+      purchaseOrder: PurchaseOrder
+    ) => {
+
+      const details =
+        await fetchPurchaseOrderDetails(
+          purchaseOrder.id
+        );
+
+
+      if (!details) {
+        return;
+      }
+
+
+      printPurchaseOrder(
+        purchaseOrder,
+        details
       );
+    };
 
-      cancelCreateForm();
-    }
-  };
 
-  const handleOpenPurchaseOrder = async (purchaseOrder: PurchaseOrder) => {
-    const confirmed = window.confirm(
-      `Buka PO ${purchaseOrder.po_number} agar dapat diproses Receiving?`
-    );
+  /*
+   * ========================================================
+   * EXPORT
+   *
+   * SEMUA hasil filter server-side.
+   * ========================================================
+   */
 
-    if (!confirmed) return;
+  const handleExportPurchaseOrders =
+    async () => {
 
-    const success = await openPurchaseOrder(purchaseOrder.id);
+      try {
 
-    if (success) {
-      window.alert(
-        `PO ${purchaseOrder.po_number} sudah berstatus Open dan siap untuk Receiving.`
-      );
-    }
-  };
+        if (
+          totalCount ===
+          0
+        ) {
 
-  const handleCancelPurchaseOrder = async (
-    purchaseOrder: PurchaseOrder
-  ) => {
-    const reason = window.prompt(
-      `Alasan Cancel PO ${purchaseOrder.po_number}:`
-    );
+          window.alert(
+            "Tidak ada Purchase Order yang dapat diexport."
+          );
 
-    if (!reason?.trim()) {
-      return;
-    }
+          return;
+        }
 
-    const result = await cancelPurchaseOrder(
-      purchaseOrder.id,
-      reason.trim()
-    );
 
-    if (result?.success) {
-      window.alert(`PO ${result.po_number} berhasil dibatalkan.`);
-    }
-  };
+        const data =
+          await exportPurchaseOrders();
 
-  const handleCloseOutstanding = async (
-    purchaseOrder: PurchaseOrder
-  ) => {
-    const reason = window.prompt(
-      `Alasan Close Outstanding PO ${purchaseOrder.po_number}:`
-    );
 
-    if (!reason?.trim()) {
-      return;
-    }
+        if (
+          data.length ===
+          0
+        ) {
 
-    const result = await closePurchaseOrderOutstanding(
-      purchaseOrder.id,
-      reason.trim()
-    );
+          window.alert(
+            "Tidak ada Purchase Order yang dapat diexport."
+          );
 
-    if (result?.success) {
-      window.alert(`PO ${result.po_number} berhasil ditutup.`);
-    }
-  };
+          return;
+        }
 
-  const handlePrintPurchaseOrder = async (
-    purchaseOrder: PurchaseOrder
-  ) => {
-    const details = await fetchPurchaseOrderDetails(purchaseOrder.id);
 
-    if (!details) {
-      return;
-    }
+        const rows =
+          data.map(
+            (
+              purchaseOrder
+            ) => ({
+              "Nomor PO":
+                purchaseOrder.po_number,
 
-    printPurchaseOrder(purchaseOrder, details);
-  };
+              Tanggal:
+                purchaseOrder.order_date,
 
-  const exportPurchaseOrders = () => {
-    const rows = filteredPurchaseOrders.map((purchaseOrder) => ({
-      "Nomor PO": purchaseOrder.po_number,
-      Tanggal: purchaseOrder.order_date,
-      Supplier: purchaseOrder.supplier_name_snapshot,
-      "Kode Supplier": purchaseOrder.supplier_code_snapshot,
-      Termin: `${purchaseOrder.payment_term_days} hari`,
-      Subtotal: Number(purchaseOrder.subtotal),
-      Diskon: Number(purchaseOrder.discount_amount),
-      Pajak: Number(purchaseOrder.tax_amount),
-      "Grand Total": Number(purchaseOrder.grand_total),
-      Status: statusLabels[purchaseOrder.status],
-      "Store Tujuan": purchaseOrder.store_name ?? "",
-      Catatan: purchaseOrder.notes ?? "",
-    }));
+              Supplier:
+                purchaseOrder.supplier_name_snapshot,
 
-    const worksheet = XLSX.utils.json_to_sheet(rows);
+              "Kode Supplier":
+                purchaseOrder.supplier_code_snapshot,
 
-    worksheet["!cols"] = [
-      { wch: 18 },
-      { wch: 14 },
-      { wch: 30 },
-      { wch: 16 },
-      { wch: 12 },
-      { wch: 18 },
-      { wch: 18 },
-      { wch: 18 },
-      { wch: 18 },
-      { wch: 20 },
-      { wch: 40 },
-    ];
+              Termin:
+                `${purchaseOrder.payment_term_days} hari`,
 
-    const workbook = XLSX.utils.book_new();
+              Subtotal:
+                Number(
+                  purchaseOrder.subtotal
+                ),
 
-    XLSX.utils.book_append_sheet(
-      workbook,
-      worksheet,
-      "Purchase Order"
-    );
+              Diskon:
+                Number(
+                  purchaseOrder.discount_amount
+                ),
 
-    const file = XLSX.write(workbook, {
-      bookType: "xlsx",
-      type: "array",
-    });
+              Pajak:
+                Number(
+                  purchaseOrder.tax_amount
+                ),
 
-    saveAs(
-      new Blob([file], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      }),
-      `Purchase-Order-${todayInputValue()}.xlsx`
-    );
-  };
+              "Grand Total":
+                Number(
+                  purchaseOrder.grand_total
+                ),
+
+              Status:
+                statusLabels[
+                  purchaseOrder.status
+                ],
+
+              "Store Tujuan":
+                purchaseOrder.store_name ??
+                "",
+
+              Catatan:
+                purchaseOrder.notes ??
+                "",
+            })
+          );
+
+
+        const worksheet =
+          XLSX.utils.json_to_sheet(
+            rows
+          );
+
+
+        worksheet["!cols"] = [
+          { wch: 18 },
+          { wch: 14 },
+          { wch: 30 },
+          { wch: 16 },
+          { wch: 12 },
+          { wch: 18 },
+          { wch: 18 },
+          { wch: 18 },
+          { wch: 18 },
+          { wch: 20 },
+          { wch: 40 },
+        ];
+
+
+        const workbook =
+          XLSX.utils.book_new();
+
+
+        XLSX.utils.book_append_sheet(
+          workbook,
+          worksheet,
+          "Purchase Order"
+        );
+
+
+        const file =
+          XLSX.write(
+            workbook,
+            {
+              bookType: "xlsx",
+              type: "array",
+            }
+          );
+
+
+        saveAs(
+          new Blob(
+            [file],
+            {
+              type:
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            }
+          ),
+          `Purchase-Order-${todayInputValue()}.xlsx`
+        );
+
+      } catch (err) {
+
+        window.alert(
+          err instanceof Error
+            ? err.message
+            : "Gagal export Purchase Order."
+        );
+      }
+    };
+
 
   return (
-    <div className="w-full pr-10 space-y-4">
+    <div className="w-full pr-2 space-y-4">
+
+      {/* ==================================================
+          HEADER
+      ================================================== */}
+
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">
             Purchase Order
           </h1>
+
           <p className="mt-1 text-sm text-gray-500">
             Buat pesanan pembelian dari supplier sebelum proses receiving.
           </p>
@@ -875,24 +1921,39 @@ export function PurchaseOrderPage() {
           <input
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm md:w-80"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(
+              event
+            ) =>
+              setSearch(
+                event.target.value
+              )
+            }
             placeholder="Cari nomor PO atau supplier..."
           />
 
           {access.export && (
             <button
               type="button"
-              onClick={exportPurchaseOrders}
-              className="rounded-md border border-green-300 bg-green-50 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-100"
+              onClick={
+                handleExportPurchaseOrders
+              }
+              disabled={
+                loading ||
+                totalCount === 0
+              }
+              className="rounded-md border border-green-300 bg-green-50 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Export Excel
             </button>
           )}
 
+
           {access.create && (
             <button
               type="button"
-              onClick={openCreateForm}
+              onClick={
+                openCreateForm
+              }
               className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
             >
               + Buat PO
@@ -901,11 +1962,20 @@ export function PurchaseOrderPage() {
         </div>
       </div>
 
+
+      {/* ==================================================
+          ERROR
+      ================================================== */}
+
       {error && (
         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       )}
+
+      {/* ==================================================
+          MASTER LOADING
+      ================================================== */}
 
       {loadingMasters && (
         <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
@@ -913,9 +1983,15 @@ export function PurchaseOrderPage() {
         </div>
       )}
 
+
+      {/* ==================================================
+          FORM
+      ================================================== */}
       {showForm && (
         <form
-          onSubmit={handleSubmit}
+          onSubmit={
+            handleSubmit
+          }
           className="space-y-5 rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
         >
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -935,7 +2011,9 @@ export function PurchaseOrderPage() {
 
             <button
               type="button"
-              onClick={cancelCreateForm}
+              onClick={
+                cancelCreateForm
+              }
               className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
             >
               Batal
@@ -947,14 +2025,22 @@ export function PurchaseOrderPage() {
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 Tanggal PO
               </label>
+
               <input
                 type="date"
-                value={formData.order_date}
-                onChange={(event) =>
-                  setFormData((previous) => ({
-                    ...previous,
-                    order_date: event.target.value,
-                  }))
+                value={
+                  formData.order_date
+                }
+                onChange={(
+                  event
+                ) =>
+                  setFormData(
+                    (previous) => ({
+                      ...previous,
+                      order_date:
+                        event.target.value,
+                    })
+                  )
                 }
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
               />
@@ -964,14 +2050,22 @@ export function PurchaseOrderPage() {
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 Estimasi Tanggal Datang
               </label>
+
               <input
                 type="date"
-                value={formData.expected_delivery_date}
-                onChange={(event) =>
-                  setFormData((previous) => ({
-                    ...previous,
-                    expected_delivery_date: event.target.value,
-                  }))
+                value={
+                  formData.expected_delivery_date
+                }
+                onChange={(
+                  event
+                ) =>
+                  setFormData(
+                    (previous) => ({
+                      ...previous,
+                      expected_delivery_date:
+                        event.target.value,
+                    })
+                  )
                 }
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
               />
@@ -981,17 +2075,41 @@ export function PurchaseOrderPage() {
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 Supplier
               </label>
+
               <select
-                value={formData.supplier_id}
-                onChange={(event) => handleSupplierChange(event.target.value)}
+                value={
+                  formData.supplier_id
+                }
+                onChange={(
+                  event
+                ) =>
+                  handleSupplierChange(
+                    event.target.value
+                  )
+                }
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
               >
-                <option value="">Pilih supplier</option>
-                {suppliers.map((supplier) => (
-                  <option key={supplier.id} value={supplier.id}>
-                    {supplier.code} - {supplier.name}
-                  </option>
-                ))}
+                <option value="">
+                  Pilih supplier
+                </option>
+
+                {suppliers.map(
+                  (
+                    supplier
+                  ) => (
+                    <option
+                      key={
+                        supplier.id
+                      }
+                      value={
+                        supplier.id
+                      }
+                    >
+                      {supplier.code} -{" "}
+                      {supplier.name}
+                    </option>
+                  )
+                )}
               </select>
             </div>
 
@@ -1001,22 +2119,43 @@ export function PurchaseOrderPage() {
               </label>
 
               <select
-                value={formData.store_id}
-                onChange={(event) =>
-                  setFormData((previous) => ({
-                    ...previous,
-                    store_id: event.target.value,
-                  }))
+                value={
+                  formData.store_id
+                }
+                onChange={(
+                  event
+                ) =>
+                  setFormData(
+                    (previous) => ({
+                      ...previous,
+                      store_id:
+                        event.target.value,
+                    })
+                  )
                 }
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
               >
-                <option value="">Pilih Store/Gudang Tujuan</option>
+                <option value="">
+                  Pilih Store/Gudang Tujuan
+                </option>
 
-                {stores.map((store) => (
-                  <option key={store.id} value={store.id}>
-                    {store.code} - {store.name}
-                  </option>
-                ))}
+                {stores.map(
+                  (
+                    store
+                  ) => (
+                    <option
+                      key={
+                        store.id
+                      }
+                      value={
+                        store.id
+                      }
+                    >
+                      {store.code} -{" "}
+                      {store.name}
+                    </option>
+                  )
+                )}
               </select>
             </div>
 
@@ -1024,22 +2163,37 @@ export function PurchaseOrderPage() {
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 Termin Pembayaran (hari)
               </label>
+
               <input
                 type="number"
                 min="0"
-                value={formData.payment_term_days}
-                onChange={(event) =>
-                  setFormData((previous) => ({
-                    ...previous,
-                    payment_term_days: Number(event.target.value || 0),
-                  }))
+                value={
+                  formData.payment_term_days
+                }
+                onChange={(
+                  event
+                ) =>
+                  setFormData(
+                    (previous) => ({
+                      ...previous,
+                      payment_term_days:
+                        Number(
+                          event.target.value ||
+                            0
+                        ),
+                    })
+                  )
                 }
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
               />
+
               {selectedSupplier && (
                 <p className="mt-1 text-xs text-gray-500">
                   Default supplier:{" "}
-                  {selectedSupplier.default_payment_term_days} hari.
+                  {
+                    selectedSupplier.default_payment_term_days
+                  }{" "}
+                  hari.
                 </p>
               )}
             </div>
@@ -1048,13 +2202,21 @@ export function PurchaseOrderPage() {
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 Catatan
               </label>
+
               <textarea
-                value={formData.notes}
-                onChange={(event) =>
-                  setFormData((previous) => ({
-                    ...previous,
-                    notes: event.target.value,
-                  }))
+                value={
+                  formData.notes
+                }
+                onChange={(
+                  event
+                ) =>
+                  setFormData(
+                    (previous) => ({
+                      ...previous,
+                      notes:
+                        event.target.value,
+                    })
+                  )
                 }
                 rows={2}
                 placeholder="Catatan Purchase Order (opsional)"
@@ -1063,6 +2225,9 @@ export function PurchaseOrderPage() {
             </div>
           </div>
 
+          {/* ==================================================
+              DETAIL TABLE
+          ================================================== */}
           <div className="overflow-x-auto rounded-lg border border-gray-200">
             <table className="min-w-[1100px] w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
@@ -1070,24 +2235,31 @@ export function PurchaseOrderPage() {
                   <th className="px-3 py-3 text-left font-medium text-gray-600">
                     Item
                   </th>
+
                   <th className="px-3 py-3 text-right font-medium text-gray-600">
                     Qty
                   </th>
+
                   <th className="px-3 py-3 text-left font-medium text-gray-600">
                     Satuan
                   </th>
+
                   <th className="px-3 py-3 text-right font-medium text-gray-600">
                     Harga
                   </th>
+
                   <th className="px-3 py-3 text-right font-medium text-gray-600">
                     Diskon
                   </th>
+
                   <th className="px-3 py-3 text-right font-medium text-gray-600">
                     Pajak
                   </th>
+
                   <th className="px-3 py-3 text-right font-medium text-gray-600">
                     Total
                   </th>
+
                   <th className="px-3 py-3 text-center font-medium text-gray-600">
                     Aksi
                   </th>
@@ -1095,132 +2267,227 @@ export function PurchaseOrderPage() {
               </thead>
 
               <tbody className="divide-y divide-gray-200">
-                {formData.details.map((line, index) => {
-                  const selectedItem = items.find(
-                    (item) => item.id === line.item_id
-                  );
+                {formData.details.map(
+                  (
+                    line,
+                    index
+                  ) => {
 
-                  const lineTotal =
-                    Number(line.quantity_ordered || 0) *
-                      Number(line.unit_price || 0) -
-                    Number(line.discount_amount || 0) +
-                    Number(line.tax_amount || 0);
+                    const selectedItem =
+                      items.find(
+                        (
+                          item
+                        ) =>
+                          item.id ===
+                          line.item_id
+                      );
 
-                  return (
-                    <tr key={index}>
-                      <td className="px-3 py-3">
-                        <select
-                          value={line.item_id}
-                          onChange={(event) =>
-                            handleItemChange(index, event.target.value)
-                          }
-                          className="w-72 rounded-md border border-gray-300 px-2 py-2 text-sm"
-                        >
-                          <option value="">Pilih item</option>
-                          {items.map((item) => (
-                            <option key={item.id} value={item.id}>
-                              {item.code} - {item.name}
+                    const lineTotal =
+                      Number(
+                        line.quantity_ordered ||
+                          0
+                      ) *
+                        Number(
+                          line.unit_price ||
+                            0
+                        ) -
+                      Number(
+                        line.discount_amount ||
+                          0
+                      ) +
+                      Number(
+                        line.tax_amount ||
+                          0
+                      );
+
+                    return (
+                      <tr
+                        key={
+                          index
+                        }
+                      >
+                        <td className="px-3 py-3">
+                          <select
+                            value={
+                              line.item_id
+                            }
+                            onChange={(
+                              event
+                            ) =>
+                              handleItemChange(
+                                index,
+                                event.target.value
+                              )
+                            }
+                            className="w-72 rounded-md border border-gray-300 px-2 py-2 text-sm"
+                          >
+                            <option value="">
+                              Pilih item
                             </option>
-                          ))}
-                        </select>
-                      </td>
 
-                      <td className="px-3 py-3">
-                        <input
-                          type="number"
-                          min="0.0001"
-                          step="0.0001"
-                          value={line.quantity_ordered}
-                          onChange={(event) =>
-                            updateLine(
-                              index,
-                              "quantity_ordered",
-                              Number(event.target.value || 0)
-                            )
+                            {items.map(
+                              (
+                                item
+                              ) => (
+                                <option
+                                  key={
+                                    item.id
+                                  }
+                                  value={
+                                    item.id
+                                  }
+                                >
+                                  {item.code} -{" "}
+                                  {item.name}
+                                </option>
+                              )
+                            )}
+                          </select>
+                        </td>
+
+                        <td className="px-3 py-3">
+                          <input
+                            type="number"
+                            min="0.0001"
+                            step="0.0001"
+                            value={
+                              line.quantity_ordered
+                            }
+                            onChange={(
+                              event
+                            ) =>
+                              updateLine(
+                                index,
+                                "quantity_ordered",
+                                Number(
+                                  event.target.value ||
+                                    0
+                                )
+                              )
+                            }
+                            className="w-24 rounded-md border border-gray-300 px-2 py-2 text-right text-sm"
+                          />
+                        </td>
+
+                        <td className="px-3 py-3 text-gray-700">
+                          {
+                            selectedItem
+                              ?.unit
+                              ?.code ??
+                            "-"
                           }
-                          className="w-24 rounded-md border border-gray-300 px-2 py-2 text-right text-sm"
-                        />
-                      </td>
+                        </td>
 
-                      <td className="px-3 py-3 text-gray-700">
-                        {selectedItem?.unit?.code ?? "-"}
-                      </td>
+                        <td className="px-3 py-3">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={
+                              line.unit_price
+                            }
+                            onChange={(
+                              event
+                            ) =>
+                              updateLine(
+                                index,
+                                "unit_price",
+                                Number(
+                                  event.target.value ||
+                                    0
+                                )
+                              )
+                            }
+                            className="w-32 rounded-md border border-gray-300 px-2 py-2 text-right text-sm"
+                          />
+                        </td>
 
-                      <td className="px-3 py-3">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={line.unit_price}
-                          onChange={(event) =>
-                            updateLine(
-                              index,
-                              "unit_price",
-                              Number(event.target.value || 0)
-                            )
-                          }
-                          className="w-32 rounded-md border border-gray-300 px-2 py-2 text-right text-sm"
-                        />
-                      </td>
+                        <td className="px-3 py-3">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={
+                              line.discount_amount
+                            }
+                            onChange={(
+                              event
+                            ) =>
+                              updateLine(
+                                index,
+                                "discount_amount",
+                                Number(
+                                  event.target.value ||
+                                    0
+                                )
+                              )
+                            }
+                            className="w-28 rounded-md border border-gray-300 px-2 py-2 text-right text-sm"
+                          />
+                        </td>
 
-                      <td className="px-3 py-3">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={line.discount_amount}
-                          onChange={(event) =>
-                            updateLine(
-                              index,
-                              "discount_amount",
-                              Number(event.target.value || 0)
-                            )
-                          }
-                          className="w-28 rounded-md border border-gray-300 px-2 py-2 text-right text-sm"
-                        />
-                      </td>
+                        <td className="px-3 py-3">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={
+                              line.tax_amount
+                            }
+                            onChange={(
+                              event
+                            ) =>
+                              updateLine(
+                                index,
+                                "tax_amount",
+                                Number(
+                                  event.target.value ||
+                                    0
+                                )
+                              )
+                            }
+                            className="w-28 rounded-md border border-gray-300 px-2 py-2 text-right text-sm"
+                          />
+                        </td>
 
-                      <td className="px-3 py-3">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={line.tax_amount}
-                          onChange={(event) =>
-                            updateLine(
-                              index,
-                              "tax_amount",
-                              Number(event.target.value || 0)
-                            )
-                          }
-                          className="w-28 rounded-md border border-gray-300 px-2 py-2 text-right text-sm"
-                        />
-                      </td>
+                        <td className="px-3 py-3 text-right font-medium text-gray-900">
+                          {formatCurrency(
+                            lineTotal
+                          )}
+                        </td>
 
-                      <td className="px-3 py-3 text-right font-medium text-gray-900">
-                        {formatCurrency(lineTotal)}
-                      </td>
+                        <td className="px-3 py-3 text-center">
+                          <button
+                            type="button"
+                            disabled={
+                              formData.details
+                                .length ===
+                              1
+                            }
+                            onClick={() =>
+                              removeLine(
+                                index
+                              )
+                            }
+                            className="text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            Hapus
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  }
+                )}
 
-                      <td className="px-3 py-3 text-center">
-                        <button
-                          type="button"
-                          disabled={formData.details.length === 1}
-                          onClick={() => removeLine(index)}
-                          className="text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          Hapus
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
               </tbody>
             </table>
           </div>
 
           <button
             type="button"
-            onClick={addLine}
+            onClick={
+              addLine
+            }
             className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
           >
             + Tambah Baris Item
@@ -1228,72 +2495,137 @@ export function PurchaseOrderPage() {
 
           <div className="ml-auto w-full rounded-lg bg-gray-50 p-4 md:w-96">
             <div className="flex justify-between text-sm text-gray-600">
-              <span>Subtotal</span>
-              <span>{formatCurrency(formSubtotal)}</span>
+              <span>
+                Subtotal
+              </span>
+
+              <span>
+                {formatCurrency(
+                  formSubtotal
+                )}
+              </span>
             </div>
+
             <div className="mt-2 flex justify-between text-sm text-gray-600">
-              <span>Diskon</span>
-              <span>{formatCurrency(formDiscount)}</span>
+              <span>
+                Diskon
+              </span>
+
+              <span>
+                {formatCurrency(
+                  formDiscount
+                )}
+              </span>
             </div>
+
             <div className="mt-2 flex justify-between text-sm text-gray-600">
-              <span>Pajak</span>
-              <span>{formatCurrency(formTax)}</span>
+              <span>
+                Pajak
+              </span>
+
+              <span>
+                {formatCurrency(
+                  formTax
+                )}
+              </span>
+
             </div>
+
             <div className="mt-3 flex justify-between border-t border-gray-300 pt-3 text-base font-semibold text-gray-900">
-              <span>Total PO</span>
-              <span>{formatCurrency(formGrandTotal)}</span>
+              <span>
+                Total PO
+              </span>
+
+              <span>
+                {formatCurrency(
+                  formGrandTotal
+                )}
+              </span>
             </div>
           </div>
 
           <div className="flex justify-end gap-3">
+
             <button
               type="button"
-              onClick={cancelCreateForm}
+              onClick={
+                cancelCreateForm
+              }
               className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
             >
               Batal
             </button>
 
+
             <button
               type="submit"
-              disabled={saving}
+              disabled={
+                saving
+              }
               className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
+
               {saving
-              ? "Menyimpan..."
-              : editingPurchaseOrder
-                ? "Simpan Perubahan Draft"
-                : "Simpan Draft PO"}
+                ? "Menyimpan..."
+                : editingPurchaseOrder
+                  ? "Simpan Perubahan Draft"
+                  : "Simpan Draft PO"}
+
             </button>
+
           </div>
+
         </form>
       )}
 
+
+      {/* ==================================================
+          PO TABLE
+      ================================================== */}
+
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+
         <div className="border-b border-gray-200 px-5 py-4">
-          <h2 className="font-semibold text-gray-900">Daftar Purchase Order</h2>
+
+          <div className="flex items-center justify-between">
+
+            <h2 className="font-semibold text-gray-900">
+              Daftar Purchase Order
+            </h2>
+
+            <span className="text-xs text-gray-500">
+              Total {formatNumber(
+                totalCount
+              )} PO
+            </span>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 font-medium text-gray-600">
+                <th className="px-4 py-3 font-medium">
                   Nomor PO
                 </th>
-                <th className="px-4 py-3 font-medium text-gray-600">
+
+                <th className="px-4 py-3 font-medium">
                   Tanggal
                 </th>
-                <th className="px-4 py-3 font-medium text-gray-600">
+
+                <th className="px-4 py-3 font-medium">
                   Supplier
                 </th>
-                <th className="px-4 py-3 font-medium text-gray-600">
+
+                <th className="px-4 py-3 font-medium">
                   Total
                 </th>
-                <th className="px-4 py-3 font-medium text-gray-600">
+
+                <th className="px-4 py-3 font-medium">
                   Status
                 </th>
-                <th className="px-4 py-3 font-medium text-gray-600">
+
+                <th className="px-4 py-3 font-medium">
                   Aksi
                 </th>
               </tr>
@@ -1309,137 +2641,221 @@ export function PurchaseOrderPage() {
                     Memuat Purchase Order...
                   </td>
                 </tr>
-              ) : filteredPurchaseOrders.length === 0 ? (
+
+              ) : purchaseOrders.length === 0 ? (
                 <tr>
                   <td
                     colSpan={6}
                     className="px-4 py-8 text-center text-gray-500"
                   >
-                    Belum ada Purchase Order.
+                    {search.trim()
+                      ? "Purchase Order tidak ditemukan untuk pencarian tersebut."
+                      : "Belum ada Purchase Order."}
                   </td>
                 </tr>
               ) : (
-                filteredPurchaseOrders.map((purchaseOrder) => (
-                  <tr key={purchaseOrder.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">
-                      {purchaseOrder.po_number}
-                    </td>
-                    <td className="px-4 py-3 text-gray-700">
-                      {purchaseOrder.order_date}
-                    </td>
-                    <td className="px-4 py-3 text-gray-700">
-                      <div>{purchaseOrder.supplier_name_snapshot}</div>
-                      <div className="mt-1 text-xs text-gray-500">
-                        {purchaseOrder.supplier_code_snapshot}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-700">
-                      {formatCurrency(purchaseOrder.grand_total)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`rounded-full px-2 py-1 text-xs ${statusClasses[purchaseOrder.status]}`}
-                      >
-                        {statusLabels[purchaseOrder.status]}
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right">
-                      {access.print && (
-                        <button
-                          type="button"
-                          disabled={saving}
-                          onClick={() => handlePrintPurchaseOrder(purchaseOrder)}
-                          className="mr-3 text-gray-700 hover:text-gray-900 disabled:opacity-50"
+                purchaseOrders.map(
+                  (
+                    purchaseOrder
+                  ) => (
+
+                    <tr
+                      key={purchaseOrder.id}
+                      className="hover:bg-gray-50"
+                    >
+                      <td className="px-4 py-3 font-medium text-gray-900">
+                        {purchaseOrder.po_number}
+                      </td>
+
+                      <td className="px-4 py-3 text-gray-700">
+                        {purchaseOrder.order_date}
+                      </td>
+
+                      <td className="px-4 py-3 text-gray-700">
+                        <div>
+                          {purchaseOrder.supplier_name_snapshot}
+                        </div>
+
+                        <div className="mt-1 text-xs text-gray-500">
+                          {purchaseOrder.supplier_code_snapshot}
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-3 text-gray-700">
+                        {formatCurrency(
+                          purchaseOrder.grand_total
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <span
+                          className={`rounded-full px-2 py-1 text-xs ${
+                            statusClasses[
+                              purchaseOrder.status
+                            ]
+                          }`}
                         >
-                          Print A4
-                        </button>
-                      )}
+                          {
+                            statusLabels[
+                              purchaseOrder.status
+                            ]
+                          }
+                        </span>
+                      </td>
 
-                      {purchaseOrder.status === "DRAFT" && (
-                        <>
-                          {access.editDraft && (
+                      <td className="whitespace-nowrap px-4 py-3 text-right">
+                        {access.print && (
+                          <button
+                            type="button"
+                            disabled={
+                              saving
+                            }
+                            onClick={() =>
+                              handlePrintPurchaseOrder(
+                                purchaseOrder
+                              )
+                            }
+                            className="mr-3 text-gray-700 hover:text-gray-900 disabled:opacity-50"
+                          >
+                            Print A4
+                          </button>
+                        )}
+
+                        {purchaseOrder.status ===
+                          "DRAFT" && (
+                          <>
+                            {access.editDraft && (
+                              <button
+                                type="button"
+                                disabled={
+                                  saving
+                                }
+                                onClick={() =>
+                                  handleEditDraft(
+                                    purchaseOrder
+                                  )
+                                }
+                                className="mr-3 text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                              >
+                                Edit
+                              </button>
+                            )}
+
+                            {access.open && (
+                              <button
+                                type="button"
+                                disabled={
+                                  saving
+                                }
+                                onClick={() =>
+                                  handleOpenPurchaseOrder(
+                                    purchaseOrder
+                                  )
+                                }
+                                className="mr-3 text-green-600 hover:text-green-800 disabled:opacity-50"
+                              >
+                                Buka PO
+                              </button>
+                            )}
+
+                            {access.deleteDraft && (
+                              <button
+                                type="button"
+                                disabled={
+                                  saving
+                                }
+                                onClick={() =>
+                                  handleDeleteDraft(
+                                    purchaseOrder
+                                  )
+                                }
+                                className="text-red-600 hover:text-red-800 disabled:opacity-50"
+                              >
+                                Hapus
+                              </button>
+                            )}
+                          </>
+                        )}
+
+                        {purchaseOrder.status ===
+                          "OPEN" && (
+                          <>
+                            {access.cancel && (
+                              <button
+                                type="button"
+                                disabled={
+                                  saving
+                                }
+                                onClick={() =>
+                                  handleCancelPurchaseOrder(
+                                    purchaseOrder
+                                  )
+                                }
+                                className="mr-3 text-red-600 hover:text-red-800 disabled:opacity-50"
+                              >
+                                Cancel PO
+                              </button>
+                            )}
+
+                            {access.closeOutstanding && (
+                              <button
+                                type="button"
+                                disabled={
+                                  saving
+                                }
+                                onClick={() =>
+                                  handleCloseOutstanding(
+                                    purchaseOrder
+                                  )
+                                }
+                                className="text-orange-600 hover:text-orange-800 disabled:opacity-50"
+                              >
+                                Close Outstanding
+                              </button>
+                            )}
+                          </>
+                        )}
+
+                        {purchaseOrder.status ===
+                          "PARTIAL_RECEIVED" &&
+                          access.closeOutstanding && (
+
                             <button
                               type="button"
-                              disabled={saving}
-                              onClick={() => handleEditDraft(purchaseOrder)}
-                              className="mr-3 text-blue-600 hover:text-blue-800 disabled:opacity-50"
-                            >
-                              Edit
-                            </button>
-                          )}
-
-                          {access.open && (
-                            <button
-                              type="button"
-                              disabled={saving}
-                              onClick={() => handleOpenPurchaseOrder(purchaseOrder)}
-                              className="mr-3 text-green-600 hover:text-green-800 disabled:opacity-50"
-                            >
-                              Buka PO
-                            </button>
-                          )}
-
-                          {access.deleteDraft && (
-                            <button
-                              type="button"
-                              disabled={saving}
-                              onClick={() => handleDeleteDraft(purchaseOrder)}
-                              className="text-red-600 hover:text-red-800 disabled:opacity-50"
-                            >
-                              Hapus
-                            </button>
-                          )}
-                        </>
-                      )}
-
-                      {purchaseOrder.status === "OPEN" && (
-                        <>
-                          {access.cancel && (
-                            <button
-                              type="button"
-                              disabled={saving}
-                              onClick={() => handleCancelPurchaseOrder(purchaseOrder)}
-                              className="mr-3 text-red-600 hover:text-red-800 disabled:opacity-50"
-                            >
-                              Cancel PO
-                            </button>
-                          )}
-
-                          {access.closeOutstanding && (
-                            <button
-                              type="button"
-                              disabled={saving}
-                              onClick={() => handleCloseOutstanding(purchaseOrder)}
+                              disabled={
+                                saving
+                              }
+                              onClick={() =>
+                                handleCloseOutstanding(
+                                  purchaseOrder
+                                )
+                              }
                               className="text-orange-600 hover:text-orange-800 disabled:opacity-50"
                             >
                               Close Outstanding
                             </button>
                           )}
-                        </>
-                      )}
-
-                      {purchaseOrder.status === "PARTIAL_RECEIVED" &&
-                        access.closeOutstanding && (
-                          <button
-                            type="button"
-                            disabled={saving}
-                            onClick={() => handleCloseOutstanding(purchaseOrder)}
-                            className="text-orange-600 hover:text-orange-800 disabled:opacity-50"
-                          >
-                            Close Outstanding
-                          </button>
-                        )}
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                    </tr>
+                  )
+                )
               )}
             </tbody>
           </table>
         </div>
-      </div>
 
-      <div className="text-xs text-gray-500">
-        Total saat ini: {formatNumber(filteredPurchaseOrders.length)} PO.
+        {/* ==================================================
+            PAGINATION
+        ================================================== */}
+        <div className="border-t border-gray-200">
+          <div className="px-5 pb-4">
+            <Pagination
+              meta={paginationMeta}
+              onPageChange={setPage              }
+              onPageSizeChange={setPageSize}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

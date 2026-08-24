@@ -1,6 +1,14 @@
-import { useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
+
 import { supabase } from "@/lib/supabaseClient";
-import type { PaginationMeta } from "@/lib/pagination/types";
+
+import type {
+  PaginationMeta,
+} from "@/lib/pagination/types";
 
 import type {
   TransferDocument,
@@ -11,518 +19,410 @@ import type {
   StoreOption,
 } from "../../types";
 
-type TransferMovementRow = {
+const DEFAULT_PAGE_SIZE = 25;
+
+type TransferRpcStore = {
+  id: string;
+  code: string;
+  name: string;
+};
+
+type TransferRpcItem = {
+  code: string;
+  name: string;
+  unit_code: string | null;
+  qty: number | string;
+  value: number | string;
+};
+
+type TransferRpcRow = {
   reference: string;
   movement_date: string;
   created_at: string;
   created_by: string | null;
-  movement_type: string;
 
-  quantity_in: number | string | null;
-  quantity_out: number | string | null;
-  movement_value: number | string | null;
-
-  item:
-    | {
-        code: string | null;
-        name: string | null;
-        unit:
-          | { code: string | null }
-          | { code: string | null }[]
-          | null;
-      }
-    | {
-        code: string | null;
-        name: string | null;
-        unit:
-          | { code: string | null }
-          | { code: string | null }[]
-          | null;
-      }[]
+  from_store:
+    | TransferRpcStore
     | null;
 
-  store:
-    | {
-        id: string;
-        code: string;
-        name: string;
-      }
-    | {
-        id: string;
-        code: string;
-        name: string;
-      }[]
+  to_store:
+    | TransferRpcStore
+    | null;
+
+  items:
+    | TransferRpcItem[]
+    | null;
+
+  total_qty:
+    | number
+    | string
+    | null;
+
+  total_value:
+    | number
+    | string
+    | null;
+
+  total_count:
+    | number
+    | string
     | null;
 };
 
-const DEFAULT_PAGE_SIZE = 25;
+function createEmptyPagination(
+  pageSize: number
+): PaginationMeta {
+  return {
+    page: 1,
+    pageSize,
+    total: 0,
+    from: 0,
+    to: 0,
+    totalPages: 0,
+    hasPreviousPage: false,
+    hasNextPage: false,
+  };
+}
+
+function normalizeDocument(
+  row: TransferRpcRow
+): TransferDocument {
+  return {
+    reference:
+      row.reference,
+
+    movement_date:
+      row.movement_date,
+
+    created_at:
+      row.created_at,
+
+    created_by:
+      row.created_by,
+
+    fromStore:
+      row.from_store,
+
+    toStore:
+      row.to_store,
+
+    items:
+      Array.isArray(row.items)
+        ? row.items.map(
+            (item) => ({
+              code:
+                item.code ?? "",
+
+              name:
+                item.name ?? "",
+
+              unit_code:
+                item.unit_code ??
+                null,
+
+              qty: Number(
+                item.qty ?? 0
+              ),
+
+              value: Number(
+                item.value ?? 0
+              ),
+            })
+          )
+        : [],
+
+    totalQty: Number(
+      row.total_qty ?? 0
+    ),
+
+    totalValue: Number(
+      row.total_value ?? 0
+    ),
+  };
+}
 
 export function useTransferList() {
-  const [loading, setLoading] =
-    useState(false);
+  const [
+    loading,
+    setLoading,
+  ] = useState(false);
 
-  const [documents, setDocuments] =
-    useState<TransferDocument[]>([]);
+  const [
+    documents,
+    setDocuments,
+  ] = useState<
+    TransferDocument[]
+  >([]);
 
-  const [stores, setStores] =
-    useState<StoreOption[]>([]);
+  const [
+    stores,
+    setStores,
+  ] = useState<StoreOption[]>(
+    []
+  );
 
-  const [filter, setFilter] =
-    useState<TransferFilter>({
-      dateFrom: "",
-      dateTo: "",
-      fromStoreId: "",
-      toStoreId: "",
-      keyword: "",
-    });
+  const [
+    filter,
+    setFilter,
+  ] = useState<TransferFilter>({
+    dateFrom: "",
+    dateTo: "",
+    fromStoreId: "",
+    toStoreId: "",
+    keyword: "",
+  });
 
-  const [paginationMeta, setPaginationMeta] =
-    useState<PaginationMeta>({
-      page: 1,
-      pageSize: DEFAULT_PAGE_SIZE,
-      total: 0,
-      from: 0,
-      to: 0,
-      totalPages: 0,
-      hasPreviousPage: false,
-      hasNextPage: false,
-    });
+  const [
+    paginationMeta,
+    setPaginationMeta,
+  ] =
+    useState<PaginationMeta>(
+      createEmptyPagination(
+        DEFAULT_PAGE_SIZE
+      )
+    );
 
-  // =========================================================
-  // LOAD STORE
-  // =========================================================
+  /*
+   * =========================================================
+   * LOAD STORE
+   * =========================================================
+   */
 
   useEffect(() => {
-    const loadStores = async () => {
-      const {
-        data,
-        error,
-      } = await supabase
-        .from("stores")
-        .select(
-          "id,code,name"
-        )
-        .order("code");
+    let cancelled = false;
 
-      if (error) {
-        console.error(
-          "Load stores gagal:",
-          error
+    const loadStores =
+      async () => {
+        const {
+          data,
+          error,
+        } = await supabase
+          .from("stores")
+          .select(
+            "id, code, name"
+          )
+          .order("code", {
+            ascending: true,
+          });
+
+        if (cancelled) {
+          return;
+        }
+
+        if (error) {
+          console.error(
+            "Gagal mengambil daftar store:",
+            error
+          );
+
+          return;
+        }
+
+        setStores(
+          (data ??
+            []) as StoreOption[]
         );
-        return;
-      }
-
-      setStores(
-        (data ?? []) as StoreOption[]
-      );
-    };
+      };
 
     void loadStores();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // =========================================================
-  // FETCH MOVEMENTS
-  // =========================================================
+  /*
+   * =========================================================
+   * LOAD TRANSFER DOCUMENT
+   * =========================================================
+   *
+   * Pagination dilakukan oleh RPC di PostgreSQL.
+   *
+   * Yang dipagination:
+   *
+   *     reference / dokumen
+   *
+   * BUKAN:
+   *
+   *     inventory_movements
+   */
 
-  const fetchMovements = async (
-    currentFilter: TransferFilter
-  ): Promise<
-    TransferMovementRow[]
-  > => {
-    let query = supabase
-      .from("inventory_movements")
-      .select(`
-        reference,
-        movement_date,
-        created_at,
-        created_by,
-        movement_type,
-        quantity_in,
-        quantity_out,
-        movement_value,
+  const load = useCallback(
+    async (
+      currentFilter: TransferFilter,
+      requestedPage: number,
+      requestedPageSize: number
+    ) => {
+      setLoading(true);
 
-        item:items(
-          code,
-          name,
-          unit:units(
-            code
-          )
-        ),
+      try {
+        const {
+          data,
+          error,
+        } = await supabase.rpc(
+          "get_transfer_documents",
+          {
+            p_date_from:
+              currentFilter.dateFrom ||
+              null,
 
-        store:stores(
-          id,
-          code,
-          name
-        )
-      `)
-      .eq(
-        "source_table",
-        "inventory_transfers"
-      );
+            p_date_to:
+              currentFilter.dateTo ||
+              null,
 
-    if (
-      currentFilter.dateFrom
-    ) {
-      query = query.gte(
-        "movement_date",
-        currentFilter.dateFrom
-      );
-    }
+            p_from_store_id:
+              currentFilter.fromStoreId ||
+              null,
 
-    if (
-      currentFilter.dateTo
-    ) {
-      query = query.lte(
-        "movement_date",
-        currentFilter.dateTo
-      );
-    }
+            p_to_store_id:
+              currentFilter.toStoreId ||
+              null,
 
-    const {
-      data,
-      error,
-    } = await query.order(
-      "created_at",
-      {
-        ascending: false,
-      }
-    );
+            p_keyword:
+              currentFilter.keyword
+                .trim() || "",
 
-    if (error) {
-      throw error;
-    }
+            p_page:
+              requestedPage,
 
-    return (
-      data ?? []
-    ) as unknown as TransferMovementRow[];
-  };
-
-  // =========================================================
-  // BUILD DOCUMENTS
-  // =========================================================
-
-  const buildDocuments = (
-    data: TransferMovementRow[],
-    currentFilter: TransferFilter
-  ): TransferDocument[] => {
-    const map =
-      new Map<
-        string,
-        TransferDocument
-      >();
-
-    data.forEach((row) => {
-      let doc =
-        map.get(
-          row.reference
+            p_page_size:
+              requestedPageSize,
+          }
         );
 
-      if (!doc) {
-        doc = {
-          reference:
-            row.reference,
+        if (error) {
+          throw error;
+        }
 
-          movement_date:
-            row.movement_date,
+        const rows =
+          (data ??
+            []) as TransferRpcRow[];
 
-          created_at:
-            row.created_at,
-
-          created_by:
-            row.created_by,
-
-          fromStore:
-            null,
-
-          toStore:
-            null,
-
-          items: [],
-
-          totalQty: 0,
-
-          totalValue: 0,
-        };
-
-        map.set(
-          row.reference,
-          doc
-        );
-      }
-
-      const store =
-        Array.isArray(
-          row.store
-        )
-          ? row.store[0]
-          : row.store;
-
-      const item =
-        Array.isArray(
-          row.item
-        )
-          ? row.item[0]
-          : row.item;
-
-      // =====================================================
-      // TRANSFER OUT
-      // =====================================================
-
-      if (
-        row.movement_type ===
-        "TRANSFER_OUT"
-      ) {
-        doc.fromStore =
-          store
-            ? {
-                id: store.id,
-                code:
-                  store.code,
-                name:
-                  store.name,
-              }
-            : null;
-
-        doc.totalQty +=
+        /*
+         * total_count berasal dari RPC.
+         *
+         * Penting:
+         * total_count adalah jumlah DOKUMEN,
+         * bukan jumlah movement.
+         */
+        const total =
           Number(
-            row.quantity_out ??
+            rows[0]?.total_count ??
               0
           );
 
-        doc.totalValue +=
-          Number(
-            row.movement_value ??
-              0
+        const totalPages =
+          total > 0
+            ? Math.ceil(
+                total /
+                  requestedPageSize
+              )
+            : 0;
+
+        /*
+         * Bila halaman aktif sudah tidak valid
+         * karena data terhapus setelah pagination,
+         * kembalikan ke halaman terakhir yang valid.
+         */
+        const safePage =
+          totalPages === 0
+            ? 1
+            : Math.min(
+                Math.max(
+                  requestedPage,
+                  1
+                ),
+                totalPages
+              );
+
+        if (
+          safePage !==
+            requestedPage &&
+          total > 0
+        ) {
+          await load(
+            currentFilter,
+            safePage,
+            requestedPageSize
           );
-      }
 
-      // =====================================================
-      // TRANSFER IN
-      // =====================================================
+          return;
+        }
 
-      if (
-        row.movement_type ===
-        "TRANSFER_IN"
-      ) {
-        doc.toStore =
-          store
-            ? {
-                id: store.id,
-                code:
-                  store.code,
-                name:
-                  store.name,
-              }
-            : null;
-      }
+        const normalized =
+          rows.map(
+            normalizeDocument
+          );
 
-      // =====================================================
-      // ITEM
-      // =====================================================
+        const from =
+          total === 0
+            ? 0
+            : (safePage - 1) *
+              requestedPageSize;
 
-      const unit =
-        Array.isArray(
-          item?.unit
-        )
-          ? item.unit[0]
-          : item?.unit;
+        const to =
+          total === 0
+            ? 0
+            : Math.min(
+                from +
+                  normalized.length -
+                  1,
+                total - 1
+              );
 
-      doc.items.push({
-        code:
-          item?.code ??
-          "",
-
-        name:
-          item?.name ??
-          "",
-
-        unit_code:
-          unit?.code ??
-          null,
-
-        qty:
-          Number(
-            row.quantity_in ??
-              0
-          ) ||
-          Number(
-            row.quantity_out ??
-              0
-          ),
-
-        value:
-          Number(
-            row.movement_value ??
-              0
-          ),
-      });
-    });
-
-    // =======================================================
-    // FILTER STORE + KEYWORD
-    // =======================================================
-
-    const keyword =
-      currentFilter.keyword
-        .trim()
-        .toLowerCase();
-
-    return Array.from(
-      map.values()
-    ).filter((doc) => {
-      if (
-        currentFilter.fromStoreId &&
-        doc.fromStore?.id !==
-          currentFilter.fromStoreId
-      ) {
-        return false;
-      }
-
-      if (
-        currentFilter.toStoreId &&
-        doc.toStore?.id !==
-          currentFilter.toStoreId
-      ) {
-        return false;
-      }
-
-      if (!keyword) {
-        return true;
-      }
-
-      if (
-        doc.reference
-          .toLowerCase()
-          .includes(keyword)
-      ) {
-        return true;
-      }
-
-      return doc.items.some(
-        (item) =>
-          `${item.code} ${item.name}`
-            .toLowerCase()
-            .includes(keyword)
-      );
-    });
-  };
-
-  // =========================================================
-  // LOAD TABLE
-  // =========================================================
-
-  const load = async (
-    currentFilter: TransferFilter,
-    requestedPage: number,
-    requestedPageSize: number
-  ) => {
-    setLoading(true);
-
-    try {
-      const movements =
-        await fetchMovements(
-          currentFilter
+        setDocuments(
+          normalized
         );
 
-      const allDocuments =
-        buildDocuments(
-          movements,
-          currentFilter
-        );
+        setPaginationMeta({
+          page: safePage,
 
-      const total =
-        allDocuments.length;
+          pageSize:
+            requestedPageSize,
 
-      const totalPages =
-        total === 0
-          ? 0
-          : Math.ceil(
-              total /
-                requestedPageSize
-            );
+          total,
 
-      const safePage =
-        totalPages === 0
-          ? 1
-          : Math.min(
-              Math.max(
-                requestedPage,
-                1
-              ),
-              totalPages
-            );
+          from,
 
-      const from =
-        total === 0
-          ? 0
-          : (safePage - 1) *
-            requestedPageSize;
+          to,
 
-      const to =
-        total === 0
-          ? 0
-          : Math.min(
-              from +
-                requestedPageSize -
-                1,
-              total - 1
-            );
-
-      const pageDocuments =
-        total === 0
-          ? []
-          : allDocuments.slice(
-              from,
-              to + 1
-            );
-
-      setDocuments(
-        pageDocuments
-      );
-
-      setPaginationMeta({
-        page: safePage,
-        pageSize:
-          requestedPageSize,
-        total,
-        from,
-        to,
-        totalPages,
-        hasPreviousPage:
-          safePage > 1,
-        hasNextPage:
-          safePage <
           totalPages,
-      });
-    } catch (error) {
-      console.error(
-        "Load transfer gagal:",
-        error
-      );
 
-      setDocuments([]);
+          hasPreviousPage:
+            safePage > 1,
 
-      setPaginationMeta({
-        page: 1,
-        pageSize:
-          requestedPageSize,
-        total: 0,
-        from: 0,
-        to: 0,
-        totalPages: 0,
-        hasPreviousPage:
-          false,
-        hasNextPage:
-          false,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+          hasNextPage:
+            safePage <
+            totalPages,
+        });
+      } catch (error) {
+        console.error(
+          "Gagal mengambil Transfer:",
+          error
+        );
 
-  // =========================================================
-  // FILTER BERUBAH
-  // =========================================================
+        setDocuments([]);
+
+        setPaginationMeta(
+          createEmptyPagination(
+            requestedPageSize
+          )
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  /*
+   * =========================================================
+   * INITIAL LOAD + FILTER
+   * =========================================================
+   *
+   * Setiap perubahan filter otomatis kembali
+   * ke halaman 1.
+   */
 
   useEffect(() => {
     void load(
@@ -530,83 +430,214 @@ export function useTransferList() {
       1,
       paginationMeta.pageSize
     );
-  }, [filter]);
+  }, [
+    filter,
+    load,
+    paginationMeta.pageSize,
+  ]);
 
-  // =========================================================
-  // PAGE CHANGE
-  // =========================================================
+  /*
+   * =========================================================
+   * PAGE CHANGE
+   * =========================================================
+   */
 
-  const goToPage = (
-    nextPage: number
-  ) => {
-    void load(
-      filter,
-      nextPage,
-      paginationMeta.pageSize
+  const goToPage =
+    useCallback(
+      (nextPage: number) => {
+        if (
+          nextPage < 1
+        ) {
+          return;
+        }
+
+        if (
+          paginationMeta.totalPages >
+            0 &&
+          nextPage >
+            paginationMeta.totalPages
+        ) {
+          return;
+        }
+
+        void load(
+          filter,
+          nextPage,
+          paginationMeta.pageSize
+        );
+      },
+      [
+        filter,
+        load,
+        paginationMeta.pageSize,
+        paginationMeta.totalPages,
+      ]
     );
-  };
 
-  // =========================================================
-  // PAGE SIZE CHANGE
-  // =========================================================
+  /*
+   * =========================================================
+   * PAGE SIZE CHANGE
+   * =========================================================
+   */
 
-  const changePageSize = (
-    nextPageSize: number
-  ) => {
-    void load(
-      filter,
-      1,
-      nextPageSize
+  const changePageSize =
+    useCallback(
+      (nextPageSize: number) => {
+        if (
+          nextPageSize <= 0
+        ) {
+          return;
+        }
+
+        void load(
+          filter,
+          1,
+          nextPageSize
+        );
+      },
+      [filter, load]
     );
-  };
 
-  // =========================================================
-  // FETCH SEMUA DATA
-  // KHUSUS EXPORT + PRINT
-  // =========================================================
+  /*
+   * =========================================================
+   * FETCH ALL FILTERED DOCUMENTS
+   * =========================================================
+   *
+   * KHUSUS:
+   * - Export
+   * - Print
+   *
+   * Tidak digunakan untuk tabel.
+   *
+   * Tetap server-side dan mengambil dokumen
+   * per batch.
+   */
 
   const fetchAllFilteredDocuments =
-    async (): Promise<
-      TransferDocument[]
-    > => {
-      const movements =
-        await fetchMovements(
-          filter
-        );
+    useCallback(
+      async (): Promise<
+        TransferDocument[]
+      > => {
+        const batchSize = 500;
 
-      return buildDocuments(
-        movements,
-        filter
-      );
-    };
+        let currentPage = 1;
 
-  // =========================================================
-  // RELOAD
-  // =========================================================
+        const allDocuments: TransferDocument[] =
+          [];
 
-  const reload = () => {
-    void load(
-      filter,
-      paginationMeta.page,
-      paginationMeta.pageSize
+        while (true) {
+          const {
+            data,
+            error,
+          } = await supabase.rpc(
+            "get_transfer_documents",
+            {
+              p_date_from:
+                filter.dateFrom ||
+                null,
+
+              p_date_to:
+                filter.dateTo ||
+                null,
+
+              p_from_store_id:
+                filter.fromStoreId ||
+                null,
+
+              p_to_store_id:
+                filter.toStoreId ||
+                null,
+
+              p_keyword:
+                filter.keyword
+                  .trim() || "",
+
+              p_page:
+                currentPage,
+
+              p_page_size:
+                batchSize,
+            }
+          );
+
+          if (error) {
+            throw error;
+          }
+
+          const rows =
+            (data ??
+              []) as TransferRpcRow[];
+
+          if (
+            rows.length === 0
+          ) {
+            break;
+          }
+
+          allDocuments.push(
+            ...rows.map(
+              normalizeDocument
+            )
+          );
+
+          const total =
+            Number(
+              rows[0]?.total_count ??
+                0
+            );
+
+          if (
+            allDocuments.length >=
+            total
+          ) {
+            break;
+          }
+
+          currentPage += 1;
+        }
+
+        return allDocuments;
+      },
+      [filter]
     );
-  };
 
-  // =========================================================
-  // RETURN
-  // =========================================================
+  /*
+   * =========================================================
+   * RELOAD CURRENT PAGE
+   * =========================================================
+   */
+
+  const reload =
+    useCallback(() => {
+      void load(
+        filter,
+        paginationMeta.page,
+        paginationMeta.pageSize
+      );
+    }, [
+      filter,
+      load,
+      paginationMeta.page,
+      paginationMeta.pageSize,
+    ]);
 
   return {
     loading,
-    documents,
-    stores,
-    filter,
 
+    documents,
+
+    stores,
+
+    filter,
     setFilter,
+
     paginationMeta,
+
     goToPage,
     changePageSize,
+
     fetchAllFilteredDocuments,
+
     reload,
   };
 }

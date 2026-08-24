@@ -297,8 +297,8 @@ export default function Layout() {
       style={{
         display: "flex",
         minHeight: "100vh",
-        backgroundColor: "#f5f9fc",
-        overflowX: "hidden",
+        backgroundColor: "#f6fcf5",
+        overflowX: "auto",
         overflowY: "auto",
       }}
     >
@@ -343,10 +343,12 @@ export default function Layout() {
           paddingTop: isPrintRoute
             ? "0px"
             : "0px",
-          width: "100%",
-          minWidth: 0,
+          width: `calc(100vw - ${sidebarWidth}px)`,
+          minWidth: `calc(100vw - ${sidebarWidth}px)`,
+          marginLeft: `${sidebarWidth}px`,
           transition:
-            "margin-left 0.3s ease",
+            "width 0.3s ease, min-width 0.3s ease, margin-left 0.3s ease",
+          boxSizing: "border-box",
         }}
       >
         {/* ====================================================
@@ -375,6 +377,9 @@ export default function Layout() {
               borderBottom:
                 "1px solid #eddbf3",
 
+              borderTop:
+                "4px solid #d62828",
+
               display: "flex",
               justifyContent:
                 "space-between",
@@ -386,6 +391,8 @@ export default function Layout() {
 
               transition:
                 "left 0.3s ease",
+              boxSizing:
+                "border-box",
             }}
           >
             {/* LEFT */}
@@ -468,7 +475,7 @@ export default function Layout() {
                   minWidth: "170px",
 
                   background: "#ffffff",
-                  color: "#23415f",
+                  color: "#405f23",
 
                   border:
                     "1px solid #dbe7f3",
@@ -543,7 +550,7 @@ export default function Layout() {
           !isDashboard && (
             <div
               style={{
-                marginLeft: `${sidebarWidth}px`,
+                marginLeft: "0px",
                 marginTop: "68px",
 
                 padding:
@@ -554,7 +561,7 @@ export default function Layout() {
                   "space-between",
                 alignItems: "center",
 
-                color: "#23415f",
+                color: "#3c5f23",
 
                 transition:
                   "margin-left 0.3s ease",
@@ -640,9 +647,7 @@ export default function Layout() {
             flex: 1,
 
             marginLeft:
-              isPrintRoute
-                ? "0px"
-                : `${sidebarWidth}px`,
+              "0px",
 
             marginTop:
               isPrintRoute
@@ -679,7 +684,7 @@ export default function Layout() {
               "none",
 
             width: "100%",
-            maxWidth: "100%",
+            maxWidth: "none",
 
             minHeight:
               isDashboard

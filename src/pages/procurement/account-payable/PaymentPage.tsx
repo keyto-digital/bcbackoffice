@@ -106,6 +106,9 @@ export function PaymentPage() {
     createPayment,
     updatePayment,
     deletePayment,
+    fetchPayments,
+    fetchPaymentsForExport,
+    paymentsTotalCount,
   } = useApPayments();
 
   /**
@@ -220,57 +223,47 @@ export function PaymentPage() {
 
   /**
    * ==========================================================
-   * FILTER PAYMENT
+   * SERVER-SIDE PAYMENT LIST
    * ==========================================================
-   *
-   * Karena payment sekarang bisa multi-supplier,
-   * pencarian utama menggunakan:
-   *
-   * - payment number
-   * - reference
-   * - payment request id jika tersedia
    */
 
-  const filteredPayments =
-    useMemo(() => {
-      const keyword = search.trim().toLowerCase();
+  const loadPaymentPage = async (
+    targetPage = page,
+    targetPageSize = pageSize
+  ) => {
+    await fetchPayments(
+      search,
+      dateFrom,
+      dateTo,
+      targetPage,
+      targetPageSize
+    );
+  };
 
-      return payments.filter((payment) => {
-        const paymentDate = payment.payment_date ?? "";
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadPaymentPage(page, pageSize);
+    }, 250);
 
-        if (dateFrom && paymentDate < dateFrom) return false;
-        if (dateTo && paymentDate > dateTo) return false;
-
-        if (!keyword) return true;
-
-        return (
-          (payment.payment_number ?? "").toLowerCase().includes(keyword) ||
-          (payment.reference_number ?? "").toLowerCase().includes(keyword) ||
-          (payment.payment_request_id ?? "").toLowerCase().includes(keyword)
-        );
-      });
-    }, [payments, search, dateFrom, dateTo]);
-
-  const paginatedPayments = useMemo(() => {
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize;
-
-    return filteredPayments.slice(from, to);
-  }, [filteredPayments, page, pageSize]);
+    return () => window.clearTimeout(timer);
+  }, [
+    search,
+    dateFrom,
+    dateTo,
+    page,
+    pageSize,
+    fetchPayments,
+  ]);
 
   const paginationMeta = useMemo(
     () =>
       createPaginationMeta(
         page,
         pageSize,
-        filteredPayments.length
+        paymentsTotalCount
       ),
-    [page, pageSize, filteredPayments.length]
+    [page, pageSize, paymentsTotalCount]
   );
-
-  useEffect(() => {
-    setPage(1);
-  }, [search, dateFrom, dateTo]);
 
   /**
    * ==========================================================
@@ -1039,81 +1032,112 @@ console.log(
    */
 
   const exportExcel = () => {
-    const rows =
-      filteredPayments.map(
-        (row) => ({
-          "No. Payment":
-            row.payment_number ??
-            "",
+    void runExport();
+  };
 
-          "Payment Voucher":
-            paymentRequests.find(
-              (request) => request.id === row.payment_request_id
-            )?.payment_request_number ??
-            "",
-
-          "Metode Pembayaran":
-            settlementMethods.find(
-              (method) => method.id === row.payment_method_id
-            )?.name ??
-            "",
-
-          Tanggal:
-            row.payment_date,
-
-          "No. Referensi":
-            row.reference_number ??
-            "",
-
-          "Total Payment":
-            Number(
-              row.amount || 0
-            ),
-
-          Catatan:
-            row.notes ?? "",
-        })
+  const runExport = async () => {
+    try {
+      const rowsToExport = await fetchPaymentsForExport(
+        search,
+        dateFrom,
+        dateTo
       );
 
-    const ws =
-      XLSX.utils.json_to_sheet(
-        rows
+      const requestIds = [
+        ...new Set(
+          rowsToExport
+            .map((row) => row.payment_request_id)
+            .filter((id): id is string => Boolean(id))
+        ),
+      ];
+
+      const requestMap = new Map<string, string>();
+
+      if (requestIds.length > 0) {
+        const { data, error: requestError } = await supabase
+          .from("ap_payment_requests")
+          .select("id, payment_request_number")
+          .in("id", requestIds);
+
+        if (requestError) throw requestError;
+
+        for (const request of data ?? []) {
+          requestMap.set(
+            request.id,
+            request.payment_request_number ?? ""
+          );
+        }
+      }
+
+      const methodMap = new Map(
+        settlementMethods.map((method) => [method.id, method])
       );
 
-    ws["!cols"] = [
-      { wch: 22 },
-      { wch: 38 },
-      { wch: 15 },
-      { wch: 25 },
-      { wch: 20 },
-      { wch: 40 },
-    ];
+      const rows = rowsToExport.map((row) => {
+        const method = row.payment_method_id
+          ? methodMap.get(row.payment_method_id)
+          : null;
 
-    const wb =
-      XLSX.utils.book_new();
+        return {
+          "No. Payment": row.payment_number ?? "",
+          "Payment Voucher": row.payment_request_id
+            ? requestMap.get(row.payment_request_id) ?? ""
+            : "",
+          "Metode Pembayaran": method
+            ? `${method.code ?? ""}${
+                method.code && method.name ? " — " : ""
+              }${method.name ?? ""}`
+            : "",
+          Tanggal: row.payment_date,
+          "No. Referensi": row.reference_number ?? "",
+          "Total Payment": Number(row.amount || 0),
+          Catatan: row.notes ?? "",
+        };
+      });
 
-    XLSX.utils.book_append_sheet(
-      wb,
-      ws,
-      "AP Payment"
-    );
+      const ws = XLSX.utils.json_to_sheet(rows);
 
-    const file =
-      XLSX.write(wb, {
+      ws["!cols"] = [
+        { wch: 22 },
+        { wch: 38 },
+        { wch: 25 },
+        { wch: 15 },
+        { wch: 20 },
+        { wch: 20 },
+        { wch: 40 },
+      ];
+
+      const wb = XLSX.utils.book_new();
+
+      XLSX.utils.book_append_sheet(
+        wb,
+        ws,
+        "AP Payment"
+      );
+
+      const file = XLSX.write(wb, {
         bookType: "xlsx",
         type: "array",
       });
 
-    saveAs(
-      new Blob([file], {
-        type:
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      }),
-      `AP-Payment${formatReportDateRange(
+      saveAs(
+        new Blob([file], {
+          type:
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }),
+        `AP-Payment${formatReportDateRange(
           dateFrom ? new Date(dateFrom) : null,
           dateTo ? new Date(dateTo) : null
         )}.xlsx`
-    );
+      );
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Gagal export AP Payment.";
+
+      window.alert(message);
+    }
   };
 
   /**
@@ -1123,7 +1147,7 @@ console.log(
    */
 
   return (
-    <div className="w-full pr-10 space-y-4">
+    <div className="w-full pr-2 space-y-4">
 
       {/* =====================================================
           HEADER
@@ -1409,13 +1433,9 @@ console.log(
                 </div>
 
                 <div className="overflow-x-auto">
-
                   <table className="min-w-full text-sm">
-
                     <thead className="bg-gray-50">
-
                       <tr>
-
                         <th className="px-4 py-3 text-left">
                           Supplier
                         </th>
@@ -1796,7 +1816,7 @@ console.log(
             </div>
 
             <div className="text-sm text-gray-500">
-              {filteredPayments.length} pembayaran
+              {paymentsTotalCount} pembayaran
             </div>
 
           </div>
@@ -1808,25 +1828,25 @@ console.log(
           <table className="min-w-[1200px] w-full text-sm">
             <thead className="bg-gray-50">
               <tr className="border-b">
-                <th className="px-4 py-3 text-left">No. Payment</th>
-                <th className="px-4 py-3 text-left">Payment Voucher</th>
-                <th className="px-4 py-3 text-left">Tanggal</th>
-                <th className="px-4 py-3 text-left">Metode Pembayaran</th>
-                <th className="px-4 py-3 text-left">Reference</th>
-                <th className="px-4 py-3 text-right">Total Payment</th>
-                <th className="w-[150px] px-4 py-3 text-center">Aksi</th>
+                <th className="px-4 py-3 font-medium">No. Payment</th>
+                <th className="px-4 py-3 font-medium">Payment Voucher</th>
+                <th className="px-4 py-3 font-medium">Tanggal</th>
+                <th className="px-4 py-3 font-medium">Metode Pembayaran</th>
+                <th className="px-4 py-3 font-medium">Reference</th>
+                <th className="px-4 py-3 font-medium text-right">Total Payment</th>
+                <th className="w-[150px] px-4 py-3 font-medium text-center">Aksi</th>
               </tr>
             </thead>
 
             <tbody className="divide-y">
-              {filteredPayments.length === 0 ? (
+              {payments.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-10 text-center text-gray-500">
                     Tidak ada transaksi AP Payment.
                   </td>
                 </tr>
               ) : (
-                paginatedPayments.map((payment) => {
+                payments.map((payment) => {
                   const request = paymentRequests.find(
                     (item) => item.id === payment.payment_request_id
                   );
@@ -2120,34 +2140,30 @@ console.log(
                 </div>
 
                 <div className="overflow-x-auto">
-
                   <table className="min-w-full text-sm">
-
                     <thead className="bg-gray-50">
-
                       <tr>
-
-                        <th className="px-4 py-3 text-left">
+                        <th className="px-4 py-3 font-medium">
                           Supplier
                         </th>
 
-                        <th className="px-4 py-3 text-left">
+                        <th className="px-4 py-3 font-medium">
                           Invoice
                         </th>
 
-                        <th className="px-4 py-3 text-left">
+                        <th className="px-4 py-3 font-medium">
                           No. RR
                         </th>
 
-                        <th className="px-4 py-3 text-left">
+                        <th className="px-4 py-3 font-medium">
                           Tanggal
                         </th>
 
-                        <th className="px-4 py-3 text-right">
+                        <th className="px-4 py-3 text-right font-medium">
                           Grand Total
                         </th>
 
-                        <th className="px-4 py-3 text-right">
+                        <th className="px-4 py-3 text-right font-medium">
                           Dibayar
                         </th>
 

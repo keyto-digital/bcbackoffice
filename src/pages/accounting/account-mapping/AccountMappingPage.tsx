@@ -21,32 +21,44 @@ export function AccountMappingPage({
     loading,
     saving,
     error,
+
     createMapping,
     updateMapping,
     deleteMapping,
+
     page,
     pageSize,
     total,
     totalPages,
+
     setPage,
+    setPageSize,
+
     search,
     setSearch,
-    setPageSize,
   } = useAccountMapping(entityId);
 
-  const { accounts, loading: loadingAccounts } = useCoa(entityId);
+  const {
+    accounts,
+    loading: loadingAccounts,
+  } = useCoa(entityId);
 
-  const [editingMapping, setEditingMapping] =
-    useState<AccountMappingWithAccount | null>(null);
+  const [
+    editingMapping,
+    setEditingMapping,
+  ] = useState<AccountMappingWithAccount | null>(
+    null
+  );
 
   const handleSubmit = async (
     payload: AccountMappingFormData
   ) => {
     if (editingMapping) {
-      const success = await updateMapping(
-        editingMapping.id,
-        payload
-      );
+      const success =
+        await updateMapping(
+          editingMapping.id,
+          payload
+        );
 
       if (success) {
         setEditingMapping(null);
@@ -61,11 +73,13 @@ export function AccountMappingPage({
   const handleDelete = async (
     mapping: AccountMappingWithAccount
   ) => {
-    const confirmed = window.confirm(
-      `Hapus mapping ${mapping.module_code} - ${
-        mapping.mapping_key ?? mapping.name
-      }?`
-    );
+    const confirmed =
+      window.confirm(
+        `Hapus mapping ${mapping.module_code} - ${
+          mapping.mapping_key ??
+          mapping.name
+        }?`
+      );
 
     if (!confirmed) {
       return;
@@ -75,7 +89,7 @@ export function AccountMappingPage({
   };
 
   return (
-    <div className="w-full pr-10 space-y-4">
+    <div className="w-full pr-2 space-y-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">
@@ -92,7 +106,9 @@ export function AccountMappingPage({
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             value={search}
             onChange={(event) =>
-              setSearch(event.target.value)
+              setSearch(
+                event.target.value
+              )
             }
             placeholder="Cari module, transaksi, akun..."
           />
@@ -119,7 +135,10 @@ export function AccountMappingPage({
         onSubmit={handleSubmit}
         onCancel={
           editingMapping
-            ? () => setEditingMapping(null)
+            ? () =>
+                setEditingMapping(
+                  null
+                )
             : undefined
         }
       />
@@ -140,19 +159,25 @@ export function AccountMappingPage({
           from:
             total === 0
               ? 0
-              : (page - 1) * pageSize,
+              : (page - 1) *
+                  pageSize +
+                1,
           to:
             total === 0
               ? 0
               : Math.min(
-                  page * pageSize - 1,
-                  total - 1
+                  page * pageSize,
+                  total
                 ),
-          hasPreviousPage: page > 1,
-          hasNextPage: page < totalPages,
+          hasPreviousPage:
+            page > 1,
+          hasNextPage:
+            page < totalPages,
         }}
         onPageChange={setPage}
-        onPageSizeChange={setPageSize}
+        onPageSizeChange={
+          setPageSize
+        }
       />
     </div>
   );
