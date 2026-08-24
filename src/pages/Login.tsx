@@ -527,7 +527,7 @@ export default function Login() {
 
             <div className="shop-image-wrap">
               <img
-                src="/shop.png"
+                src="/shop.webp"
                 alt="Butter Club Bakery storefront"
                 className="shop-image"
               />
