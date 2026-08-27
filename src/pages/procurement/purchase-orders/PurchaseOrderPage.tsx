@@ -1,41 +1,15 @@
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-
-import {
-  createPaginationMeta,
-} from "@/lib/pagination/types";
-
-import {
-  usePagination,
-} from "@/lib/pagination/usePagination";
-
+import { useEffect, useMemo, useState } from "react";
+import { createPaginationMeta } from "@/lib/pagination/types";
+import { usePagination } from "@/lib/pagination/usePagination";
 import Pagination from "@/components/common/Pagination";
-
 import { supabase } from "@/lib/supabaseClient";
-
 import * as XLSX from "xlsx";
-
 import { saveAs } from "file-saver";
-
 import { hasAccess } from "@/lib/hasAccess";
-
-import {
-  usePurchaseOrders,
-} from "./hooks/usePurchaseOrders";
-
-import {
-  getCustomUser,
-} from "@/lib/authUser";
-
-import type {
-  PurchaseOrder,
-  PurchaseOrderFormData,
-  PurchaseOrderLineForm,
-  PurchaseOrderStatus,
-} from "./types";
+import { usePurchaseOrders } from "./hooks/usePurchaseOrders";
+import { getCustomUser } from "@/lib/authUser";
+import type { PurchaseOrder, PurchaseOrderFormData, PurchaseOrderLineForm, PurchaseOrderStatus } from "./types";
+import SearchableSelect, { type SearchableSelectOption } from "@/components/common/SearchableSelect";
 
 
 type Store = {
@@ -45,7 +19,6 @@ type Store = {
   entity_id?: string | null;
   is_active?: boolean;
 };
-
 
 const statusLabels:
   Record<
@@ -1347,6 +1320,51 @@ export function PurchaseOrderPage() {
       );
     };
 
+    const itemSelectOptions =
+  useMemo<
+    SearchableSelectOption[]
+  >(
+    () =>
+      items.map(
+        (
+          item
+        ) => {
+
+          const code =
+            (
+              item.code ??
+              ""
+            ).trim();
+
+          const name =
+            (
+              item.name ??
+              ""
+            ).trim();
+
+          return {
+            value:
+              item.id,
+
+            label:
+              code && name
+                ? `${code} - ${name}`
+                : (
+                    name ||
+                    code ||
+                    "-"
+                  ),
+
+            searchText:
+              `${code} ${name}`,
+          };
+        }
+      ),
+    [
+      items,
+    ]
+  );
+
 
   /*
    * ========================================================
@@ -2307,42 +2325,38 @@ export function PurchaseOrderPage() {
                         }
                       >
                         <td className="px-3 py-3">
-                          <select
+                          <SearchableSelect
                             value={
                               line.item_id
                             }
-                            onChange={(
-                              event
-                            ) =>
-                              handleItemChange(
-                                index,
-                                event.target.value
-                              )
-                            }
-                            className="w-72 rounded-md border border-gray-300 px-2 py-2 text-sm"
-                          >
-                            <option value="">
-                              Pilih item
-                            </option>
 
-                            {items.map(
+                            options={
+                              itemSelectOptions
+                            }
+
+                            placeholder={
+                              "Cari kode atau nama artikel..."
+                            }
+
+                            disabled={
+                              loadingMasters ||
+                              saving
+                            }
+
+                            onChange={
                               (
-                                item
-                              ) => (
-                                <option
-                                  key={
-                                    item.id
-                                  }
-                                  value={
-                                    item.id
-                                  }
-                                >
-                                  {item.code} -{" "}
-                                  {item.name}
-                                </option>
-                              )
-                            )}
-                          </select>
+                                itemId
+                              ) =>
+                                handleItemChange(
+                                  index,
+                                  itemId
+                                )
+                            }
+
+                            emptyMessage={
+                              "Artikel tidak ditemukan."
+                            }
+                          />
                         </td>
 
                         <td className="px-3 py-3">
