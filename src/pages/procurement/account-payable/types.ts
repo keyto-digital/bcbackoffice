@@ -1,9 +1,5 @@
 export type ApInvoiceStatus =
-  | "DRAFT"
-  | "OPEN"
-  | "PARTIAL"
-  | "PAID"
-  | "CANCELLED";
+  "DRAFT" | "OPEN" | "PARTIAL" | "PAID" | "CANCELLED";
 
 export type ReceivingOption = {
   id: string;
@@ -86,10 +82,7 @@ export type ApInvoiceListItem = ApInvoice & {
 };
 
 export type ApPaymentRequestStatus =
-  | "DRAFT"
-  | "APPROVED"
-  | "PAID"
-  | "CANCELLED";
+  "DRAFT" | "APPROVED" | "PAID" | "CANCELLED";
 
 export type ApPaymentRequest = {
   id: string;
@@ -119,25 +112,23 @@ export type ApPaymentRequestItem = {
   notes: string | null;
 };
 
-export type ApPaymentRequestItemDetail =
-  ApPaymentRequestItem & {
-    invoice_number: string | null;
-    invoice_date: string | null;
-    due_date: string | null;
-    remaining_amount: number | null;
+export type ApPaymentRequestItemDetail = ApPaymentRequestItem & {
+  invoice_number: string | null;
+  invoice_date: string | null;
+  due_date: string | null;
+  remaining_amount: number | null;
 
-    receiving_number: string | null;
-    receiving_date: string | null;
+  receiving_number: string | null;
+  receiving_date: string | null;
 
-    purchase_order_number: string | null;
+  purchase_order_number: string | null;
 };
 
-export type ApPaymentRequestListItem =
-  ApPaymentRequest & {
-    supplier_code: string | null;
-    supplier_name: string | null;
-    items: ApPaymentRequestItemDetail[];
-  };
+export type ApPaymentRequestListItem = ApPaymentRequest & {
+  supplier_code: string | null;
+  supplier_name: string | null;
+  items: ApPaymentRequestItemDetail[];
+};
 
 export type CreatePaymentRequestResult = {
   success: boolean;
@@ -176,7 +167,6 @@ export type ApInvoiceFormData = {
   due_date: string;
   notes: string;
 };
-
 
 export type ApPayment = {
   id: string;

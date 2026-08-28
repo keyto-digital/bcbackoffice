@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import type {StockRow, TransactionKind, StockOpnameLine, } from "../types";
-import {inputDate, } from "../../utils/date";
+import type { StockRow, TransactionKind, StockOpnameLine } from "../types";
+import { inputDate } from "../../utils/date";
 
 interface UseInventoryTransactionProps {
   stocks: StockRow[];
@@ -14,12 +14,12 @@ export function useInventoryTransaction({
   loadData,
   setError,
 }: UseInventoryTransactionProps) {
-
   // =====================================================
   // FORM STATE
   // =====================================================
 
-  const [transactionKind, setTransactionKind] = useState<TransactionKind | null>(null);
+  const [transactionKind, setTransactionKind] =
+    useState<TransactionKind | null>(null);
   const [transactionStockId, setTransactionStockId] = useState("");
   const [targetStoreId, setTargetStoreId] = useState("");
   const [fromStoreId, setFromStoreId] = useState("");
@@ -42,9 +42,7 @@ export function useInventoryTransaction({
   const [postingTransaction, setPostingTransaction] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
-  const currentUser = JSON.parse(
-    localStorage.getItem("custom_user") || "{}"
-  );
+  const currentUser = JSON.parse(localStorage.getItem("custom_user") || "{}");
 
   const userId = currentUser.id ?? "";
 
@@ -53,21 +51,13 @@ export function useInventoryTransaction({
   // =====================================================
 
   const resetForm = () => {
-    setTransactionStockId(
-      stocks.length
-        ? stocks[0].id
-        : ""
-    );
+    setTransactionStockId(stocks.length ? stocks[0].id : "");
     setTargetStoreId("");
-    setTransactionDate(
-      new Date()
-        .toISOString()
-        .slice(0,10)
-    );
+    setTransactionDate(new Date().toISOString().slice(0, 10));
     setFromStoreId("");
     setToStoreId("");
     setTargetStoreId("");
-    
+
     setTransactionQty("");
     setLines([]);
     setOffsetAccountId("");
@@ -77,26 +67,24 @@ export function useInventoryTransaction({
     setIsOpen(false);
   };
 
-const changeStore = (id:string)=>{
-  setTargetStoreId(id);
-  setLines([]);
-  }
+  const changeStore = (id: string) => {
+    setTargetStoreId(id);
+    setLines([]);
+  };
 
-const handleFromStoreChange = (value: string) => {
+  const handleFromStoreChange = (value: string) => {
     setFromStoreId(value);
 
     setLines([]);
-};
+  };
 
-const handleTargetStoreChange = (value: string) => {
+  const handleTargetStoreChange = (value: string) => {
     setTargetStoreId(value);
 
     setLines([]);
-};
+  };
 
-  const openTransaction = (
-    kind: TransactionKind
-  ) => {
+  const openTransaction = (kind: TransactionKind) => {
     setTransactionKind(kind);
     resetForm();
     setTransactionKind(kind);
@@ -108,15 +96,13 @@ const handleTargetStoreChange = (value: string) => {
   };
 
   const removeLine = (id: string) => {
-    setLines((prev) =>
-      prev.filter((x) => x.id !== id)
-    );
+    setLines((prev) => prev.filter((x) => x.id !== id));
   };
 
   const updateLine = (
     id: string,
     field: keyof StockOpnameLine,
-    value: string
+    value: string,
   ) => {
     setLines((prev) =>
       prev.map((row) =>
@@ -125,8 +111,8 @@ const handleTargetStoreChange = (value: string) => {
               ...row,
               [field]: value,
             }
-          : row
-      )
+          : row,
+      ),
     );
   };
 
@@ -134,23 +120,16 @@ const handleTargetStoreChange = (value: string) => {
   // POST TRANSACTION
   // =====================================================
   const postTransaction = async () => {
-
     if (!transactionKind) {
       return;
     }
 
-    if (
-      transactionKind === "TRANSFER" &&
-      !targetStoreId
-    ) {
+    if (transactionKind === "TRANSFER" && !targetStoreId) {
       window.alert("Pilih store tujuan.");
       return;
     }
 
-    if (
-      transactionKind !== "TRANSFER" &&
-      !offsetAccountId
-    ) {
+    if (transactionKind !== "TRANSFER" && !offsetAccountId) {
       window.alert("Pilih akun.");
       return;
     }
@@ -164,155 +143,95 @@ const handleTargetStoreChange = (value: string) => {
     setError(null);
 
     try {
-
       // ==========================================
       // TRANSFER
       // ==========================================
 
       if (transactionKind === "TRANSFER") {
-
         for (const line of lines) {
-
-          const stockLine =
-            stocks.find(
-              x => x.id === line.stockId
-            );
+          const stockLine = stocks.find((x) => x.id === line.stockId);
 
           if (!stockLine) {
             continue;
           }
 
-          const qtyLine =
-            Number(line.qty);
+          const qtyLine = Number(line.qty);
 
-          if (
-            !Number.isFinite(qtyLine) ||
-            qtyLine <= 0
-          ) {
+          if (!Number.isFinite(qtyLine) || qtyLine <= 0) {
             window.alert("Isi kuantitas dengan benar.");
             return;
           }
 
-          const result =
-            await supabase.rpc(
-              "post_inventory_transfer",
-              {
-                p_entity_id:
-                  stockLine.entity_id,
-                p_transfer_date:
-                  transactionDate,
-                p_item_id:
-                  stockLine.item_id,
-                p_from_store_id:
-                  stockLine.store_id,
-                p_to_store_id:
-                  targetStoreId,
-                p_quantity:
-                  qtyLine,
-                p_reference:
-                  reference || null,
-                p_description:
-                  transactionNotes || null,
-                p_user_id:
-                  userId,
-              }
-            );
+          const result = await supabase.rpc("post_inventory_transfer", {
+            p_entity_id: stockLine.entity_id,
+            p_transfer_date: transactionDate,
+            p_item_id: stockLine.item_id,
+            p_from_store_id: stockLine.store_id,
+            p_to_store_id: targetStoreId,
+            p_quantity: qtyLine,
+            p_reference: reference || null,
+            p_description: transactionNotes || null,
+            p_user_id: userId,
+          });
 
           if (result.error) {
             setError(result.error.message);
             return;
           }
         }
-
       }
 
       // ==========================================
       // ADJUSTMENT
       // ==========================================
-
-      else if (
-        transactionKind === "ADJUSTMENT"
-      ) {
-
+      else if (transactionKind === "ADJUSTMENT") {
         for (const line of lines) {
-
-          const stockLine =
-            stocks.find(
-              x => x.id === line.stockId
-            );
+          const stockLine = stocks.find((x) => x.id === line.stockId);
 
           if (!stockLine) {
             continue;
           }
 
-          const qtyLine =
-            Number(line.qty);
+          const qtyLine = Number(line.qty);
 
-          if (
-            !Number.isFinite(qtyLine)
-          ) {
+          if (!Number.isFinite(qtyLine)) {
             continue;
           }
 
-          const result =
-            await supabase.rpc(
-              "post_inventory_adjustment",
-              {
-                p_entity_id:
-                  stockLine.entity_id,
-                p_adjustment_date:
-                  transactionDate,
-                p_item_id:
-                  stockLine.item_id,
-                p_store_id:
-                  stockLine.store_id,
-                p_actual_quantity:
-                  qtyLine,
-                p_offset_account_id:
-                  line.accountId,
-                p_reference:
-                  reference || null,
-                p_description:
-                  transactionNotes || null,
-                p_is_opname:
-                  false,
-                p_user_id:
-                  userId,
-              }
-            );
+          const result = await supabase.rpc("post_inventory_adjustment", {
+            p_entity_id: stockLine.entity_id,
+            p_adjustment_date: transactionDate,
+            p_item_id: stockLine.item_id,
+            p_store_id: stockLine.store_id,
+            p_actual_quantity: qtyLine,
+            p_offset_account_id: line.accountId,
+            p_reference: reference || null,
+            p_description: transactionNotes || null,
+            p_is_opname: false,
+            p_user_id: userId,
+          });
 
           if (result.error) {
             setError(result.error.message);
             return;
           }
-
         }
-
       }
 
       // ==========================================
       // STOCK OPNAME
       // ==========================================
-
       else {
-
         for (const line of lines) {
-
-          const stockLine =
-            stocks.find(
-              x => x.id === line.stockId
-            );
+          const stockLine = stocks.find((x) => x.id === line.stockId);
 
           if (!stockLine) {
             continue;
           }
 
-          const qtyLine =
-            Number(line.qty);
+          const qtyLine = Number(line.qty);
 
-          if (
-            !Number.isFinite(qtyLine)
-          ) {
+          if (!Number.isFinite(qtyLine)) {
             continue;
           }
 
@@ -320,56 +239,34 @@ const handleTargetStoreChange = (value: string) => {
             continue;
           }
 
-          const result =
-            await supabase.rpc(
-              "post_inventory_adjustment",
-              {
-                p_entity_id:
-                  stockLine.entity_id,
-                p_adjustment_date:
-                  transactionDate,
-                p_item_id:
-                  stockLine.item_id,
-                p_store_id:
-                  stockLine.store_id,
-                p_actual_quantity:
-                  qtyLine,
-                p_offset_account_id:
-                  line.accountId,
-                p_reference:
-                  reference || null,
-                p_description:
-                  transactionNotes || null,
-                p_is_opname:
-                  true,
-                p_user_id:
-                  userId,
-              }
-            );
+          const result = await supabase.rpc("post_inventory_adjustment", {
+            p_entity_id: stockLine.entity_id,
+            p_adjustment_date: transactionDate,
+            p_item_id: stockLine.item_id,
+            p_store_id: stockLine.store_id,
+            p_actual_quantity: qtyLine,
+            p_offset_account_id: line.accountId,
+            p_reference: reference || null,
+            p_description: transactionNotes || null,
+            p_is_opname: true,
+            p_user_id: userId,
+          });
 
           if (result.error) {
             setError(result.error.message);
             return;
           }
-
         }
-
       }
 
       await loadData();
 
       resetForm();
 
-      window.alert(
-        "Transaksi berhasil diposting."
-      );
-
+      window.alert("Transaksi berhasil diposting.");
     } finally {
-
       setPostingTransaction(false);
-
     }
-
   };
 
   // =====================================================
@@ -377,7 +274,6 @@ const handleTargetStoreChange = (value: string) => {
   // =====================================================
 
   return {
-
     isOpen,
 
     transactionKind,
@@ -422,5 +318,4 @@ const handleTargetStoreChange = (value: string) => {
     postTransaction,
     resetForm,
   };
-
 }

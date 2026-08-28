@@ -47,24 +47,20 @@ export function useSuppliers() {
     setSaving(true);
     setError(null);
 
-    const { error: createError } = await supabase
-      .from(TABLE_NAME)
-      .insert({
-        entity_id: entityId,
-        code: payload.code.trim().toUpperCase(),
-        name: payload.name.trim(),
+    const { error: createError } = await supabase.from(TABLE_NAME).insert({
+      entity_id: entityId,
+      code: payload.code.trim().toUpperCase(),
+      name: payload.name.trim(),
 
-        contact_person: payload.contact_person.trim() || null,
-        phone: payload.phone.trim() || null,
-        email: payload.email.trim() || null,
-        address: payload.address.trim() || null,
+      contact_person: payload.contact_person.trim() || null,
+      phone: payload.phone.trim() || null,
+      email: payload.email.trim() || null,
+      address: payload.address.trim() || null,
 
-        default_payment_term_days: Number(
-          payload.default_payment_term_days || 0
-        ),
+      default_payment_term_days: Number(payload.default_payment_term_days || 0),
 
-        is_active: payload.is_active,
-      });
+      is_active: payload.is_active,
+    });
 
     if (createError) {
       setError(createError.message);
@@ -77,10 +73,7 @@ export function useSuppliers() {
     return true;
   };
 
-  const updateSupplier = async (
-    id: string,
-    payload: SupplierFormData
-  ) => {
+  const updateSupplier = async (id: string, payload: SupplierFormData) => {
     setSaving(true);
     setError(null);
 
@@ -97,7 +90,7 @@ export function useSuppliers() {
         address: payload.address.trim() || null,
 
         default_payment_term_days: Number(
-          payload.default_payment_term_days || 0
+          payload.default_payment_term_days || 0,
         ),
 
         is_active: payload.is_active,
@@ -131,7 +124,7 @@ export function useSuppliers() {
         deleteError.message.includes("purchase_orders_supplier_id_fkey")
       ) {
         setError(
-          "Supplier tidak dapat dihapus karena sudah digunakan pada Purchase Order."
+          "Supplier tidak dapat dihapus karena sudah digunakan pada Purchase Order.",
         );
       } else {
         setError(deleteError.message);

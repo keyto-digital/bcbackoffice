@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { FiX } from "react-icons/fi";
 
-
 export interface UangSakuFormData {
   id: number;
   sumber_id: number;
@@ -32,7 +31,9 @@ interface PopupUangSakuDriverProps {
   setFormData: React.Dispatch<React.SetStateAction<UangSakuFormData>>;
   setShowForm: (v: boolean) => void;
   defaultForm: UangSakuFormData;
-  setFormSource: React.Dispatch<React.SetStateAction<"kas_harian" | "uang_saku_driver">>; // ✅
+  setFormSource: React.Dispatch<
+    React.SetStateAction<"kas_harian" | "uang_saku_driver">
+  >; // ✅
   fetchData?: () => Promise<void>;
   sjSearch: string;
   setSjSearch: (v: string) => void;
@@ -60,18 +61,17 @@ const PopupUangSakuDriver = ({
   setHighlightedIndex,
   handleSelectSj,
 }: PopupUangSakuDriverProps) => {
-
   // Format angka ke Rupiah
   const formatRupiah = (num: number) =>
     "Rp " + (num ? num.toLocaleString("id-ID") : "0");
 
   // Auto hitung jumlah setiap kali bbm, uang_makan, atau parkir berubah
   useEffect(() => {
-  setFormData((prev: UangSakuFormData) => ({
-    ...prev,
-    jumlah: (prev.bbm || 0) + (prev.uang_makan || 0) + (prev.parkir || 0),
-  }));
-}, [formData.bbm, formData.uang_makan, formData.parkir]);
+    setFormData((prev: UangSakuFormData) => ({
+      ...prev,
+      jumlah: (prev.bbm || 0) + (prev.uang_makan || 0) + (prev.parkir || 0),
+    }));
+  }, [formData.bbm, formData.uang_makan, formData.parkir]);
 
   // Handle input perubahan
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -103,8 +103,10 @@ const PopupUangSakuDriver = ({
     if (isSubmitting) return false; // ⛔ cegah submit ganda
     setIsSubmitting(true);
 
-    const tanggalValid = typeof formData.tanggal === "string" && formData.tanggal.trim() !== "";
-    const nominalValid = typeof formData.jumlah === "number" && !isNaN(formData.jumlah);
+    const tanggalValid =
+      typeof formData.tanggal === "string" && formData.tanggal.trim() !== "";
+    const nominalValid =
+      typeof formData.jumlah === "number" && !isNaN(formData.jumlah);
 
     if (!tanggalValid || !nominalValid) {
       alert("Tanggal dan Jumlah wajib diisi.");
@@ -193,7 +195,7 @@ const PopupUangSakuDriver = ({
             if (confirmPrint) {
               window.open(
                 `/cetak-uang-saku?no=${formData.no_uang_saku}&autoPrint=true`,
-                "_blank"
+                "_blank",
               );
             }
 
@@ -205,7 +207,9 @@ const PopupUangSakuDriver = ({
         >
           {/* No Uang Saku Driver */}
           <div className="col-span-2">
-            <label className="block mb-1 font-semibold">No Uang Saku Driver</label>
+            <label className="block mb-1 font-semibold">
+              No Uang Saku Driver
+            </label>
             <input
               type="text"
               name="no_uang_saku"
@@ -218,13 +222,17 @@ const PopupUangSakuDriver = ({
 
           {/* Tanggal Uang Saku */}
           <div>
-            <label className="block mb-1 font-semibold">Tanggal Uang Saku</label>
+            <label className="block mb-1 font-semibold">
+              Tanggal Uang Saku
+            </label>
             <input
               type="date"
               name="tanggal"
               value={formData.tanggal || ""}
               onChange={handleChange}
-              onFocus={(e) => (e.target.showPicker ? e.target.showPicker() : null)}
+              onFocus={(e) =>
+                e.target.showPicker ? e.target.showPicker() : null
+              }
               className="w-full border rounded px-3 py-2"
             />
           </div>
@@ -249,23 +257,39 @@ const PopupUangSakuDriver = ({
               onFocus={() => setShowDropdown(true)}
               onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
               onKeyDown={(e) => {
-                const filtered: { id?: number; no_surat_jalan: string }[] = sjList.filter(
-                  (sj) => sj.no_surat_jalan?.toLowerCase().includes(sjSearch.toLowerCase())
-                );
+                const filtered: { id?: number; no_surat_jalan: string }[] =
+                  sjList.filter((sj) =>
+                    sj.no_surat_jalan
+                      ?.toLowerCase()
+                      .includes(sjSearch.toLowerCase()),
+                  );
 
                 if (e.key === "ArrowDown") {
                   e.preventDefault();
-                  const nextIndex = highlightedIndex < filtered.length - 1 ? highlightedIndex + 1 : 0;
-                    document.getElementById(`sj-item-${nextIndex}`)?.scrollIntoView({ block: "nearest" });
-                    setHighlightedIndex(nextIndex);
+                  const nextIndex =
+                    highlightedIndex < filtered.length - 1
+                      ? highlightedIndex + 1
+                      : 0;
+                  document
+                    .getElementById(`sj-item-${nextIndex}`)
+                    ?.scrollIntoView({ block: "nearest" });
+                  setHighlightedIndex(nextIndex);
                 } else if (e.key === "ArrowUp") {
                   e.preventDefault();
-                  const nextIndex = highlightedIndex > 0 ? highlightedIndex - 1 : filtered.length - 1;
-                    document.getElementById(`sj-item-${nextIndex}`)?.scrollIntoView({ block: "nearest" });
-                    setHighlightedIndex(nextIndex);
+                  const nextIndex =
+                    highlightedIndex > 0
+                      ? highlightedIndex - 1
+                      : filtered.length - 1;
+                  document
+                    .getElementById(`sj-item-${nextIndex}`)
+                    ?.scrollIntoView({ block: "nearest" });
+                  setHighlightedIndex(nextIndex);
                 } else if (e.key === "Enter") {
                   e.preventDefault();
-                  if (highlightedIndex >= 0 && highlightedIndex < filtered.length) {
+                  if (
+                    highlightedIndex >= 0 &&
+                    highlightedIndex < filtered.length
+                  ) {
                     handleSelectSj(filtered[highlightedIndex]);
                   }
                 } else if (e.key === "Escape") {
@@ -281,7 +305,9 @@ const PopupUangSakuDriver = ({
               <ul className="absolute z-50 w-full max-h-60 overflow-auto bg-white border rounded mt-1 shadow-lg">
                 {sjList
                   .filter((sj) =>
-                    sj.no_surat_jalan?.toLowerCase().includes(sjSearch.toLowerCase())
+                    sj.no_surat_jalan
+                      ?.toLowerCase()
+                      .includes(sjSearch.toLowerCase()),
                   )
                   .map((sj, idx) => (
                     <li
@@ -292,14 +318,18 @@ const PopupUangSakuDriver = ({
                         handleSelectSj(sj);
                       }}
                       className={`px-3 py-2 cursor-pointer ${
-                        highlightedIndex === idx ? "bg-blue-100" : "hover:bg-gray-200"
+                        highlightedIndex === idx
+                          ? "bg-blue-100"
+                          : "hover:bg-gray-200"
                       }`}
                     >
                       {sj.no_surat_jalan}
                     </li>
                   ))}
                 {sjList.filter((sj) =>
-                  sj.no_surat_jalan?.toLowerCase().includes(sjSearch.toLowerCase())
+                  sj.no_surat_jalan
+                    ?.toLowerCase()
+                    .includes(sjSearch.toLowerCase()),
                 ).length === 0 && (
                   <li className="px-3 py-2 text-gray-400">Tidak ditemukan</li>
                 )}
@@ -309,7 +339,9 @@ const PopupUangSakuDriver = ({
 
           {/* Tanggal Berangkat & Kembali */}
           <div>
-            <label className="block mb-1 font-semibold">Tanggal Berangkat & Kembali</label>
+            <label className="block mb-1 font-semibold">
+              Tanggal Berangkat & Kembali
+            </label>
             <input
               type="text"
               readOnly
@@ -437,23 +469,23 @@ const PopupUangSakuDriver = ({
 
           {/* Tombol Simpan */}
           <div className="col-span-2 flex justify-end gap-4 mt-4">
-                <button
-                  type="button"
-                  onClick={handleCloseForm}
-                  className="bg-red-400 text-white px-4 py-2 rounded hover:bg-red-500"
-                >
-                  Batal
-                </button>
-                <button
-                type="submit"
-                disabled={isSubmitting}
-                className={`bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 ${
-                  isSubmitting ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-              >
-                Simpan
-              </button>
-              </div>
+            <button
+              type="button"
+              onClick={handleCloseForm}
+              className="bg-red-400 text-white px-4 py-2 rounded hover:bg-red-500"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className={`bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 ${
+                isSubmitting ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+            >
+              Simpan
+            </button>
+          </div>
         </form>
       </div>
     </div>

@@ -32,11 +32,12 @@ async function findMapping(
   moduleCode: string,
   transactionCode: string,
   mappingKey: string,
-  entityId: string | null
+  entityId: string | null,
 ): Promise<AccountMappingRow | null> {
   let query = supabase
     .from("account_mappings")
-    .select(`
+    .select(
+      `
       id,
       module_code,
       transaction_code,
@@ -45,7 +46,8 @@ async function findMapping(
       name,
       entity_id,
       is_active
-    `)
+    `,
+    )
     .eq("module_code", moduleCode)
     .eq("transaction_code", transactionCode)
     .eq("mapping_key", mappingKey)
@@ -59,7 +61,7 @@ async function findMapping(
 
   if (error) {
     throw new Error(
-      `Gagal membaca Account Mapping ${moduleCode} / ${transactionCode} / ${mappingKey}: ${error.message}`
+      `Gagal membaca Account Mapping ${moduleCode} / ${transactionCode} / ${mappingKey}: ${error.message}`,
     );
   }
 
@@ -67,14 +69,9 @@ async function findMapping(
 }
 
 export async function resolveAccountMapping(
-  params: ResolveAccountMappingParams
+  params: ResolveAccountMappingParams,
 ): Promise<ResolvedAccountMapping> {
-  const {
-    moduleCode,
-    transactionCode,
-    mappingKey,
-    entityId = null,
-  } = params;
+  const { moduleCode, transactionCode, mappingKey, entityId = null } = params;
 
   // Prioritas 1: mapping khusus cabang.
   let mapping: AccountMappingRow | null = null;
@@ -85,7 +82,7 @@ export async function resolveAccountMapping(
       moduleCode,
       transactionCode,
       mappingKey,
-      entityId
+      entityId,
     );
 
     if (mapping) {
@@ -95,25 +92,20 @@ export async function resolveAccountMapping(
 
   // Prioritas 2: fallback ke mapping global.
   if (!mapping) {
-    mapping = await findMapping(
-      moduleCode,
-      transactionCode,
-      mappingKey,
-      null
-    );
+    mapping = await findMapping(moduleCode, transactionCode, mappingKey, null);
 
     source = "GLOBAL";
   }
 
   if (!mapping) {
     throw new Error(
-      `Account Mapping belum tersedia: ${moduleCode} / ${transactionCode} / ${mappingKey}.`
+      `Account Mapping belum tersedia: ${moduleCode} / ${transactionCode} / ${mappingKey}.`,
     );
   }
 
   if (!mapping.account_id) {
     throw new Error(
-      `Account Mapping "${mapping.name ?? mapping.id}" belum memiliki akun COA.`
+      `Account Mapping "${mapping.name ?? mapping.id}" belum memiliki akun COA.`,
     );
   }
 

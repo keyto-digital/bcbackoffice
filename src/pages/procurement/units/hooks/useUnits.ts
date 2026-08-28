@@ -37,13 +37,11 @@ export function useUnits() {
     setSaving(true);
     setError(null);
 
-    const { error: createError } = await supabase
-      .from(TABLE_NAME)
-      .insert({
-        code: payload.code.trim().toUpperCase(),
-        name: payload.name.trim(),
-        is_active: payload.is_active,
-      });
+    const { error: createError } = await supabase.from(TABLE_NAME).insert({
+      code: payload.code.trim().toUpperCase(),
+      name: payload.name.trim(),
+      is_active: payload.is_active,
+    });
 
     if (createError) {
       setError(createError.message);

@@ -1,38 +1,21 @@
-import type {
-  Dispatch,
-  SetStateAction,
-} from "react";
+import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  OpnameFilter,
-} from "../types";
+import type { OpnameFilter } from "../types";
 
-import type {
-  StoreOption,
-} from "../../types";
+import type { StoreOption } from "../../types";
 
 interface Props {
   filter: OpnameFilter;
   stores: StoreOption[];
-  onChange: Dispatch<
-    SetStateAction<OpnameFilter>
-  >;
+  onChange: Dispatch<SetStateAction<OpnameFilter>>;
 }
 
-export default function OpnameFilter({
-  filter,
-  stores,
-  onChange,
-}: Props) {
+export default function OpnameFilter({ filter, stores, onChange }: Props) {
   return (
     <div className="rounded-lg border bg-white p-4">
-
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-
         <div>
-          <label className="mb-1 block text-sm font-medium">
-            Tanggal Awal
-          </label>
+          <label className="mb-1 block text-sm font-medium">Tanggal Awal</label>
 
           <input
             type="date"
@@ -66,9 +49,7 @@ export default function OpnameFilter({
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium">
-            Gudang
-          </label>
+          <label className="mb-1 block text-sm font-medium">Gudang</label>
 
           <select
             value={filter.storeId}
@@ -80,15 +61,10 @@ export default function OpnameFilter({
             }
             className="w-full rounded border px-3 py-2"
           >
-            <option value="">
-              Semua Gudang
-            </option>
+            <option value="">Semua Gudang</option>
 
             {stores.map((store) => (
-              <option
-                key={store.id}
-                value={store.id}
-              >
+              <option key={store.id} value={store.id}>
                 {store.code} - {store.name}
               </option>
             ))}
@@ -96,9 +72,7 @@ export default function OpnameFilter({
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium">
-            Pencarian
-          </label>
+          <label className="mb-1 block text-sm font-medium">Pencarian</label>
 
           <input
             type="text"
@@ -113,9 +87,7 @@ export default function OpnameFilter({
             className="w-full rounded border px-3 py-2"
           />
         </div>
-
       </div>
-
     </div>
   );
 }

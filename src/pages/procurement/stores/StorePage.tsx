@@ -72,10 +72,7 @@ export function StorePage({ entityId = null }: StorePageProps) {
     });
   }, [stores, search]);
 
-  const updateField = (
-    field: keyof StoreFormData,
-    value: string | boolean
-  ) => {
+  const updateField = (field: keyof StoreFormData, value: string | boolean) => {
     setFormData((previous) => ({
       ...previous,
       [field]: value,
@@ -89,7 +86,7 @@ export function StorePage({ entityId = null }: StorePageProps) {
       if (!formData.entity_id) {
         window.alert("Entity belum dipilih.");
         return;
-    }
+      }
       window.alert("Kode dan nama store wajib diisi.");
       return;
     }
@@ -114,7 +111,7 @@ export function StorePage({ entityId = null }: StorePageProps) {
 
   const handleDelete = async (store: Store) => {
     const confirmed = window.confirm(
-      `Hapus store ${store.code} - ${store.name}?`
+      `Hapus store ${store.code} - ${store.name}?`,
     );
 
     if (!confirmed) return;
@@ -267,33 +264,19 @@ export function StorePage({ entityId = null }: StorePageProps) {
 
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
         <div className="border-b border-gray-200 px-5 py-4">
-          <h2 className="font-semibold text-gray-900">
-            Daftar Store / Gudang
-          </h2>
+          <h2 className="font-semibold text-gray-900">Daftar Store / Gudang</h2>
         </div>
 
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 font-medium">
-                  Kode
-                </th>
-                <th className="px-4 py-3 font-medium">
-                  Nama Lokasi
-                </th>
-                <th className="px-4 py-3 font-medium">
-                  Tipe
-                </th>
-                <th className="px-4 py-3 font-medium">
-                  Keterangan
-                </th>
-                <th className="px-4 py-3 font-medium">
-                  Status
-                </th>
-                <th className="px-4 py-3 font-medium">
-                  Aksi
-                </th>
+                <th className="px-4 py-3 font-medium">Kode</th>
+                <th className="px-4 py-3 font-medium">Nama Lokasi</th>
+                <th className="px-4 py-3 font-medium">Tipe</th>
+                <th className="px-4 py-3 font-medium">Keterangan</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Aksi</th>
               </tr>
             </thead>
 

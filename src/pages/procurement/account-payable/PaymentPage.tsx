@@ -23,14 +23,9 @@ import type {
 
 function todayInputValue() {
   const now = new Date();
-  const offset =
-    now.getTimezoneOffset() * 60000;
+  const offset = now.getTimezoneOffset() * 60000;
 
-  return new Date(
-    now.getTime() - offset
-  )
-    .toISOString()
-    .slice(0, 10);
+  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
 }
 
 function formatCurrency(value: number) {
@@ -41,9 +36,7 @@ function formatCurrency(value: number) {
   }).format(Number(value || 0));
 }
 
-function formatDate(
-  value: string | null | undefined
-) {
+function formatDate(value: string | null | undefined) {
   if (!value) return "-";
 
   const date = new Date(value);
@@ -52,14 +45,11 @@ function formatDate(
     return value;
   }
 
-  return date.toLocaleDateString(
-    "id-ID",
-    {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }
-  );
+  return date.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 }
 
 /**
@@ -117,13 +107,12 @@ export function PaymentPage() {
    * ==========================================================
    */
 
-  const [access, setAccess] =
-    useState({
-      create: false,
-      edit: false,
-      delete: false,
-      export: false,
-    });
+  const [access, setAccess] = useState({
+    create: false,
+    edit: false,
+    delete: false,
+    export: false,
+  });
 
   /**
    * ==========================================================
@@ -131,8 +120,7 @@ export function PaymentPage() {
    * ==========================================================
    */
 
-  const [search, setSearch] =
-    useState("");
+  const [search, setSearch] = useState("");
 
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -140,47 +128,29 @@ export function PaymentPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
-  const [
-    selectedPaymentRequestId,
-    setSelectedPaymentRequestId,
-  ] = useState("");
+  const [selectedPaymentRequestId, setSelectedPaymentRequestId] = useState("");
 
-  const [
-    formData,
-    setFormData,
-  ] =
-    useState<ApPaymentFormData | null>(
-      null
-    );
+  const [formData, setFormData] = useState<ApPaymentFormData | null>(null);
 
-  const [
-    detailPayment,
-    setDetailPayment,
-  ] =
-    useState<PaymentDetail | null>(
-      null
-    );
+  const [detailPayment, setDetailPayment] = useState<PaymentDetail | null>(
+    null,
+  );
 
-  const [
-    loadingDetail,
-    setLoadingDetail,
-  ] = useState(false);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
-  const [editingPayment, setEditingPayment] =
-    useState<ApPayment | null>(null);
+  const [editingPayment, setEditingPayment] = useState<ApPayment | null>(null);
 
-  const [editForm, setEditForm] =
-    useState<{
-      payment_date: string;
-      payment_method_id: string;
-      reference_number: string;
-      notes: string;
-      allocations: {
-        invoice_id: string;
-        amount: number;
-        deposit_id: string | null;
-      }[];
-    } | null>(null);
+  const [editForm, setEditForm] = useState<{
+    payment_date: string;
+    payment_method_id: string;
+    reference_number: string;
+    notes: string;
+    allocations: {
+      invoice_id: string;
+      amount: number;
+      deposit_id: string | null;
+    }[];
+  } | null>(null);
 
   /**
    * ==========================================================
@@ -190,24 +160,11 @@ export function PaymentPage() {
 
   useEffect(() => {
     async function loadAccess() {
-      const [
-        create,
-        edit,
-        remove,
-        exportExcel,
-      ] = await Promise.all([
-        hasAccess(
-          "ap_payment.create"
-        ),
-        hasAccess(
-          "ap_payment.edit"
-        ),
-        hasAccess(
-          "ap_payment.delete"
-        ),
-        hasAccess(
-          "ap_payment.export"
-        ),
+      const [create, edit, remove, exportExcel] = await Promise.all([
+        hasAccess("ap_payment.create"),
+        hasAccess("ap_payment.edit"),
+        hasAccess("ap_payment.delete"),
+        hasAccess("ap_payment.export"),
       ]);
 
       setAccess({
@@ -229,15 +186,9 @@ export function PaymentPage() {
 
   const loadPaymentPage = async (
     targetPage = page,
-    targetPageSize = pageSize
+    targetPageSize = pageSize,
   ) => {
-    await fetchPayments(
-      search,
-      dateFrom,
-      dateTo,
-      targetPage,
-      targetPageSize
-    );
+    await fetchPayments(search, dateFrom, dateTo, targetPage, targetPageSize);
   };
 
   useEffect(() => {
@@ -246,23 +197,11 @@ export function PaymentPage() {
     }, 250);
 
     return () => window.clearTimeout(timer);
-  }, [
-    search,
-    dateFrom,
-    dateTo,
-    page,
-    pageSize,
-    fetchPayments,
-  ]);
+  }, [search, dateFrom, dateTo, page, pageSize, fetchPayments]);
 
   const paginationMeta = useMemo(
-    () =>
-      createPaginationMeta(
-        page,
-        pageSize,
-        paymentsTotalCount
-      ),
-    [page, pageSize, paymentsTotalCount]
+    () => createPaginationMeta(page, pageSize, paymentsTotalCount),
+    [page, pageSize, paymentsTotalCount],
   );
 
   /**
@@ -271,28 +210,17 @@ export function PaymentPage() {
    * ==========================================================
    */
 
-  const selectedPaymentRequest =
-    useMemo<ApprovedPaymentRequest | null>(
-      () => {
-        if (
-          !selectedPaymentRequestId
-        ) {
-          return null;
-        }
+  const selectedPaymentRequest = useMemo<ApprovedPaymentRequest | null>(() => {
+    if (!selectedPaymentRequestId) {
+      return null;
+    }
 
-        return (
-          approvedPaymentRequests.find(
-            (request) =>
-              request.id ===
-              selectedPaymentRequestId
-          ) ?? null
-        );
-      },
-      [
-        approvedPaymentRequests,
-        selectedPaymentRequestId,
-      ]
+    return (
+      approvedPaymentRequests.find(
+        (request) => request.id === selectedPaymentRequestId,
+      ) ?? null
     );
+  }, [approvedPaymentRequests, selectedPaymentRequestId]);
 
   /**
    * ==========================================================
@@ -300,9 +228,7 @@ export function PaymentPage() {
    * ==========================================================
    */
 
-  const selectedItems =
-    selectedPaymentRequest?.items ??
-    [];
+  const selectedItems = selectedPaymentRequest?.items ?? [];
 
   /**
    * ==========================================================
@@ -310,17 +236,12 @@ export function PaymentPage() {
    * ==========================================================
    */
 
-  const selectedTotal =
-    selectedItems.reduce(
-      (total, item) =>
-        total +
-        Number(
-          item.requested_amount || 0
-        ),
-      0
-    );
+  const selectedTotal = selectedItems.reduce(
+    (total, item) => total + Number(item.requested_amount || 0),
+    0,
+  );
 
-    /**
+  /**
    * ==========================================================
    * PAYMENT METHODS FOR AP PAYMENT
    * ==========================================================
@@ -334,10 +255,9 @@ export function PaymentPage() {
   const paymentSettlementMethods = useMemo(
     () =>
       settlementMethods.filter(
-        (method) =>
-          method.settlement_type !== "DEPOSIT"
+        (method) => method.settlement_type !== "DEPOSIT",
       ),
-    [settlementMethods]
+    [settlementMethods],
   );
 
   /**
@@ -346,27 +266,23 @@ export function PaymentPage() {
    * ==========================================================
    */
 
-  const createInitialForm =
-    (): ApPaymentFormData => ({
-      entity_id:
-        getCustomUser()?.entity_id ??
-        null,
+  const createInitialForm = (): ApPaymentFormData => ({
+    entity_id: getCustomUser()?.entity_id ?? null,
 
-      supplier_id: null,
+    supplier_id: null,
 
-      payment_request_id: null,
+    payment_request_id: null,
 
-      payment_date:
-        todayInputValue(),
+    payment_date: todayInputValue(),
 
-      payment_method_id: "",
+    payment_method_id: "",
 
-      reference_number: "",
+    reference_number: "",
 
-      notes: "",
+    notes: "",
 
-      allocations: [],
-    });
+    allocations: [],
+  });
 
   /**
    * ==========================================================
@@ -377,13 +293,9 @@ export function PaymentPage() {
   const openPaymentForm = () => {
     setDetailPayment(null);
 
-    setSelectedPaymentRequestId(
-      ""
-    );
+    setSelectedPaymentRequestId("");
 
-    setFormData(
-      createInitialForm()
-    );
+    setFormData(createInitialForm());
   };
 
   /**
@@ -393,9 +305,7 @@ export function PaymentPage() {
    */
 
   const cancelPaymentForm = () => {
-    setSelectedPaymentRequestId(
-      ""
-    );
+    setSelectedPaymentRequestId("");
 
     setFormData(null);
   };
@@ -406,32 +316,21 @@ export function PaymentPage() {
    * ==========================================================
    */
 
-  const handlePaymentRequestChange = (
-    paymentRequestId: string
-  ) => {
-    setSelectedPaymentRequestId(
-      paymentRequestId
-    );
+  const handlePaymentRequestChange = (paymentRequestId: string) => {
+    setSelectedPaymentRequestId(paymentRequestId);
 
     if (!paymentRequestId) {
-      setFormData(
-        createInitialForm()
-      );
+      setFormData(createInitialForm());
 
       return;
     }
 
-    const request =
-      approvedPaymentRequests.find(
-        (item) =>
-          item.id ===
-          paymentRequestId
-      );
+    const request = approvedPaymentRequests.find(
+      (item) => item.id === paymentRequestId,
+    );
 
     if (!request) {
-      setFormData(
-        createInitialForm()
-      );
+      setFormData(createInitialForm());
 
       return;
     }
@@ -444,45 +343,28 @@ export function PaymentPage() {
      * --------------------------------------------------------
      */
 
-    const allocations =
-      request.items
-        .filter(
-          (item) =>
-            Boolean(
-              item.ap_invoice_id
-            )
-        )
-        .map(
-          (item) => ({
-            invoice_id:
-              item.ap_invoice_id!,
-            amount:
-              Number(
-                item.requested_amount ||
-                  0
-              ),
-            deposit_id: null,
-          })
-        );
+    const allocations = request.items
+      .filter((item) => Boolean(item.ap_invoice_id))
+      .map((item) => ({
+        invoice_id: item.ap_invoice_id!,
+        amount: Number(item.requested_amount || 0),
+        deposit_id: null,
+      }));
 
     setFormData({
-      entity_id:
-        request.entity_id,
+      entity_id: request.entity_id,
 
       supplier_id: null,
 
-      payment_request_id:
-        request.id,
+      payment_request_id: request.id,
 
-      payment_date:
-        todayInputValue(),
+      payment_date: todayInputValue(),
 
       payment_method_id: "",
 
       reference_number: "",
 
-      notes:
-        request.notes ?? "",
+      notes: request.notes ?? "",
 
       allocations,
     });
@@ -499,32 +381,21 @@ export function PaymentPage() {
       return;
     }
 
-    if (
-      !formData.payment_request_id
-    ) {
-      window.alert(
-        "Payment Voucher wajib dipilih."
-      );
+    if (!formData.payment_request_id) {
+      window.alert("Payment Voucher wajib dipilih.");
 
       return;
     }
 
-    if (
-      !formData.payment_method_id
-    ) {
-      window.alert(
-        "Metode pembayaran wajib dipilih."
-      );
+    if (!formData.payment_method_id) {
+      window.alert("Metode pembayaran wajib dipilih.");
 
       return;
     }
 
-    if (
-      formData.allocations.length ===
-      0
-    ) {
+    if (formData.allocations.length === 0) {
       window.alert(
-        "Payment Voucher tidak memiliki invoice yang dapat dibayar."
+        "Payment Voucher tidak memiliki invoice yang dapat dibayar.",
       );
 
       return;
@@ -535,80 +406,44 @@ export function PaymentPage() {
      * total PV.
      */
 
-    const allocationTotal =
-      formData.allocations.reduce(
-        (total, item) =>
-          total +
-          Number(
-            item.amount || 0
-          ),
-        0
-      );
+    const allocationTotal = formData.allocations.reduce(
+      (total, item) => total + Number(item.amount || 0),
+      0,
+    );
 
-    if (
-      allocationTotal !==
-      selectedTotal
-    ) {
+    if (allocationTotal !== selectedTotal) {
       window.alert(
         `Total allocation ${formatCurrency(
-          allocationTotal
+          allocationTotal,
         )} tidak sama dengan total Payment Voucher ${formatCurrency(
-          selectedTotal
-        )}.`
+          selectedTotal,
+        )}.`,
       );
 
       return;
     }
 
-    console.log(
-  "=== PAYMENT SUBMIT ==="
-);
+    console.log("=== PAYMENT SUBMIT ===");
 
-console.log(
-  "formData:",
-  formData
-);
+    console.log("formData:", formData);
 
-console.log(
-  "payment_request_id:",
-  formData.payment_request_id
-);
+    console.log("payment_request_id:", formData.payment_request_id);
 
-console.log(
-  "payment_date:",
-  formData.payment_date
-);
+    console.log("payment_date:", formData.payment_date);
 
-console.log(
-  "payment_method_id:",
-  formData.payment_method_id
-);
+    console.log("payment_method_id:", formData.payment_method_id);
 
-console.log(
-  "supplier_id:",
-  formData.supplier_id
-);
+    console.log("supplier_id:", formData.supplier_id);
 
-console.log(
-  "allocations:",
-  formData.allocations
-);
+    console.log("allocations:", formData.allocations);
 
-    const result =
-      await createPayment(
-        formData
-      );
+    const result = await createPayment(formData);
 
     if (!result?.success) {
       return;
     }
 
-    window.alert(
-      `Pembayaran ${
-        result.payment_number ??
-        ""
-      } berhasil dibuat.`
-    );
+    window.alert(`Pembayaran ${result.payment_number ?? ""} berhasil dibuat.`);
 
     /**
      * --------------------------------------------------------
@@ -618,9 +453,7 @@ console.log(
 
     setFormData(null);
 
-    setSelectedPaymentRequestId(
-      ""
-    );
+    setSelectedPaymentRequestId("");
 
     /*
      * createPayment() sudah melakukan refresh payment dan
@@ -636,27 +469,20 @@ console.log(
    * ==========================================================
    */
 
-  const loadPaymentDetail =
-    async (
-      payment: ApPayment
-    ) => {
-      setLoadingDetail(true);
-      setDetailPayment(null);
+  const loadPaymentDetail = async (payment: ApPayment) => {
+    setLoadingDetail(true);
+    setDetailPayment(null);
 
-      /**
-       * ------------------------------------------------------
-       * Ambil allocation
-       * ------------------------------------------------------
-       */
+    /**
+     * ------------------------------------------------------
+     * Ambil allocation
+     * ------------------------------------------------------
+     */
 
-      const {
-        data,
-        error: detailError,
-      } = await supabase
-        .from(
-          "ap_payment_allocations"
-        )
-        .select(`
+    const { data, error: detailError } = await supabase
+      .from("ap_payment_allocations")
+      .select(
+        `
           invoice_id,
           amount,
           ap_invoices:invoice_id (
@@ -666,269 +492,156 @@ console.log(
             supplier_id,
             receiving_record_id
           )
-        `)
-        .eq(
-          "payment_id",
-          payment.id
-        );
+        `,
+      )
+      .eq("payment_id", payment.id);
 
-      if (detailError) {
-        window.alert(
-          detailError.message
-        );
+    if (detailError) {
+      window.alert(detailError.message);
+
+      setLoadingDetail(false);
+
+      return;
+    }
+
+    const rows = data ?? [];
+
+    /**
+     * ------------------------------------------------------
+     * Supplier
+     * ------------------------------------------------------
+     */
+
+    const invoiceSupplierIds = rows
+      .map((row) => {
+        const relation = row.ap_invoices;
+
+        const invoice = Array.isArray(relation)
+          ? (relation[0] ?? null)
+          : (relation ?? null);
+
+        return invoice?.supplier_id;
+      })
+      .filter((id): id is string => Boolean(id));
+
+    let supplierData: {
+      id: string;
+      code: string | null;
+      name: string | null;
+    }[] = [];
+
+    if (invoiceSupplierIds.length > 0) {
+      const { data: suppliers, error: supplierError } = await supabase
+        .from("suppliers")
+        .select("id, code, name")
+        .in("id", invoiceSupplierIds);
+
+      if (supplierError) {
+        window.alert(supplierError.message);
 
         setLoadingDetail(false);
 
         return;
       }
 
-      const rows =
-        data ?? [];
+      supplierData = suppliers ?? [];
+    }
 
+    /**
+     * ------------------------------------------------------
+     * Receiving
+     * ------------------------------------------------------
+     */
 
-      /**
-       * ------------------------------------------------------
-       * Supplier
-       * ------------------------------------------------------
-       */
+    const receivingIds = rows
+      .map((row) => {
+        const relation = row.ap_invoices;
 
-      const invoiceSupplierIds =
-        rows
-          .map((row) => {
-            const relation =
-              row.ap_invoices;
+        const invoice = Array.isArray(relation)
+          ? (relation[0] ?? null)
+          : (relation ?? null);
 
-            const invoice =
-              Array.isArray(
-                relation
-              )
-                ? relation[0] ??
-                  null
-                : relation ??
-                  null;
+        return invoice?.receiving_record_id;
+      })
+      .filter((id): id is string => Boolean(id));
 
-            return invoice
-              ?.supplier_id;
-          })
-          .filter(
-            (
-              id
-            ): id is string =>
-              Boolean(id)
-          );
+    let receivingData: {
+      id: string;
+      receiving_number: string | null;
+    }[] = [];
 
-      let supplierData:
-        {
-          id: string;
-          code: string | null;
-          name: string | null;
-        }[] = [];
+    if (receivingIds.length > 0) {
+      const { data: receivings, error: receivingError } = await supabase
+        .from("receiving_records")
+        .select("id, receiving_number")
+        .in("id", receivingIds);
 
-      if (
-        invoiceSupplierIds.length >
-        0
-      ) {
-        const {
-          data: suppliers,
-          error: supplierError,
-        } = await supabase
-          .from("suppliers")
-          .select(
-            "id, code, name"
-          )
-          .in(
-            "id",
-            invoiceSupplierIds
-          );
+      if (receivingError) {
+        window.alert(receivingError.message);
 
-        if (supplierError) {
-          window.alert(
-            supplierError.message
-          );
+        setLoadingDetail(false);
 
-          setLoadingDetail(false);
-
-          return;
-        }
-
-        supplierData =
-          suppliers ?? [];
+        return;
       }
 
-      /**
-       * ------------------------------------------------------
-       * Receiving
-       * ------------------------------------------------------
-       */
+      receivingData = receivings ?? [];
+    }
 
-      const receivingIds =
-        rows
-          .map((row) => {
-            const relation =
-              row.ap_invoices;
+    const supplierMap = new Map(
+      supplierData.map((supplier) => [supplier.id, supplier]),
+    );
 
-            const invoice =
-              Array.isArray(
-                relation
-              )
-                ? relation[0] ??
-                  null
-                : relation ??
-                  null;
+    const receivingMap = new Map(
+      receivingData.map((receiving) => [receiving.id, receiving]),
+    );
 
-            return invoice
-              ?.receiving_record_id;
-          })
-          .filter(
-            (
-              id
-            ): id is string =>
-              Boolean(id)
-          );
+    /**
+     * ------------------------------------------------------
+     * Mapping detail
+     * ------------------------------------------------------
+     */
 
-      let receivingData:
-        {
-          id: string;
-          receiving_number:
-            | string
-            | null;
-        }[] = [];
+    const allocations = rows.map((row) => {
+      const relation = row.ap_invoices;
 
-      if (
-        receivingIds.length >
-        0
-      ) {
-        const {
-          data: receivings,
-          error: receivingError,
-        } = await supabase
-          .from(
-            "receiving_records"
-          )
-          .select(
-            "id, receiving_number"
-          )
-          .in(
-            "id",
-            receivingIds
-          );
+      const invoice = Array.isArray(relation)
+        ? (relation[0] ?? null)
+        : (relation ?? null);
 
-        if (receivingError) {
-          window.alert(
-            receivingError.message
-          );
+      const supplier = invoice?.supplier_id
+        ? supplierMap.get(invoice.supplier_id)
+        : null;
 
-          setLoadingDetail(false);
+      const receiving = invoice?.receiving_record_id
+        ? receivingMap.get(invoice.receiving_record_id)
+        : null;
 
-          return;
-        }
+      return {
+        invoice_id: row.invoice_id,
 
-        receivingData =
-          receivings ?? [];
-      }
+        invoice_number: invoice?.invoice_number ?? "-",
 
-      const supplierMap =
-        new Map(
-          supplierData.map(
-            (supplier) => [
-              supplier.id,
-              supplier,
-            ]
-          )
-        );
+        invoice_date: invoice?.invoice_date ?? "",
 
-      const receivingMap =
-        new Map(
-          receivingData.map(
-            (receiving) => [
-              receiving.id,
-              receiving,
-            ]
-          )
-        );
+        grand_total: Number(invoice?.grand_total ?? 0),
 
-      /**
-       * ------------------------------------------------------
-       * Mapping detail
-       * ------------------------------------------------------
-       */
+        amount: Number(row.amount ?? 0),
 
-      const allocations =
-        rows.map((row) => {
-          const relation =
-            row.ap_invoices;
+        supplier_name: supplier?.name ?? "-",
 
-          const invoice =
-            Array.isArray(
-              relation
-            )
-              ? relation[0] ??
-                null
-              : relation ??
-                null;
+        supplier_code: supplier?.code ?? "",
 
-          const supplier =
-            invoice?.supplier_id
-              ? supplierMap.get(
-                  invoice.supplier_id
-                )
-              : null;
+        receiving_number: receiving?.receiving_number ?? "-",
+      };
+    });
 
-          const receiving =
-            invoice?.receiving_record_id
-              ? receivingMap.get(
-                  invoice.receiving_record_id
-                )
-              : null;
+    setDetailPayment({
+      payment,
+      allocations,
+    });
 
-          return {
-            invoice_id:
-              row.invoice_id,
-
-            invoice_number:
-              invoice
-                ?.invoice_number ??
-              "-",
-
-            invoice_date:
-              invoice
-                ?.invoice_date ??
-              "",
-
-            grand_total:
-              Number(
-                invoice
-                  ?.grand_total ??
-                  0
-              ),
-
-            amount:
-              Number(
-                row.amount ?? 0
-              ),
-
-            supplier_name:
-              supplier?.name ??
-              "-",
-
-            supplier_code:
-              supplier?.code ??
-              "",
-
-            receiving_number:
-              receiving
-                ?.receiving_number ??
-              "-",
-          };
-        });
-
-      setDetailPayment({
-        payment,
-        allocations,
-      });
-
-      setLoadingDetail(false);
-    };
+    setLoadingDetail(false);
+  };
 
   /**
    * ==========================================================
@@ -937,7 +650,6 @@ console.log(
    */
 
   const openEditPayment = async (payment: ApPayment) => {
-
     const { data, error: allocationError } = await supabase
       .from("ap_payment_allocations")
       .select("invoice_id, amount")
@@ -1013,7 +725,7 @@ console.log(
   const handleDeletePayment = async (payment: ApPayment) => {
     const confirmed = window.confirm(
       `Hapus AP Payment ${payment.payment_number ?? ""}?\n\n` +
-        "Transaksi yang sudah terhubung ke jurnal tidak dapat dihapus."
+        "Transaksi yang sudah terhubung ke jurnal tidak dapat dihapus.",
     );
 
     if (!confirmed) return;
@@ -1040,14 +752,14 @@ console.log(
       const rowsToExport = await fetchPaymentsForExport(
         search,
         dateFrom,
-        dateTo
+        dateTo,
       );
 
       const requestIds = [
         ...new Set(
           rowsToExport
             .map((row) => row.payment_request_id)
-            .filter((id): id is string => Boolean(id))
+            .filter((id): id is string => Boolean(id)),
         ),
       ];
 
@@ -1062,15 +774,12 @@ console.log(
         if (requestError) throw requestError;
 
         for (const request of data ?? []) {
-          requestMap.set(
-            request.id,
-            request.payment_request_number ?? ""
-          );
+          requestMap.set(request.id, request.payment_request_number ?? "");
         }
       }
 
       const methodMap = new Map(
-        settlementMethods.map((method) => [method.id, method])
+        settlementMethods.map((method) => [method.id, method]),
       );
 
       const rows = rowsToExport.map((row) => {
@@ -1081,7 +790,7 @@ console.log(
         return {
           "No. Payment": row.payment_number ?? "",
           "Payment Voucher": row.payment_request_id
-            ? requestMap.get(row.payment_request_id) ?? ""
+            ? (requestMap.get(row.payment_request_id) ?? "")
             : "",
           "Metode Pembayaran": method
             ? `${method.code ?? ""}${
@@ -1109,11 +818,7 @@ console.log(
 
       const wb = XLSX.utils.book_new();
 
-      XLSX.utils.book_append_sheet(
-        wb,
-        ws,
-        "AP Payment"
-      );
+      XLSX.utils.book_append_sheet(wb, ws, "AP Payment");
 
       const file = XLSX.write(wb, {
         bookType: "xlsx",
@@ -1122,19 +827,16 @@ console.log(
 
       saveAs(
         new Blob([file], {
-          type:
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         }),
         `AP-Payment${formatReportDateRange(
           dateFrom ? new Date(dateFrom) : null,
-          dateTo ? new Date(dateTo) : null
-        )}.xlsx`
+          dateTo ? new Date(dateTo) : null,
+        )}.xlsx`,
       );
     } catch (err) {
       const message =
-        err instanceof Error
-          ? err.message
-          : "Gagal export AP Payment.";
+        err instanceof Error ? err.message : "Gagal export AP Payment.";
 
       window.alert(message);
     }
@@ -1148,27 +850,20 @@ console.log(
 
   return (
     <div className="w-full pr-2 space-y-4">
-
       {/* =====================================================
           HEADER
           ===================================================== */}
 
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-
         <div>
-          <h1 className="text-xl font-semibold">
-            AP Payment
-          </h1>
+          <h1 className="text-xl font-semibold">AP Payment</h1>
 
           <p className="text-sm text-gray-500">
-            Proses pembayaran
-            berdasarkan Payment Voucher
-            yang telah disetujui.
+            Proses pembayaran berdasarkan Payment Voucher yang telah disetujui.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
-
           <input
             className="w-80 rounded border px-3 py-2 text-sm"
             placeholder="Cari nomor payment / PV / referensi..."
@@ -1187,10 +882,9 @@ console.log(
               setPage(1);
             }}
             onClick={(event) => {
-              const input =
-                event.currentTarget as HTMLInputElement & {
-                  showPicker?: () => void;
-                };
+              const input = event.currentTarget as HTMLInputElement & {
+                showPicker?: () => void;
+              };
 
               input.showPicker?.();
             }}
@@ -1206,10 +900,9 @@ console.log(
               setPage(1);
             }}
             onClick={(event) => {
-              const input =
-                event.currentTarget as HTMLInputElement & {
-                  showPicker?: () => void;
-                };
+              const input = event.currentTarget as HTMLInputElement & {
+                showPicker?: () => void;
+              };
 
               input.showPicker?.();
             }}
@@ -1220,9 +913,7 @@ console.log(
           {access.export && (
             <button
               type="button"
-              onClick={
-                exportExcel
-              }
+              onClick={exportExcel}
               className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white"
             >
               Export Excel
@@ -1232,17 +923,13 @@ console.log(
           {access.create && (
             <button
               type="button"
-              onClick={
-                openPaymentForm
-              }
+              onClick={openPaymentForm}
               className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white"
             >
               + Proses Pembayaran
             </button>
           )}
-
         </div>
-
       </div>
 
       {/* =====================================================
@@ -1261,30 +948,22 @@ console.log(
 
       {formData && (
         <div className="space-y-6 rounded-lg border bg-white p-6 shadow-sm">
-
           <div className="flex items-center justify-between">
-
             <div>
-              <h2 className="text-lg font-semibold">
-                Proses Pembayaran
-              </h2>
+              <h2 className="text-lg font-semibold">Proses Pembayaran</h2>
 
               <p className="text-sm text-gray-500">
-                Pilih Payment Voucher yang
-                sudah disetujui.
+                Pilih Payment Voucher yang sudah disetujui.
               </p>
             </div>
 
             <button
               type="button"
-              onClick={
-                cancelPaymentForm
-              }
+              onClick={cancelPaymentForm}
               className="rounded border px-4 py-2 text-sm"
             >
               Batal
             </button>
-
           </div>
 
           {/* =================================================
@@ -1292,54 +971,27 @@ console.log(
               ================================================= */}
 
           <div className="rounded-lg border bg-gray-50 p-4">
-
             <label className="mb-2 block text-sm font-medium text-gray-700">
               Payment Voucher
             </label>
 
             <select
-              value={
-                selectedPaymentRequestId
-              }
+              value={selectedPaymentRequestId}
               onChange={(event) =>
-                handlePaymentRequestChange(
-                  event.target.value
-                )
+                handlePaymentRequestChange(event.target.value)
               }
-              disabled={
-                saving ||
-                loadingPaymentRequests
-              }
+              disabled={saving || loadingPaymentRequests}
               className="w-full rounded-md border bg-white px-3 py-2 text-sm"
             >
+              <option value="">-- Pilih Payment Voucher --</option>
 
-              <option value="">
-                -- Pilih Payment Voucher --
-              </option>
-
-              {approvedPaymentRequests.map(
-                (request) => (
-                  <option
-                    key={
-                      request.id
-                    }
-                    value={
-                      request.id
-                    }
-                  >
-                    {
-                      request.payment_request_number
-                    }
-                    {" — "}
-                    {formatCurrency(
-                      Number(
-                        request.total_amount
-                      )
-                    )}
-                  </option>
-                )
-              )}
-
+              {approvedPaymentRequests.map((request) => (
+                <option key={request.id} value={request.id}>
+                  {request.payment_request_number}
+                  {" — "}
+                  {formatCurrency(Number(request.total_amount))}
+                </option>
+              ))}
             </select>
 
             {loadingPaymentRequests && (
@@ -1349,14 +1001,11 @@ console.log(
             )}
 
             {!loadingPaymentRequests &&
-              approvedPaymentRequests.length ===
-                0 && (
+              approvedPaymentRequests.length === 0 && (
                 <p className="mt-2 text-xs text-gray-500">
-                  Tidak ada Payment Voucher
-                  yang siap diproses.
+                  Tidak ada Payment Voucher yang siap diproses.
                 </p>
               )}
-
           </div>
 
           {/* =================================================
@@ -1365,37 +1014,27 @@ console.log(
 
           {selectedPaymentRequest && (
             <div className="space-y-5">
-
               <div className="grid grid-cols-2 gap-4 rounded-lg border bg-white p-4 md:grid-cols-4">
-
                 <div>
                   <div className="text-xs text-gray-500">
                     No. Payment Voucher
                   </div>
 
                   <div className="mt-1 font-semibold">
-                    {
-                      selectedPaymentRequest.payment_request_number
-                    }
+                    {selectedPaymentRequest.payment_request_number}
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-xs text-gray-500">
-                    Tanggal Pengajuan
-                  </div>
+                  <div className="text-xs text-gray-500">Tanggal Pengajuan</div>
 
                   <div className="mt-1 font-semibold">
-                    {formatDate(
-                      selectedPaymentRequest.request_date
-                    )}
+                    {formatDate(selectedPaymentRequest.request_date)}
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-xs text-gray-500">
-                    Status
-                  </div>
+                  <div className="text-xs text-gray-500">Status</div>
 
                   <div className="mt-1">
                     <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">
@@ -1405,17 +1044,12 @@ console.log(
                 </div>
 
                 <div>
-                  <div className="text-xs text-gray-500">
-                    Total PV
-                  </div>
+                  <div className="text-xs text-gray-500">Total PV</div>
 
                   <div className="mt-1 text-lg font-bold">
-                    {formatCurrency(
-                      selectedTotal
-                    )}
+                    {formatCurrency(selectedTotal)}
                   </div>
                 </div>
-
               </div>
 
               {/* =================================================
@@ -1423,151 +1057,80 @@ console.log(
                   ================================================= */}
 
               <div className="overflow-hidden rounded-lg border">
-
                 <div className="border-b bg-gray-50 px-4 py-3">
-
                   <h3 className="text-sm font-semibold">
                     Detail Invoice Payment Voucher
                   </h3>
-
                 </div>
 
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-4 py-3 text-left">
-                          Supplier
-                        </th>
+                        <th className="px-4 py-3 text-left">Supplier</th>
 
-                        <th className="px-4 py-3 text-left">
-                          Invoice
-                        </th>
+                        <th className="px-4 py-3 text-left">Invoice</th>
 
-                        <th className="px-4 py-3 text-left">
-                          No. RR
-                        </th>
+                        <th className="px-4 py-3 text-left">No. RR</th>
 
-                        <th className="px-4 py-3 text-left">
-                          Tgl Invoice
-                        </th>
+                        <th className="px-4 py-3 text-left">Tgl Invoice</th>
 
-                        <th className="px-4 py-3 text-left">
-                          Jatuh Tempo
-                        </th>
+                        <th className="px-4 py-3 text-left">Jatuh Tempo</th>
 
-                        <th className="px-4 py-3 text-right">
-                          Nominal
-                        </th>
-
+                        <th className="px-4 py-3 text-right">Nominal</th>
                       </tr>
-
                     </thead>
 
                     <tbody className="divide-y">
+                      {selectedItems.map((item) => (
+                        <tr key={item.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <div className="font-medium">
+                              {item.ap_invoice?.supplier?.name ?? "-"}
+                            </div>
 
-                      {selectedItems.map(
-                        (item) => (
-                          <tr
-                            key={
-                              item.id
-                            }
-                            className="hover:bg-gray-50"
-                          >
+                            <div className="text-xs text-gray-500">
+                              {item.ap_invoice?.supplier?.code ?? ""}
+                            </div>
+                          </td>
 
-                            <td className="px-4 py-3">
+                          <td className="px-4 py-3 font-medium">
+                            {item.ap_invoice?.invoice_number ?? "-"}
+                          </td>
 
-                              <div className="font-medium">
-                                {
-                                  item
-                                    .ap_invoice
-                                    ?.supplier
-                                    ?.name ??
-                                  "-"
-                                }
-                              </div>
+                          <td className="px-4 py-3">
+                            {item.ap_invoice?.receiving_record
+                              ?.receiving_number ?? "-"}
+                          </td>
 
-                              <div className="text-xs text-gray-500">
-                                {
-                                  item
-                                    .ap_invoice
-                                    ?.supplier
-                                    ?.code ??
-                                  ""
-                                }
-                              </div>
+                          <td className="px-4 py-3">
+                            {formatDate(item.ap_invoice?.invoice_date)}
+                          </td>
 
-                            </td>
+                          <td className="px-4 py-3">
+                            {formatDate(item.ap_invoice?.due_date)}
+                          </td>
 
-                            <td className="px-4 py-3 font-medium">
-                              {
-                                item
-                                  .ap_invoice
-                                  ?.invoice_number ??
-                                "-"
-                              }
-                            </td>
+                          <td className="px-4 py-3 text-right font-semibold">
+                            {formatCurrency(Number(item.requested_amount || 0))}
+                          </td>
+                        </tr>
+                      ))}
 
-                            <td className="px-4 py-3">
-                              {
-                                item
-                                  .ap_invoice
-                                  ?.receiving_record
-                                  ?.receiving_number ??
-                                "-"
-                              }
-                            </td>
-
-                            <td className="px-4 py-3">
-                              {formatDate(
-                                item
-                                  .ap_invoice
-                                  ?.invoice_date
-                              )}
-                            </td>
-
-                            <td className="px-4 py-3">
-                              {formatDate(
-                                item
-                                  .ap_invoice
-                                  ?.due_date
-                              )}
-                            </td>
-
-                            <td className="px-4 py-3 text-right font-semibold">
-                              {formatCurrency(
-                                Number(
-                                  item.requested_amount ||
-                                    0
-                                )
-                              )}
-                            </td>
-
-                          </tr>
-                        )
-                      )}
-
-                      {selectedItems.length ===
-                        0 && (
+                      {selectedItems.length === 0 && (
                         <tr>
-
                           <td
                             colSpan={6}
                             className="py-8 text-center text-gray-500"
                           >
-                            Payment Voucher tidak
-                            memiliki item.
+                            Payment Voucher tidak memiliki item.
                           </td>
-
                         </tr>
                       )}
-
                     </tbody>
 
                     <tfoot>
-
                       <tr className="border-t bg-gray-50">
-
                         <td
                           colSpan={5}
                           className="px-4 py-3 text-right font-semibold"
@@ -1576,19 +1139,12 @@ console.log(
                         </td>
 
                         <td className="px-4 py-3 text-right text-base font-bold">
-                          {formatCurrency(
-                            selectedTotal
-                          )}
+                          {formatCurrency(selectedTotal)}
                         </td>
-
                       </tr>
-
                     </tfoot>
-
                   </table>
-
                 </div>
-
               </div>
 
               {/* =================================================
@@ -1596,153 +1152,106 @@ console.log(
                   ================================================= */}
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-
                 <div>
-
                   <label className="mb-1 block text-sm font-medium text-gray-700">
                     Tanggal Pembayaran
                   </label>
 
                   <input
                     type="date"
-                    value={
-                      formData.payment_date
-                    }
+                    value={formData.payment_date}
                     onChange={(event) =>
-                      setFormData(
-                        (current) =>
-                          current
-                            ? {
-                                ...current,
-                                payment_date:
-                                  event
-                                    .target
-                                    .value,
-                              }
-                            : current
+                      setFormData((current) =>
+                        current
+                          ? {
+                              ...current,
+                              payment_date: event.target.value,
+                            }
+                          : current,
                       )
                     }
                     disabled={saving}
                     className="w-full rounded-md border px-3 py-2 text-sm"
                   />
-
                 </div>
 
                 <div>
-
                   <label className="mb-1 block text-sm font-medium text-gray-700">
                     Metode Pembayaran
                   </label>
 
                   <select
-                    value={
-                      formData.payment_method_id
-                    }
+                    value={formData.payment_method_id}
                     onChange={(event) =>
-                      setFormData(
-                        (current) =>
-                          current
-                            ? {
-                                ...current,
-                                payment_method_id:
-                                  event
-                                    .target
-                                    .value,
-                              }
-                            : current
+                      setFormData((current) =>
+                        current
+                          ? {
+                              ...current,
+                              payment_method_id: event.target.value,
+                            }
+                          : current,
                       )
                     }
                     disabled={saving}
                     className="w-full rounded-md border px-3 py-2 text-sm"
                   >
+                    <option value="">-- Pilih Metode Pembayaran --</option>
 
-                    <option value="">
-                      -- Pilih Metode Pembayaran --
-                    </option>
-
-                    {paymentSettlementMethods.map(
-                      (method) => (
-                        <option
-                          key={
-                            method.id
-                          }
-                          value={
-                            method.id
-                          }
-                        >
-                          {method.name}
-                        </option>
-                      )
-                    )}
-
+                    {paymentSettlementMethods.map((method) => (
+                      <option key={method.id} value={method.id}>
+                        {method.name}
+                      </option>
+                    ))}
                   </select>
-
                 </div>
 
                 <div>
-
                   <label className="mb-1 block text-sm font-medium text-gray-700">
                     No. Referensi
                   </label>
 
                   <input
                     type="text"
-                    value={
-                      formData.reference_number
-                    }
+                    value={formData.reference_number}
                     onChange={(event) =>
-                      setFormData(
-                        (current) =>
-                          current
-                            ? {
-                                ...current,
-                                reference_number:
-                                  event
-                                    .target
-                                    .value,
-                              }
-                            : current
+                      setFormData((current) =>
+                        current
+                          ? {
+                              ...current,
+                              reference_number: event.target.value,
+                            }
+                          : current,
                       )
                     }
                     placeholder="No. transfer / cek / referensi"
                     disabled={saving}
                     className="w-full rounded-md border px-3 py-2 text-sm"
                   />
-
                 </div>
 
                 <div>
-
                   <label className="mb-1 block text-sm font-medium text-gray-700">
                     Catatan
                   </label>
 
                   <input
                     type="text"
-                    value={
-                      formData.notes
-                    }
+                    value={formData.notes}
                     onChange={(event) =>
-                      setFormData(
-                        (current) =>
-                          current
-                            ? {
-                                ...current,
-                                notes:
-                                  event
-                                    .target
-                                    .value,
-                              }
-                            : current
+                      setFormData((current) =>
+                        current
+                          ? {
+                              ...current,
+                              notes: event.target.value,
+                            }
+                          : current,
                       )
                     }
                     placeholder="Catatan pembayaran"
                     disabled={saving}
                     className="w-full rounded-md border px-3 py-2 text-sm"
                   />
-
                 </div>
-
               </div>
 
               {/* =================================================
@@ -1750,45 +1259,32 @@ console.log(
                   ================================================= */}
 
               <div className="flex items-center justify-between rounded-lg border bg-gray-50 p-4">
-
                 <div>
-
                   <div className="text-xs text-gray-500">
                     Total yang akan dibayar
                   </div>
 
                   <div className="text-xl font-bold">
-                    {formatCurrency(
-                      selectedTotal
-                    )}
+                    {formatCurrency(selectedTotal)}
                   </div>
-
                 </div>
 
                 <button
                   type="button"
-                  onClick={() =>
-                    void handleSubmit()
-                  }
+                  onClick={() => void handleSubmit()}
                   disabled={
                     saving ||
                     !formData.payment_request_id ||
                     !formData.payment_method_id ||
-                    formData.allocations.length ===
-                      0
+                    formData.allocations.length === 0
                   }
                   className="rounded-md bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {saving
-                    ? "Menyimpan..."
-                    : "Simpan Pembayaran"}
+                  {saving ? "Menyimpan..." : "Simpan Pembayaran"}
                 </button>
-
               </div>
-
             </div>
           )}
-
         </div>
       )}
 
@@ -1797,34 +1293,23 @@ console.log(
           ===================================================== */}
 
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-
         <div className="border-b px-5 py-4">
-
           <div className="flex items-center justify-between">
-
             <div>
-
-              <h2 className="font-semibold">
-                Pembayaran Sudah Diproses
-              </h2>
+              <h2 className="font-semibold">Pembayaran Sudah Diproses</h2>
 
               <p className="text-xs text-gray-500">
-                Daftar pembayaran AP yang
-                sudah dibuat.
+                Daftar pembayaran AP yang sudah dibuat.
               </p>
-
             </div>
 
             <div className="text-sm text-gray-500">
               {paymentsTotalCount} pembayaran
             </div>
-
           </div>
-
         </div>
 
         <div className="overflow-x-auto">
-
           <table className="min-w-[1200px] w-full text-sm">
             <thead className="bg-gray-50">
               <tr className="border-b">
@@ -1833,8 +1318,12 @@ console.log(
                 <th className="px-4 py-3 font-medium">Tanggal</th>
                 <th className="px-4 py-3 font-medium">Metode Pembayaran</th>
                 <th className="px-4 py-3 font-medium">Reference</th>
-                <th className="px-4 py-3 font-medium text-right">Total Payment</th>
-                <th className="w-[150px] px-4 py-3 font-medium text-center">Aksi</th>
+                <th className="px-4 py-3 font-medium text-right">
+                  Total Payment
+                </th>
+                <th className="w-[150px] px-4 py-3 font-medium text-center">
+                  Aksi
+                </th>
               </tr>
             </thead>
 
@@ -1848,11 +1337,11 @@ console.log(
               ) : (
                 payments.map((payment) => {
                   const request = paymentRequests.find(
-                    (item) => item.id === payment.payment_request_id
+                    (item) => item.id === payment.payment_request_id,
                   );
 
                   const method = settlementMethods.find(
-                    (item) => item.id === payment.payment_method_id
+                    (item) => item.id === payment.payment_method_id,
                   );
 
                   return (
@@ -1934,7 +1423,11 @@ console.log(
                           {access.delete && (
                             <button
                               type="button"
-                              title={payment.journal_id ? "Sudah terhubung jurnal" : "Hapus"}
+                              title={
+                                payment.journal_id
+                                  ? "Sudah terhubung jurnal"
+                                  : "Hapus"
+                              }
                               disabled={Boolean(payment.journal_id)}
                               onClick={() => void handleDeletePayment(payment)}
                               className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 bg-white text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
@@ -1974,9 +1467,7 @@ console.log(
               }}
             />
           </div>
-
         </div>
-
       </div>
 
       {/* =====================================================
@@ -1985,179 +1476,103 @@ console.log(
 
       {loadingDetail && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30">
-
           <div className="rounded-lg bg-white px-6 py-4 shadow-lg">
             Memuat detail pembayaran...
           </div>
-
         </div>
       )}
 
       {detailPayment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-
           <div className="max-h-[90vh] w-full max-w-6xl overflow-y-auto rounded-xl bg-white shadow-xl">
-
             {/* HEADER */}
 
             <div className="flex items-center justify-between border-b px-6 py-4">
-
               <div>
-
-                <h2 className="text-lg font-semibold">
-                  Detail AP Payment
-                </h2>
+                <h2 className="text-lg font-semibold">Detail AP Payment</h2>
 
                 <p className="text-sm text-gray-500">
-                  {
-                    detailPayment
-                      .payment
-                      .payment_number
-                  }
+                  {detailPayment.payment.payment_number}
                 </p>
-
               </div>
 
               <button
                 type="button"
-                onClick={() =>
-                  setDetailPayment(
-                    null
-                  )
-                }
+                onClick={() => setDetailPayment(null)}
                 className="rounded border px-3 py-2 text-sm"
               >
                 Tutup
               </button>
-
             </div>
 
             <div className="space-y-6 p-6">
-
               {/* HEADER INFO */}
 
               <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-
                 <div>
-
-                  <div className="text-xs text-gray-500">
-                    No. Payment
-                  </div>
+                  <div className="text-xs text-gray-500">No. Payment</div>
 
                   <div className="mt-1 font-semibold">
-                    {
-                      detailPayment
-                        .payment
-                        .payment_number ??
-                      "-"
-                    }
+                    {detailPayment.payment.payment_number ?? "-"}
                   </div>
-
                 </div>
 
                 <div>
-
-                  <div className="text-xs text-gray-500">
-                    Payment Voucher
-                  </div>
+                  <div className="text-xs text-gray-500">Payment Voucher</div>
 
                   <div className="mt-1 font-semibold">
-                    {
-                      paymentRequests.find(
-                        (request) =>
-                          request.id ===
-                          detailPayment.payment.payment_request_id
-                      )?.payment_request_number ??
-                      "-"
-                    }
+                    {paymentRequests.find(
+                      (request) =>
+                        request.id === detailPayment.payment.payment_request_id,
+                    )?.payment_request_number ?? "-"}
                   </div>
-
                 </div>
 
                 <div>
-
-                  <div className="text-xs text-gray-500">
-                    Tanggal
-                  </div>
+                  <div className="text-xs text-gray-500">Tanggal</div>
 
                   <div className="mt-1 font-semibold">
-                    {formatDate(
-                      detailPayment
-                        .payment
-                        .payment_date
-                    )}
+                    {formatDate(detailPayment.payment.payment_date)}
                   </div>
-
                 </div>
 
                 <div>
-
-                  <div className="text-xs text-gray-500">
-                    Referensi
-                  </div>
+                  <div className="text-xs text-gray-500">Referensi</div>
 
                   <div className="mt-1 font-semibold">
-                    {
-                      detailPayment
-                        .payment
-                        .reference_number ??
-                      "-"
-                    }
+                    {detailPayment.payment.reference_number ?? "-"}
                   </div>
-
                 </div>
 
                 <div>
-
-                  <div className="text-xs text-gray-500">
-                    Total
-                  </div>
+                  <div className="text-xs text-gray-500">Total</div>
 
                   <div className="mt-1 text-lg font-bold">
-                    {formatCurrency(
-                      Number(
-                        detailPayment
-                          .payment
-                          .amount
-                      )
-                    )}
+                    {formatCurrency(Number(detailPayment.payment.amount))}
                   </div>
-
                 </div>
-
               </div>
 
               {/* DETAIL INVOICE */}
 
               <div className="overflow-hidden rounded-lg border">
-
                 <div className="border-b bg-gray-50 px-4 py-3">
-
                   <h3 className="text-sm font-semibold">
                     Detail Invoice yang Dibayar
                   </h3>
-
                 </div>
 
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-4 py-3 font-medium">
-                          Supplier
-                        </th>
+                        <th className="px-4 py-3 font-medium">Supplier</th>
 
-                        <th className="px-4 py-3 font-medium">
-                          Invoice
-                        </th>
+                        <th className="px-4 py-3 font-medium">Invoice</th>
 
-                        <th className="px-4 py-3 font-medium">
-                          No. RR
-                        </th>
+                        <th className="px-4 py-3 font-medium">No. RR</th>
 
-                        <th className="px-4 py-3 font-medium">
-                          Tanggal
-                        </th>
+                        <th className="px-4 py-3 font-medium">Tanggal</th>
 
                         <th className="px-4 py-3 text-right font-medium">
                           Grand Total
@@ -2166,93 +1581,61 @@ console.log(
                         <th className="px-4 py-3 text-right font-medium">
                           Dibayar
                         </th>
-
                       </tr>
-
                     </thead>
 
                     <tbody className="divide-y">
+                      {detailPayment.allocations.map((allocation) => (
+                        <tr
+                          key={`${detailPayment.payment.id}-${allocation.invoice_id}`}
+                          className="hover:bg-gray-50"
+                        >
+                          <td className="px-4 py-3">
+                            <div className="font-medium">
+                              {allocation.supplier_name}
+                            </div>
 
-                      {detailPayment.allocations.map(
-                        (allocation) => (
-                          <tr
-                            key={`${detailPayment.payment.id}-${allocation.invoice_id}`}
-                            className="hover:bg-gray-50"
-                          >
+                            <div className="text-xs text-gray-500">
+                              {allocation.supplier_code}
+                            </div>
+                          </td>
 
-                            <td className="px-4 py-3">
+                          <td className="px-4 py-3 font-medium">
+                            {allocation.invoice_number}
+                          </td>
 
-                              <div className="font-medium">
-                                {
-                                  allocation.supplier_name
-                                }
-                              </div>
+                          <td className="px-4 py-3">
+                            {allocation.receiving_number}
+                          </td>
 
-                              <div className="text-xs text-gray-500">
-                                {
-                                  allocation.supplier_code
-                                }
-                              </div>
+                          <td className="px-4 py-3">
+                            {formatDate(allocation.invoice_date)}
+                          </td>
 
-                            </td>
+                          <td className="px-4 py-3 text-right">
+                            {formatCurrency(allocation.grand_total)}
+                          </td>
 
-                            <td className="px-4 py-3 font-medium">
-                              {
-                                allocation.invoice_number
-                              }
-                            </td>
+                          <td className="px-4 py-3 text-right font-semibold">
+                            {formatCurrency(allocation.amount)}
+                          </td>
+                        </tr>
+                      ))}
 
-                            <td className="px-4 py-3">
-                              {
-                                allocation.receiving_number
-                              }
-                            </td>
-
-                            <td className="px-4 py-3">
-                              {formatDate(
-                                allocation.invoice_date
-                              )}
-                            </td>
-
-                            <td className="px-4 py-3 text-right">
-                              {formatCurrency(
-                                allocation.grand_total
-                              )}
-                            </td>
-
-                            <td className="px-4 py-3 text-right font-semibold">
-                              {formatCurrency(
-                                allocation.amount
-                              )}
-                            </td>
-
-                          </tr>
-                        )
-                      )}
-
-                      {detailPayment
-                        .allocations
-                        .length ===
-                        0 && (
+                      {detailPayment.allocations.length === 0 && (
                         <tr>
-
                           <td
                             colSpan={6}
                             className="py-8 text-center text-gray-500"
                           >
-                            Tidak ada invoice
-                            yang dialokasikan.
+                            Tidak ada invoice yang dialokasikan.
                           </td>
-
                         </tr>
                       )}
-
                     </tbody>
 
                     <tfoot>
-
                       <tr className="border-t bg-gray-50">
-
                         <td
                           colSpan={5}
                           className="px-4 py-3 text-right font-semibold"
@@ -2263,59 +1646,32 @@ console.log(
                         <td className="px-4 py-3 text-right text-base font-bold">
                           {formatCurrency(
                             detailPayment.allocations.reduce(
-                              (
-                                total,
-                                row
-                              ) =>
-                                total +
-                                Number(
-                                  row.amount ||
-                                    0
-                                ),
-                              0
-                            )
+                              (total, row) => total + Number(row.amount || 0),
+                              0,
+                            ),
                           )}
                         </td>
-
                       </tr>
-
                     </tfoot>
-
                   </table>
-
                 </div>
-
               </div>
 
               {/* CATATAN */}
 
-              {detailPayment
-                .payment
-                .notes && (
+              {detailPayment.payment.notes && (
                 <div className="rounded-lg border bg-gray-50 p-4">
-
                   <div className="mb-1 text-xs font-medium text-gray-500">
                     Catatan
                   </div>
 
-                  <div className="text-sm">
-                    {
-                      detailPayment
-                        .payment
-                        .notes
-                    }
-                  </div>
-
+                  <div className="text-sm">{detailPayment.payment.notes}</div>
                 </div>
               )}
-
             </div>
-
           </div>
-
         </div>
       )}
-
 
       {editingPayment && editForm && (
         <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/40 p-4">
@@ -2323,60 +1679,111 @@ console.log(
             <div className="flex items-center justify-between border-b px-6 py-4">
               <div>
                 <h2 className="text-lg font-semibold">Edit AP Payment</h2>
-                <p className="text-sm text-gray-500">{editingPayment.payment_number ?? "-"}</p>
+                <p className="text-sm text-gray-500">
+                  {editingPayment.payment_number ?? "-"}
+                </p>
               </div>
-              <button type="button" onClick={closeEditPayment} className="rounded border px-3 py-2 text-sm">Tutup</button>
+              <button
+                type="button"
+                onClick={closeEditPayment}
+                className="rounded border px-3 py-2 text-sm"
+              >
+                Tutup
+              </button>
             </div>
 
             <div className="space-y-4 p-6">
               <div>
-                <label className="mb-1 block text-sm font-medium">Tanggal Pembayaran</label>
+                <label className="mb-1 block text-sm font-medium">
+                  Tanggal Pembayaran
+                </label>
                 <input
                   type="date"
                   value={editForm.payment_date}
-                  onChange={(e) => setEditForm((current) => current ? { ...current, payment_date: e.target.value } : current)}
+                  onChange={(e) =>
+                    setEditForm((current) =>
+                      current
+                        ? { ...current, payment_date: e.target.value }
+                        : current,
+                    )
+                  }
                   className="w-full rounded border px-3 py-2 text-sm"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">Metode Pembayaran</label>
+                <label className="mb-1 block text-sm font-medium">
+                  Metode Pembayaran
+                </label>
                 <select
                   value={editForm.payment_method_id}
-                  onChange={(e) => setEditForm((current) => current ? { ...current, payment_method_id: e.target.value } : current)}
+                  onChange={(e) =>
+                    setEditForm((current) =>
+                      current
+                        ? { ...current, payment_method_id: e.target.value }
+                        : current,
+                    )
+                  }
                   className="w-full rounded border px-3 py-2 text-sm"
                 >
                   <option value="">-- Pilih Metode Pembayaran --</option>
                   {paymentSettlementMethods.map((method) => (
                     <option key={method.id} value={method.id}>
-                      {method.code ?? ""}{method.code && method.name ? " — " : ""}{method.name ?? ""}
+                      {method.code ?? ""}
+                      {method.code && method.name ? " — " : ""}
+                      {method.name ?? ""}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">Reference</label>
+                <label className="mb-1 block text-sm font-medium">
+                  Reference
+                </label>
                 <input
                   value={editForm.reference_number}
-                  onChange={(e) => setEditForm((current) => current ? { ...current, reference_number: e.target.value } : current)}
+                  onChange={(e) =>
+                    setEditForm((current) =>
+                      current
+                        ? { ...current, reference_number: e.target.value }
+                        : current,
+                    )
+                  }
                   className="w-full rounded border px-3 py-2 text-sm"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">Catatan</label>
+                <label className="mb-1 block text-sm font-medium">
+                  Catatan
+                </label>
                 <textarea
                   value={editForm.notes}
-                  onChange={(e) => setEditForm((current) => current ? { ...current, notes: e.target.value } : current)}
+                  onChange={(e) =>
+                    setEditForm((current) =>
+                      current ? { ...current, notes: e.target.value } : current,
+                    )
+                  }
                   rows={3}
                   className="w-full rounded border px-3 py-2 text-sm"
                 />
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={closeEditPayment} className="rounded border px-4 py-2 text-sm">Batal</button>
-                <button type="button" onClick={() => void handleUpdatePayment()} disabled={saving} className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+                <button
+                  type="button"
+                  onClick={closeEditPayment}
+                  className="rounded border px-4 py-2 text-sm"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleUpdatePayment()}
+                  disabled={saving}
+                  className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                >
                   {saving ? "Menyimpan..." : "Simpan Perubahan"}
                 </button>
               </div>
@@ -2384,7 +1791,6 @@ console.log(
           </div>
         </div>
       )}
-
     </div>
   );
 }

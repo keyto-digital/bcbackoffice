@@ -10,10 +10,7 @@ import type {
   StorekeeperAccess,
 } from "../types";
 
-import {
-  inputDate,
-  currentMonthStart,
-} from "../../utils/date";
+import { inputDate, currentMonthStart } from "../../utils/date";
 
 type MovementQueryRow = {
   id: string;
@@ -105,11 +102,9 @@ export function useStorekeeper() {
   const [itemId, setItemId] = useState("");
   const [search, setSearch] = useState("");
 
-  const [dateFrom, setDateFrom] =
-    useState(currentMonthStart());
+  const [dateFrom, setDateFrom] = useState(currentMonthStart());
 
-  const [dateTo, setDateTo] =
-    useState(inputDate(new Date()));
+  const [dateTo, setDateTo] = useState(inputDate(new Date()));
 
   // ---------------------------------------------------------------------
   // STATE
@@ -117,15 +112,13 @@ export function useStorekeeper() {
 
   const [loading, setLoading] = useState(false);
 
-  const [error, setError] =
-    useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const [access, setAccess] =
-    useState<StorekeeperAccess>({
-      view: false,
-      print: false,
-      export: false,
-    });
+  const [access, setAccess] = useState<StorekeeperAccess>({
+    view: false,
+    print: false,
+    export: false,
+  });
 
   // ---------------------------------------------------------------------
   // LOAD DATA
@@ -137,21 +130,19 @@ export function useStorekeeper() {
 
     try {
       let stockQuery = supabase
-      .from("v_inventory_stock_summary")
-      .select("*")
-      .order("store_code")
-      .order("item_code");
+        .from("v_inventory_stock_summary")
+        .select("*")
+        .order("store_code")
+        .order("item_code");
 
-    if (storeId) {
-      stockQuery = stockQuery.eq(
-        "store_id",
-        storeId
-      );
-    }
+      if (storeId) {
+        stockQuery = stockQuery.eq("store_id", storeId);
+      }
 
-    let movementQuery = supabase
-      .from("inventory_movements")
-      .select(`
+      let movementQuery = supabase
+        .from("inventory_movements")
+        .select(
+          `
           id,
           movement_date,
           movement_type,
@@ -178,195 +169,139 @@ export function useStorekeeper() {
             code,
             name
           )
-      `)
-      .order("movement_date", {
-        ascending: false,
-      })
-      .order("created_at", {
-        ascending: false,
-      });
+      `,
+        )
+        .order("movement_date", {
+          ascending: false,
+        })
+        .order("created_at", {
+          ascending: false,
+        });
 
-    if (storeId) {
-      movementQuery =
-        movementQuery.eq(
-          "store_id",
-          storeId
-        );
+      if (storeId) {
+        movementQuery = movementQuery.eq("store_id", storeId);
+      }
+
+      if (itemId) {
+        movementQuery = movementQuery.eq("item_id", itemId);
+      }
+
+      if (dateFrom) {
+        movementQuery = movementQuery.gte("movement_date", dateFrom);
+      }
+
+      if (dateTo) {
+        movementQuery = movementQuery.lte("movement_date", dateTo);
+      }
+
+      const [stockResult, movementResult, storeResult, accountResult] =
+        await Promise.all([
+          stockQuery,
+
+          movementQuery,
+
+          supabase
+            .from("stores")
+            .select("id,code,name")
+            .eq("is_active", true)
+            .order("code"),
+
+          supabase
+            .from("accounts")
+            .select("id,code,name")
+            .eq("is_active", true)
+            .eq("is_posting", true)
+            .order("code"),
+        ]);
+
+      if (stockResult.error) {
+        setError(stockResult.error.message);
+      } else {
+        setStocks((stockResult.data ?? []) as StockRow[]);
+      }
+
+      if (movementResult.error) {
+        setError(movementResult.error.message);
+      } else {
+        const movementData = (movementResult.data ?? []).map((raw) => {
+          const row = raw as MovementQueryRow;
+
+          const item = Array.isArray(row.item)
+            ? (row.item[0] ?? null)
+            : row.item;
+
+          const store = Array.isArray(row.store)
+            ? (row.store[0] ?? null)
+            : row.store;
+
+          const unit = item
+            ? Array.isArray(item.unit)
+              ? (item.unit[0] ?? null)
+              : item.unit
+            : null;
+
+          return {
+            ...row,
+            created_at: row.created_at,
+            created_by: row.created_by,
+
+            item: item
+              ? {
+                  code: item.code,
+                  name: item.name,
+                  unit_code: unit?.code ?? null,
+                }
+              : null,
+
+            store: store
+              ? {
+                  code: store.code,
+                  name: store.name,
+                }
+              : null,
+          };
+        }) as MovementRow[];
+
+        setMovements(movementData);
+      }
+
+      if (storeResult.error) {
+        setError(storeResult.error.message);
+      } else {
+        setStores((storeResult.data ?? []) as StoreOption[]);
+      }
+
+      if (accountResult.error) {
+        setError(accountResult.error.message);
+      } else {
+        setAccounts((accountResult.data ?? []) as AccountOption[]);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan.");
+    } finally {
+      setLoading(false);
     }
-
-    if (itemId) {
-      movementQuery =
-        movementQuery.eq(
-          "item_id",
-          itemId
-        );
-    }
-
-    if (dateFrom) {
-      movementQuery =
-        movementQuery.gte(
-          "movement_date",
-          dateFrom
-        );
-    }
-
-    if (dateTo) {
-      movementQuery =
-        movementQuery.lte(
-          "movement_date",
-          dateTo
-        );
-    }
-
-    const [
-      stockResult,
-      movementResult,
-      storeResult,
-      accountResult,
-    ] = await Promise.all([
-      stockQuery,
-
-      movementQuery,
-
-      supabase
-        .from("stores")
-        .select("id,code,name")
-        .eq("is_active", true)
-        .order("code"),
-
-      supabase
-        .from("accounts")
-        .select("id,code,name")
-        .eq("is_active", true)
-        .eq("is_posting", true)
-        .order("code"),
-    ]);
-
-    if (stockResult.error) {
-      setError(stockResult.error.message);
-    } else {
-      setStocks(
-        (stockResult.data ??
-          []) as StockRow[]
-      );
-    }
-
-    if (movementResult.error) {
-      setError(movementResult.error.message);
-    } else {
-      const movementData = (movementResult.data ?? []).map((raw) => {
-        const row = raw as MovementQueryRow;
-
-        const item = Array.isArray(row.item)
-          ? row.item[0] ?? null
-          : row.item;
-
-        const store = Array.isArray(row.store)
-          ? row.store[0] ?? null
-          : row.store;
-
-        const unit = item
-          ? Array.isArray(item.unit)
-            ? item.unit[0] ?? null
-            : item.unit
-          : null;
-
-        return {
-          ...row,
-          created_at: row.created_at,
-          created_by: row.created_by,
-
-          item: item
-            ? {
-                code: item.code,
-                name: item.name,
-                unit_code: unit?.code ?? null,
-              }
-            : null,
-
-          store: store
-            ? {
-                code: store.code,
-                name: store.name,
-              }
-            : null,
-        };
-      }) as MovementRow[];
-
-      setMovements(movementData);
-    }
-
-    if (storeResult.error) {
-      setError(storeResult.error.message);
-    } else {
-      setStores(
-        (storeResult.data ??
-          []) as StoreOption[]
-      );
-    }
-
-    if (accountResult.error) {
-      setError(accountResult.error.message);
-    } else {
-      setAccounts(
-        (accountResult.data ??
-          []) as AccountOption[]
-      );
-    }
-
-    }
-
-    catch (err) {
-        setError(
-            err instanceof Error
-                ? err.message
-                : "Terjadi kesalahan."
-        );
-    }
-    finally {
-        setLoading(false);
-    }
-    
-    
-  }, [
-    storeId,
-    itemId,
-    dateFrom,
-    dateTo,
-  ]);
+  }, [storeId, itemId, dateFrom, dateTo]);
 
   // ---------------------------------------------------------------------
   // LOAD ACCESS
   // ---------------------------------------------------------------------
 
-  const loadAccess = useCallback(
-    async () => {
-      const [
-        view,
-        print,
-        exportExcel,
-      ] = await Promise.all([
-        hasAccess(
-          "storekeeper.view"
-        ),
+  const loadAccess = useCallback(async () => {
+    const [view, print, exportExcel] = await Promise.all([
+      hasAccess("storekeeper.view"),
 
-        hasAccess(
-          "storekeeper.print"
-        ),
+      hasAccess("storekeeper.print"),
 
-        hasAccess(
-          "storekeeper.export"
-        ),
-      ]);
+      hasAccess("storekeeper.export"),
+    ]);
 
-      setAccess({
-        view,
-        print,
-        export: exportExcel,
-      });
-    },
-    []
-  );
+    setAccess({
+      view,
+      print,
+      export: exportExcel,
+    });
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -397,57 +332,56 @@ export function useStorekeeper() {
         row.subcategory_name,
       ]
         .filter(Boolean)
-        .some((value) =>
-          String(value)
-            .toLowerCase()
-            .includes(keyword)
-        )
+        .some((value) => String(value).toLowerCase().includes(keyword)),
     );
   }, [stocks, search]);
 
-   // ---------------------------------------------------------------------
+  // ---------------------------------------------------------------------
   // GROUP MOVEMENT
   // ---------------------------------------------------------------------
   const groupedMovements = Object.values(
-    movements.reduce((acc, row) => {
-      const key = row.reference ?? row.id;
+    movements.reduce(
+      (acc, row) => {
+        const key = row.reference ?? row.id;
 
-      if (!acc[key]) {
-        acc[key] = {
-          ...row,
-          items: [],
-          fromStore: null,
-          toStore: null,
-        };
-      }
+        if (!acc[key]) {
+          acc[key] = {
+            ...row,
+            items: [],
+            fromStore: null,
+            toStore: null,
+          };
+        }
 
-      acc[key].items.push({
-        code: row.item?.code ?? "",
-        name: row.item?.name ?? "",
-        unit_code: row.item?.unit_code ?? null,
-        qty_in: row.quantity_in,
-        qty_out: row.quantity_out,
-        balance: row.quantity_after,
-        cost: row.average_cost_after,
-      });
+        acc[key].items.push({
+          code: row.item?.code ?? "",
+          name: row.item?.name ?? "",
+          unit_code: row.item?.unit_code ?? null,
+          qty_in: row.quantity_in,
+          qty_out: row.quantity_out,
+          balance: row.quantity_after,
+          cost: row.average_cost_after,
+        });
 
-      if (row.movement_type === "TRANSFER_OUT") {
-        acc[key].fromStore = row.store;
-      }
+        if (row.movement_type === "TRANSFER_OUT") {
+          acc[key].fromStore = row.store;
+        }
 
-      if (row.movement_type === "TRANSFER_IN") {
-        acc[key].toStore = row.store;
-      }
+        if (row.movement_type === "TRANSFER_IN") {
+          acc[key].toStore = row.store;
+        }
 
-      if (
-        row.movement_type === "STOCK_OPNAME" ||
-        row.movement_type.startsWith("ADJUSTMENT")
-      ) {
-        acc[key].fromStore = row.store;
-      }
+        if (
+          row.movement_type === "STOCK_OPNAME" ||
+          row.movement_type.startsWith("ADJUSTMENT")
+        ) {
+          acc[key].fromStore = row.store;
+        }
 
-      return acc;
-    }, {} as Record<string, GroupedMovement>)
+        return acc;
+      },
+      {} as Record<string, GroupedMovement>,
+    ),
   );
 
   // ---------------------------------------------------------------------
@@ -455,46 +389,31 @@ export function useStorekeeper() {
   // ---------------------------------------------------------------------
 
   const filteredMovements = useMemo(() => {
-
-    const keyword =
-      search.trim().toLowerCase();
+    const keyword = search.trim().toLowerCase();
 
     if (!keyword) {
       return groupedMovements;
     }
 
     return groupedMovements.filter((row) => {
-      const itemMatch = row.items.some(
-        (item: GroupedMovementItem) =>
-          [item.code, item.name]
-            .filter(Boolean)
-            .some((value) =>
-              String(value)
-                .toLowerCase()
-                .includes(keyword)
-            )
+      const itemMatch = row.items.some((item: GroupedMovementItem) =>
+        [item.code, item.name]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(keyword)),
       );
 
-      const headerMatch =
-        [
-          row.store?.code,
-          row.store?.name,
-          row.reference,
-          row.description,
-          row.movement_type,
-        ]
-          .filter(Boolean)
-          .some(value =>
-            String(value)
-              .toLowerCase()
-              .includes(keyword)
-          );
+      const headerMatch = [
+        row.store?.code,
+        row.store?.name,
+        row.reference,
+        row.description,
+        row.movement_type,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(keyword));
       return itemMatch || headerMatch;
     });
-  }, [
-    groupedMovements,
-    search,
-  ]);
+  }, [groupedMovements, search]);
 
   // ---------------------------------------------------------------------
   // TOTAL STOCK VALUE
@@ -502,14 +421,10 @@ export function useStorekeeper() {
 
   const totalValue = useMemo(() => {
     return filteredStocks.reduce(
-      (sum, row) =>
-        sum +
-        Number(row.stock_value ?? 0),
-      0
+      (sum, row) => sum + Number(row.stock_value ?? 0),
+      0,
     );
   }, [filteredStocks]);
-
-  
 
   // ---------------------------------------------------------------------
   // RETURN

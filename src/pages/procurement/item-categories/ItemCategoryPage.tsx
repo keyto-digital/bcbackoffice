@@ -29,9 +29,7 @@ function accountLabel(account?: AccountOption | null) {
   return `${account.code} - ${account.name}`;
 }
 
-export function ItemCategoryPage({
-  entityId = null,
-}: ItemCategoryPageProps) {
+export function ItemCategoryPage({ entityId = null }: ItemCategoryPageProps) {
   const {
     categories,
     accounts,
@@ -44,11 +42,11 @@ export function ItemCategoryPage({
     deleteCategory,
   } = useItemCategories(entityId);
 
-  const [formData, setFormData] =
-    useState<ItemCategoryFormData>(initialForm);
+  const [formData, setFormData] = useState<ItemCategoryFormData>(initialForm);
 
-  const [editingCategory, setEditingCategory] =
-    useState<ItemCategory | null>(null);
+  const [editingCategory, setEditingCategory] = useState<ItemCategory | null>(
+    null,
+  );
 
   const [search, setSearch] = useState("");
 
@@ -93,7 +91,7 @@ export function ItemCategoryPage({
 
   const updateField = (
     field: keyof ItemCategoryFormData,
-    value: string | boolean
+    value: string | boolean,
   ) => {
     setFormData((previous) => ({
       ...previous,
@@ -153,7 +151,7 @@ export function ItemCategoryPage({
 
   const handleDelete = async (category: ItemCategory) => {
     const confirmed = window.confirm(
-      `Hapus kategori ${category.code} - ${category.name}?`
+      `Hapus kategori ${category.code} - ${category.name}?`,
     );
 
     if (!confirmed) return;
@@ -169,8 +167,8 @@ export function ItemCategoryPage({
             Master Kategori Barang
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            Kelompokkan barang dan tentukan akun otomatis saat receiving,
-            stock opname, serta perhitungan HPP.
+            Kelompokkan barang dan tentukan akun otomatis saat receiving, stock
+            opname, serta perhitungan HPP.
           </p>
         </div>
 
@@ -330,10 +328,7 @@ export function ItemCategoryPage({
             <select
               value={formData.stock_adjustment_account_id}
               onChange={(event) =>
-                updateField(
-                  "stock_adjustment_account_id",
-                  event.target.value
-                )
+                updateField("stock_adjustment_account_id", event.target.value)
               }
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             >
@@ -387,24 +382,12 @@ export function ItemCategoryPage({
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 font-medium">
-                  Kode
-                </th>
-                <th className="px-4 py-3 font-medium">
-                  Nama Kategori
-                </th>
-                <th className="px-4 py-3 font-medium">
-                  Akun Persediaan
-                </th>
-                <th className="px-4 py-3 font-medium">
-                  Akun HPP
-                </th>
-                <th className="px-4 py-3 font-medium">
-                  Status
-                </th>
-                <th className="px-4 py-3 font-medium">
-                  Aksi
-                </th>
+                <th className="px-4 py-3 font-medium">Kode</th>
+                <th className="px-4 py-3 font-medium">Nama Kategori</th>
+                <th className="px-4 py-3 font-medium">Akun Persediaan</th>
+                <th className="px-4 py-3 font-medium">Akun HPP</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Aksi</th>
               </tr>
             </thead>
 

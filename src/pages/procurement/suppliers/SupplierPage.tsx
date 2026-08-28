@@ -29,8 +29,7 @@ export function SupplierPage() {
   } = useSuppliers();
 
   const [formData, setFormData] = useState<SupplierFormData>(initialForm);
-  const [editingSupplier, setEditingSupplier] =
-    useState<Supplier | null>(null);
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
 
   const [search, setSearch] = useState("");
 
@@ -38,7 +37,6 @@ export function SupplierPage() {
     if (!editingSupplier) {
       setFormData({
         ...initialForm,
-        
       });
       return;
     }
@@ -53,8 +51,7 @@ export function SupplierPage() {
       email: editingSupplier.email ?? "",
       address: editingSupplier.address ?? "",
 
-      default_payment_term_days:
-        editingSupplier.default_payment_term_days ?? 0,
+      default_payment_term_days: editingSupplier.default_payment_term_days ?? 0,
 
       is_active: editingSupplier.is_active,
     });
@@ -78,7 +75,7 @@ export function SupplierPage() {
 
   const updateField = (
     field: keyof SupplierFormData,
-    value: string | boolean | number
+    value: string | boolean | number,
   ) => {
     setFormData((previous) => ({
       ...previous,
@@ -107,7 +104,6 @@ export function SupplierPage() {
       setEditingSupplier(null);
       setFormData({
         ...initialForm,
-        
       });
     }
   };
@@ -119,7 +115,7 @@ export function SupplierPage() {
 
   const handleDelete = async (supplier: Supplier) => {
     const confirmed = window.confirm(
-      `Hapus supplier ${supplier.code} - ${supplier.name}?`
+      `Hapus supplier ${supplier.code} - ${supplier.name}?`,
     );
 
     if (!confirmed) return;
@@ -256,7 +252,7 @@ export function SupplierPage() {
               onChange={(event) =>
                 updateField(
                   "default_payment_term_days",
-                  Number(event.target.value || 0)
+                  Number(event.target.value || 0),
                 )
               }
               placeholder="0"
@@ -319,24 +315,12 @@ export function SupplierPage() {
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 font-medium">
-                  Kode
-                </th>
-                <th className="px-4 py-3 font-medium">
-                  Nama Supplier
-                </th>
-                <th className="px-4 py-3 font-medium">
-                  Kontak
-                </th>
-                <th className="px-4 py-3 font-medium">
-                  Termin
-                </th>
-                <th className="px-4 py-3 font-medium">
-                  Status
-                </th>
-                <th className="px-4 py-3 font-medium">
-                  Aksi
-                </th>
+                <th className="px-4 py-3 font-medium">Kode</th>
+                <th className="px-4 py-3 font-medium">Nama Supplier</th>
+                <th className="px-4 py-3 font-medium">Kontak</th>
+                <th className="px-4 py-3 font-medium">Termin</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Aksi</th>
               </tr>
             </thead>
 

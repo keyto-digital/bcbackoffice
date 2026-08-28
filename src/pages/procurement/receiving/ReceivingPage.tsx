@@ -96,9 +96,7 @@ type ReceivingSettlementRow = {
 function formatInputDate(date: Date) {
   const offset = date.getTimezoneOffset() * 60_000;
 
-  return new Date(date.getTime() - offset)
-    .toISOString()
-    .slice(0, 10);
+  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
 }
 
 function today() {
@@ -108,9 +106,7 @@ function today() {
 function firstDayOfCurrentMonth() {
   const now = new Date();
 
-  return formatInputDate(
-    new Date(now.getFullYear(), now.getMonth(), 1)
-  );
+  return formatInputDate(new Date(now.getFullYear(), now.getMonth(), 1));
 }
 
 function rupiah(value: number) {
@@ -126,7 +122,6 @@ export default function ReceivingPage() {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
   const [methods, setMethods] = useState<SettlementMethod[]>([]);
- 
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -148,12 +143,7 @@ export default function ReceivingPage() {
   });
   const [error, setError] = useState<string | null>(null);
 
-  const {
-    page,
-    pageSize,
-    setPage,
-    setPageSize,
-  } = usePagination();
+  const { page, pageSize, setPage, setPageSize } = usePagination();
 
   const [totalCount, setTotalCount] = useState(0);
 
@@ -172,7 +162,7 @@ export default function ReceivingPage() {
 
   const selectedPo = useMemo(
     () => purchaseOrders.find((po) => po.id === selectedPoId) ?? null,
-    [purchaseOrders, selectedPoId]
+    [purchaseOrders, selectedPoId],
   );
 
   useEffect(() => {
@@ -189,17 +179,12 @@ export default function ReceivingPage() {
         .single();
 
       if (error) {
-        console.error(
-          "Gagal mengambil payment term supplier:",
-          error
-        );
+        console.error("Gagal mengambil payment term supplier:", error);
         setSupplierPaymentTermDays(0);
         return;
       }
 
-      setSupplierPaymentTermDays(
-        Number(data?.default_payment_term_days ?? 0)
-      );
+      setSupplierPaymentTermDays(Number(data?.default_payment_term_days ?? 0));
     };
 
     loadSupplierPaymentTerm();
@@ -213,12 +198,10 @@ export default function ReceivingPage() {
           line.quantity_received * line.unit_cost -
           line.discount_amount +
           line.tax_amount,
-        0
+        0,
       ),
-    [lines]
+    [lines],
   );
-
-
 
   const loadData = async (): Promise<void> => {
     setLoading(true);
@@ -232,38 +215,28 @@ export default function ReceivingPage() {
     let recordQuery = supabase
       .from("receiving_records")
       .select("*", { count: "exact" })
-      .order(
-        statusFilter === "POSTED" ? "posted_at" : "created_at",
-        { ascending: false }
-      );
+      .order(statusFilter === "POSTED" ? "posted_at" : "created_at", {
+        ascending: false,
+      });
 
     if (statusFilter !== "ALL") {
       recordQuery = recordQuery.eq("status", statusFilter);
     }
 
-    const dateColumn =
-      statusFilter === "POSTED" ? "posted_at" : "created_at";
+    const dateColumn = statusFilter === "POSTED" ? "posted_at" : "created_at";
 
     if (dateFrom) {
-      recordQuery = recordQuery.gte(
-        dateColumn,
-        `${dateFrom}T00:00:00.000`
-      );
+      recordQuery = recordQuery.gte(dateColumn, `${dateFrom}T00:00:00.000`);
     }
 
     if (dateTo) {
-      recordQuery = recordQuery.lte(
-        dateColumn,
-        `${dateTo}T23:59:59.999`
-      );
+      recordQuery = recordQuery.lte(dateColumn, `${dateTo}T23:59:59.999`);
     }
 
     const keyword = search.trim();
 
     if (keyword) {
-      const safeKeyword = keyword
-        .replace(/[%_]/g, "\\$&")
-        .replace(/,/g, " ");
+      const safeKeyword = keyword.replace(/[%_]/g, "\\$&").replace(/,/g, " ");
 
       recordQuery = recordQuery.or(
         [
@@ -273,21 +246,18 @@ export default function ReceivingPage() {
           `store_name_snapshot.ilike.%${safeKeyword}%`,
           `status.ilike.%${safeKeyword}%`,
           `supplier_invoice_number.ilike.%${safeKeyword}%`,
-        ].join(",")
+        ].join(","),
       );
     }
 
-    const [
-      recordResult,
-      poResult,
-      storeResult,
-      methodResult,
-    ] = await Promise.all([
-      recordQuery.range(from, to),
+    const [recordResult, poResult, storeResult, methodResult] =
+      await Promise.all([
+        recordQuery.range(from, to),
 
-      supabase
-        .from("purchase_orders")
-        .select(`
+        supabase
+          .from("purchase_orders")
+          .select(
+            `
           id,
           entity_id,
           po_number,
@@ -304,31 +274,30 @@ export default function ReceivingPage() {
             quantity_received,
             unit_price
           )
-        `)
-        .in("status", ["OPEN", "PARTIAL_RECEIVED"])
-        .order("order_date", { ascending: false }),
+        `,
+          )
+          .in("status", ["OPEN", "PARTIAL_RECEIVED"])
+          .order("order_date", { ascending: false }),
 
-      supabase
-        .from("stores")
-        .select("id, code, name")
-        .eq("is_active", true)
-        .order("code"),
+        supabase
+          .from("stores")
+          .select("id, code, name")
+          .eq("is_active", true)
+          .order("code"),
 
-      supabase
-        .from("purchase_settlement_methods")
-        .select("id, code, name, settlement_type, requires_amount")
-        .eq("is_active", true)
-        .order("code"),
-    ]);
+        supabase
+          .from("purchase_settlement_methods")
+          .select("id, code, name, settlement_type, requires_amount")
+          .eq("is_active", true)
+          .order("code"),
+      ]);
 
     if (recordResult.error) {
       setError(recordResult.error.message);
       setRecords([]);
       setTotalCount(0);
     } else {
-      setRecords(
-        (recordResult.data ?? []) as ReceivingRecord[]
-      );
+      setRecords((recordResult.data ?? []) as ReceivingRecord[]);
       setTotalCount(recordResult.count ?? 0);
     }
 
@@ -344,27 +313,16 @@ export default function ReceivingPage() {
       setError(methodResult.error.message);
     }
 
-    setPurchaseOrders(
-      (poResult.data ?? []) as unknown as PurchaseOrder[]
-    );
+    setPurchaseOrders((poResult.data ?? []) as unknown as PurchaseOrder[]);
     setStores((storeResult.data ?? []) as Store[]);
-    setMethods(
-      (methodResult.data ?? []) as SettlementMethod[]
-    );
+    setMethods((methodResult.data ?? []) as SettlementMethod[]);
 
     setLoading(false);
   };
 
   useEffect(() => {
     void loadData();
-  }, [
-    page,
-    pageSize,
-    search,
-    dateFrom,
-    dateTo,
-    statusFilter,
-  ]);
+  }, [page, pageSize, search, dateFrom, dateTo, statusFilter]);
 
   useEffect(() => {
     async function loadAccess() {
@@ -392,36 +350,28 @@ export default function ReceivingPage() {
   }, []);
 
   const paginationMeta = useMemo(
-    () =>
-      createPaginationMeta(
-        page,
-        pageSize,
-        totalCount
-      ),
-    [page, pageSize, totalCount]
+    () => createPaginationMeta(page, pageSize, totalCount),
+    [page, pageSize, totalCount],
   );
 
   const resetForm = () => {
-  setEditingId(null);
-  setSelectedPoId("");
-  setStoreId("");
-  setReceivingDate(today());
+    setEditingId(null);
+    setSelectedPoId("");
+    setStoreId("");
+    setReceivingDate(today());
 
-  setSupplierInvoiceNumber("");
-  setSupplierInvoiceDate("");
-  setSupplierPaymentTermDays(0);
+    setSupplierInvoiceNumber("");
+    setSupplierInvoiceDate("");
+    setSupplierPaymentTermDays(0);
 
-  setNotes("");
-  setLines([]);
-  setSettlements([]);
+    setNotes("");
+    setLines([]);
+    setSettlements([]);
 
-  setShowForm(false);
-};
+    setShowForm(false);
+  };
 
-  const calculateSupplierDueDate = (
-    invoiceDate: string,
-    termDays: number
-  ) => {
+  const calculateSupplierDueDate = (invoiceDate: string, termDays: number) => {
     if (!invoiceDate) return "";
 
     const date = new Date(`${invoiceDate}T00:00:00`);
@@ -435,13 +385,11 @@ export default function ReceivingPage() {
 
   const supplierDueDate = calculateSupplierDueDate(
     supplierInvoiceDate,
-    supplierPaymentTermDays
+    supplierPaymentTermDays,
   );
 
   const choosePo = async (poId: string) => {
-    const po = purchaseOrders.find(
-      (row) => row.id === poId
-    );
+    const po = purchaseOrders.find((row) => row.id === poId);
 
     setSelectedPoId(poId);
 
@@ -457,7 +405,7 @@ export default function ReceivingPage() {
 
       window.alert(
         `PO ${po.po_number} belum memiliki Store/Gudang Tujuan. ` +
-        `PO harus diedit terlebih dahulu dan Store Tujuan harus dipilih.`
+          `PO harus diedit terlebih dahulu dan Store Tujuan harus dipilih.`,
       );
 
       return;
@@ -470,8 +418,7 @@ export default function ReceivingPage() {
       (po.purchase_order_details ?? [])
         .filter(
           (detail) =>
-            Number(detail.quantity_ordered) >
-            Number(detail.quantity_received)
+            Number(detail.quantity_ordered) > Number(detail.quantity_received),
         )
         .map((detail) => ({
           purchase_order_detail_id: detail.id,
@@ -480,7 +427,7 @@ export default function ReceivingPage() {
           discount_amount: 0,
           tax_amount: 0,
           notes: "",
-        }))
+        })),
     );
   };
 
@@ -490,7 +437,8 @@ export default function ReceivingPage() {
 
     const { data, error } = await supabase
       .from("receiving_records")
-      .select(`
+      .select(
+        `
         id,
         purchase_order_id,
         store_id,
@@ -513,7 +461,8 @@ export default function ReceivingPage() {
           amount,
           notes
         )
-      `)
+      `,
+      )
       .eq("id", record.id)
       .single();
 
@@ -533,13 +482,9 @@ export default function ReceivingPage() {
     setReceivingDate(data.receiving_date);
     setNotes(data.notes ?? "");
 
-    setSupplierInvoiceNumber(
-      data.supplier_invoice_number ?? ""
-    );
+    setSupplierInvoiceNumber(data.supplier_invoice_number ?? "");
 
-    setSupplierInvoiceDate(
-      data.supplier_invoice_date ?? ""
-    );
+    setSupplierInvoiceDate(data.supplier_invoice_date ?? "");
 
     // load ulang PO supaya deposit ikut muncul
     await choosePo(data.purchase_order_id);
@@ -554,8 +499,8 @@ export default function ReceivingPage() {
           discount_amount: Number(item.discount_amount ?? 0),
           tax_amount: Number(item.tax_amount ?? 0),
           notes: item.notes ?? "",
-        })
-      )
+        }),
+      ),
     );
 
     // settlement
@@ -566,20 +511,20 @@ export default function ReceivingPage() {
           supplier_deposit_id: item.supplier_deposit_id ?? "",
           amount: Number(item.amount),
           notes: item.notes ?? "",
-        })
-      )
+        }),
+      ),
     );
   };
 
   const updateLine = (
     index: number,
     field: keyof ReceivingLine,
-    value: string | number
+    value: string | number,
   ) => {
     setLines((previous) =>
       previous.map((line, lineIndex) =>
-        lineIndex === index ? { ...line, [field]: value } : line
-      )
+        lineIndex === index ? { ...line, [field]: value } : line,
+      ),
     );
   };
 
@@ -598,44 +543,37 @@ export default function ReceivingPage() {
   const updateSettlement = (
     index: number,
     field: keyof SettlementLine,
-    value: string | number
+    value: string | number,
   ) => {
     setSettlements((previous) =>
       previous.map((line, lineIndex) =>
-        lineIndex === index ? { ...line, [field]: value } : line
-      )
+        lineIndex === index ? { ...line, [field]: value } : line,
+      ),
     );
   };
 
   const buildSettlementsForSave = (): SettlementLine[] => {
     const creditTermMethod = methods.find(
-      (method) => method.settlement_type === "CREDIT_TERM"
+      (method) => method.settlement_type === "CREDIT_TERM",
     );
 
     if (!creditTermMethod) {
       throw new Error(
-        "Metode settlement CREDIT_TERM / Tempo tidak ditemukan atau tidak aktif."
+        "Metode settlement CREDIT_TERM / Tempo tidak ditemukan atau tidak aktif.",
       );
     }
 
     const currentSettlements = settlements.filter(
-      (settlement) =>
-        settlement.settlement_method_id
+      (settlement) => settlement.settlement_method_id,
     );
 
-    const hasCreditTerm = currentSettlements.some(
-      (settlement) => {
-        const method = methods.find(
-          (row) =>
-            row.id === settlement.settlement_method_id
-        );
+    const hasCreditTerm = currentSettlements.some((settlement) => {
+      const method = methods.find(
+        (row) => row.id === settlement.settlement_method_id,
+      );
 
-        return (
-          method?.settlement_type ===
-          "CREDIT_TERM"
-        );
-      }
-    );
+      return method?.settlement_type === "CREDIT_TERM";
+    });
 
     /**
      * Hitung seluruh settlement yang benar-benar
@@ -645,45 +583,33 @@ export default function ReceivingPage() {
      * nominal AP Trade dihitung oleh
      * post_receiving_record().
      */
-    const cashSettlementTotal =
-      currentSettlements.reduce(
-        (total, settlement) => {
-          const method = methods.find(
-            (row) =>
-              row.id ===
-              settlement.settlement_method_id
-          );
+    const cashSettlementTotal = currentSettlements.reduce(
+      (total, settlement) => {
+        const method = methods.find(
+          (row) => row.id === settlement.settlement_method_id,
+        );
 
-          if (
-            method?.settlement_type ===
-            "CREDIT_TERM"
-          ) {
-            return total;
-          }
+        if (method?.settlement_type === "CREDIT_TERM") {
+          return total;
+        }
 
-          return (
-            total +
-            Number(settlement.amount || 0)
-          );
-        },
-        0
-      );
+        return total + Number(settlement.amount || 0);
+      },
+      0,
+    );
 
     /**
      * Jika masih ada nilai yang belum
      * diselesaikan, maka otomatis masuk
      * AP Trade / Tempo.
      */
-    const remainingAmount =
-      Number(totalReceiving || 0) -
-      cashSettlementTotal;
+    const remainingAmount = Number(totalReceiving || 0) - cashSettlementTotal;
 
     if (remainingAmount > 0 && !hasCreditTerm) {
       return [
         ...currentSettlements,
         {
-          settlement_method_id:
-            creditTermMethod.id,
+          settlement_method_id: creditTermMethod.id,
           amount: 0,
           notes: "",
         },
@@ -695,7 +621,7 @@ export default function ReceivingPage() {
 
   const removeSettlement = (index: number) => {
     setSettlements((previous) =>
-      previous.filter((_, lineIndex) => lineIndex !== index)
+      previous.filter((_, lineIndex) => lineIndex !== index),
     );
   };
 
@@ -708,7 +634,7 @@ export default function ReceivingPage() {
     }
 
     const validLines = lines.filter(
-      (line) => Number(line.quantity_received) > 0
+      (line) => Number(line.quantity_received) > 0,
     );
 
     if (validLines.length === 0) {
@@ -717,41 +643,38 @@ export default function ReceivingPage() {
     }
 
     let settlementsForSave: SettlementLine[];
-      try {
-        settlementsForSave =
-          buildSettlementsForSave();
-      } catch (error) {
-        window.alert(
-          error instanceof Error
-            ? error.message
-            : "Metode settlement Tempo tidak ditemukan."
-        );
+    try {
+      settlementsForSave = buildSettlementsForSave();
+    } catch (error) {
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : "Metode settlement Tempo tidak ditemukan.",
+      );
+      return;
+    }
+
+    const hasCreditTerm = settlementsForSave.some((settlement) => {
+      const method = methods.find(
+        (row) => row.id === settlement.settlement_method_id,
+      );
+
+      return method?.settlement_type === "CREDIT_TERM";
+    });
+
+    if (hasCreditTerm) {
+      if (!supplierInvoiceNumber.trim()) {
+        window.alert("No. Invoice Supplier wajib diisi untuk Receiving Tempo.");
         return;
       }
 
-      const hasCreditTerm = settlementsForSave.some((settlement) => {
-        const method = methods.find(
-          (row) => row.id === settlement.settlement_method_id
+      if (!supplierInvoiceDate) {
+        window.alert(
+          "Tanggal Invoice Supplier wajib diisi untuk Receiving Tempo.",
         );
-
-        return method?.settlement_type === "CREDIT_TERM";
-      });
-
-      if (hasCreditTerm) {
-        if (!supplierInvoiceNumber.trim()) {
-          window.alert(
-            "No. Invoice Supplier wajib diisi untuk Receiving Tempo."
-          );
-          return;
-        }
-
-        if (!supplierInvoiceDate) {
-          window.alert(
-            "Tanggal Invoice Supplier wajib diisi untuk Receiving Tempo."
-          );
-          return;
-        }
+        return;
       }
+    }
 
     setSaving(true);
     setError(null);
@@ -765,11 +688,9 @@ export default function ReceivingPage() {
           p_details: validLines,
           p_settlements: settlementsForSave,
 
-          p_supplier_invoice_number:
-            supplierInvoiceNumber.trim() || null,
+          p_supplier_invoice_number: supplierInvoiceNumber.trim() || null,
 
-          p_supplier_invoice_date:
-            supplierInvoiceDate || null,
+          p_supplier_invoice_date: supplierInvoiceDate || null,
         })
       : await supabase.rpc("create_receiving_record_draft", {
           p_entity_id: selectedPo.entity_id,
@@ -780,11 +701,9 @@ export default function ReceivingPage() {
           p_details: validLines,
           p_settlements: settlementsForSave,
 
-          p_supplier_invoice_number:
-            supplierInvoiceNumber.trim() || null,
+          p_supplier_invoice_number: supplierInvoiceNumber.trim() || null,
 
-          p_supplier_invoice_date:
-            supplierInvoiceDate || null,
+          p_supplier_invoice_date: supplierInvoiceDate || null,
         });
 
     setSaving(false);
@@ -802,7 +721,7 @@ export default function ReceivingPage() {
     window.alert(
       editingId
         ? `Draft Receiving ${result.receiving_number} berhasil diperbarui.`
-        : `Receiving ${result.receiving_number} berhasil dibuat sebagai Draft.`
+        : `Receiving ${result.receiving_number} berhasil dibuat sebagai Draft.`,
     );
 
     setShowForm(false);
@@ -824,7 +743,7 @@ export default function ReceivingPage() {
   const postReceiving = async (record: ReceivingRecord) => {
     const confirmed = window.confirm(
       `Post Receiving ${record.receiving_number}?\n\n` +
-        "Stok, harga average, PO, AP/Deposit, dan jurnal akan diproses."
+        "Stok, harga average, PO, AP/Deposit, dan jurnal akan diproses.",
     );
 
     if (!confirmed) return;
@@ -833,7 +752,7 @@ export default function ReceivingPage() {
 
     if (!customUserId) {
       setError(
-        "User aplikasi tidak ditemukan. Silakan login kembali sebelum melakukan posting."
+        "User aplikasi tidak ditemukan. Silakan login kembali sebelum melakukan posting.",
       );
       return;
     }
@@ -846,7 +765,7 @@ export default function ReceivingPage() {
       {
         p_receiving_record_id: record.id,
         p_custom_user_id: customUserId,
-      }
+      },
     );
 
     setSaving(false);
@@ -865,7 +784,7 @@ export default function ReceivingPage() {
     window.alert(
       `Receiving ${result.receiving_number} berhasil diposting.\n` +
         `Status PO: ${result.purchase_order_status}\n` +
-        `AP Trade: ${rupiah(result.ap_trade_amount)}`
+        `AP Trade: ${rupiah(result.ap_trade_amount)}`,
     );
 
     await loadData();
@@ -873,7 +792,7 @@ export default function ReceivingPage() {
 
   const deleteReceivingDraft = async (record: ReceivingRecord) => {
     const confirmed = window.confirm(
-      `Hapus Draft Receiving ${record.receiving_number}?`
+      `Hapus Draft Receiving ${record.receiving_number}?`,
     );
 
     if (!confirmed) return;
@@ -884,7 +803,7 @@ export default function ReceivingPage() {
       "delete_receiving_record_draft",
       {
         p_receiving_record_id: record.id,
-      }
+      },
     );
 
     setSaving(false);
@@ -908,9 +827,7 @@ export default function ReceivingPage() {
   const exportReceivingExcel = async () => {
     try {
       if (totalCount === 0) {
-        window.alert(
-          "Tidak ada Receiving yang dapat diexport."
-        );
+        window.alert("Tidak ada Receiving yang dapat diexport.");
         return;
       }
 
@@ -924,37 +841,23 @@ export default function ReceivingPage() {
         let query = supabase
           .from("receiving_records")
           .select("*")
-          .order(
-            statusFilter === "POSTED"
-              ? "posted_at"
-              : "created_at",
-            { ascending: false }
-          );
+          .order(statusFilter === "POSTED" ? "posted_at" : "created_at", {
+            ascending: false,
+          });
 
         if (statusFilter !== "ALL") {
-          query = query.eq(
-            "status",
-            statusFilter
-          );
+          query = query.eq("status", statusFilter);
         }
 
         const dateColumn =
-          statusFilter === "POSTED"
-            ? "posted_at"
-            : "created_at";
+          statusFilter === "POSTED" ? "posted_at" : "created_at";
 
         if (dateFrom) {
-          query = query.gte(
-            dateColumn,
-            `${dateFrom}T00:00:00.000`
-          );
+          query = query.gte(dateColumn, `${dateFrom}T00:00:00.000`);
         }
 
         if (dateTo) {
-          query = query.lte(
-            dateColumn,
-            `${dateTo}T23:59:59.999`
-          );
+          query = query.lte(dateColumn, `${dateTo}T23:59:59.999`);
         }
 
         if (keyword) {
@@ -970,24 +873,20 @@ export default function ReceivingPage() {
               `store_name_snapshot.ilike.%${safeKeyword}%`,
               `status.ilike.%${safeKeyword}%`,
               `supplier_invoice_number.ilike.%${safeKeyword}%`,
-            ].join(",")
+            ].join(","),
           );
         }
 
-        const { data, error: exportError } =
-          await query.range(
-            offset,
-            offset + batchSize - 1
-          );
+        const { data, error: exportError } = await query.range(
+          offset,
+          offset + batchSize - 1,
+        );
 
         if (exportError) {
-          throw new Error(
-            exportError.message
-          );
+          throw new Error(exportError.message);
         }
 
-        const batch =
-          (data ?? []) as ReceivingRecord[];
+        const batch = (data ?? []) as ReceivingRecord[];
 
         exportRows.push(...batch);
 
@@ -998,30 +897,19 @@ export default function ReceivingPage() {
         offset += batchSize;
       }
 
-      const rows = exportRows.map(
-        (record) => ({
-          Tanggal: record.receiving_date,
-          "Nomor Receiving":
-            record.receiving_number,
-          "Invoice Supplier":
-            record.supplier_invoice_number,
-          "Nomor PO":
-            record.purchase_order_number_snapshot,
-          Supplier:
-            record.supplier_name_snapshot,
-          Store:
-            record.store_name_snapshot,
-          Total:
-            Number(record.grand_total),
-          "Jatuh Tempo":
-            record.supplier_due_date,
-          Status:
-            record.status,
-        })
-      );
+      const rows = exportRows.map((record) => ({
+        Tanggal: record.receiving_date,
+        "Nomor Receiving": record.receiving_number,
+        "Invoice Supplier": record.supplier_invoice_number,
+        "Nomor PO": record.purchase_order_number_snapshot,
+        Supplier: record.supplier_name_snapshot,
+        Store: record.store_name_snapshot,
+        Total: Number(record.grand_total),
+        "Jatuh Tempo": record.supplier_due_date,
+        Status: record.status,
+      }));
 
-      const worksheet =
-        XLSX.utils.json_to_sheet(rows);
+      const worksheet = XLSX.utils.json_to_sheet(rows);
 
       worksheet["!cols"] = [
         { wch: 16 },
@@ -1035,35 +923,24 @@ export default function ReceivingPage() {
         { wch: 14 },
       ];
 
-      const workbook =
-        XLSX.utils.book_new();
+      const workbook = XLSX.utils.book_new();
 
-      XLSX.utils.book_append_sheet(
-        workbook,
-        worksheet,
-        "Receiving Record"
-      );
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Receiving Record");
 
-      const file = XLSX.write(
-        workbook,
-        {
-          bookType: "xlsx",
-          type: "array",
-        }
-      );
+      const file = XLSX.write(workbook, {
+        bookType: "xlsx",
+        type: "array",
+      });
 
       saveAs(
         new Blob([file], {
-          type:
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         }),
-        `Receiving-${today()}.xlsx`
+        `Receiving-${today()}.xlsx`,
       );
     } catch (err) {
       window.alert(
-        err instanceof Error
-          ? err.message
-          : "Gagal export Receiving."
+        err instanceof Error ? err.message : "Gagal export Receiving.",
       );
     }
   };
@@ -1071,7 +948,8 @@ export default function ReceivingPage() {
   const printReceivingA4 = async (record: ReceivingRecord) => {
     const { data: details, error: detailError } = await supabase
       .from("receiving_record_details")
-      .select(`
+      .select(
+        `
         line_number,
         item_code_snapshot,
         item_name_snapshot,
@@ -1079,7 +957,8 @@ export default function ReceivingPage() {
         quantity_received,
         unit_cost,
         line_total
-      `)
+      `,
+      )
       .eq("receiving_record_id", record.id)
       .order("line_number");
 
@@ -1100,7 +979,7 @@ export default function ReceivingPage() {
             <td style="text-align:right">${rupiah(detail.unit_cost)}</td>
             <td style="text-align:right">${rupiah(detail.line_total)}</td>
           </tr>
-        `
+        `,
       )
       .join("");
 
@@ -1194,7 +1073,7 @@ export default function ReceivingPage() {
             <tr>
               <td><strong>Grand Total</strong></td>
               <td style="text-align:right"><strong>${rupiah(
-                record.grand_total
+                record.grand_total,
               )}</strong></td>
             </tr>
           </table>
@@ -1216,9 +1095,7 @@ export default function ReceivingPage() {
     <div className="w-full pr-2 space-y-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">
-            Receiving
-          </h1>
+          <h1 className="text-xl font-semibold text-gray-900">Receiving</h1>
           <p className="mt-1 text-sm text-gray-500">
             Terima barang berdasarkan Purchase Order dan simpan ke Store/Gudang.
           </p>
@@ -1235,14 +1112,14 @@ export default function ReceivingPage() {
             placeholder="Cari nomor RR atau supplier..."
           />
           {access.export && (
-                <button
-                  type="button"
-                  onClick={exportReceivingExcel}
-                  className="rounded-md border border-green-300 bg-green-50 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-100"
-                >
-                  Export Excel
-                </button>
-              )}
+            <button
+              type="button"
+              onClick={exportReceivingExcel}
+              className="rounded-md border border-green-300 bg-green-50 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-100"
+            >
+              Export Excel
+            </button>
+          )}
 
           {access.create && (
             <button
@@ -1289,7 +1166,7 @@ export default function ReceivingPage() {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="mb-1 block text-sm font-medium">
                 Tanggal Receiving
@@ -1346,9 +1223,7 @@ export default function ReceivingPage() {
               <input
                 type="text"
                 value={supplierInvoiceNumber}
-                onChange={(e) =>
-                  setSupplierInvoiceNumber(e.target.value)
-                }
+                onChange={(e) => setSupplierInvoiceNumber(e.target.value)}
                 placeholder="Contoh: INV-VJ-001"
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
               />
@@ -1358,7 +1233,6 @@ export default function ReceivingPage() {
               </p>
             </div>
 
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Tanggal Invoice
@@ -1367,9 +1241,7 @@ export default function ReceivingPage() {
               <input
                 type="date"
                 value={supplierInvoiceDate}
-                onChange={(e) =>
-                  setSupplierInvoiceDate(e.target.value)
-                }
+                onChange={(e) => setSupplierInvoiceDate(e.target.value)}
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
               />
             </div>
@@ -1390,7 +1262,6 @@ export default function ReceivingPage() {
                 Term supplier: {supplierPaymentTermDays} hari
               </p>
             </div>
-
           </div>
 
           {selectedPo && (
@@ -1410,7 +1281,7 @@ export default function ReceivingPage() {
                 <tbody className="divide-y divide-gray-200">
                   {lines.map((line, index) => {
                     const poDetail = selectedPo.purchase_order_details.find(
-                      (detail) => detail.id === line.purchase_order_detail_id
+                      (detail) => detail.id === line.purchase_order_detail_id,
                     );
 
                     const total =
@@ -1448,7 +1319,7 @@ export default function ReceivingPage() {
                               updateLine(
                                 index,
                                 "quantity_received",
-                                Number(event.target.value || 0)
+                                Number(event.target.value || 0),
                               )
                             }
                             className="w-24 rounded-md border border-gray-300 px-2 py-2 text-right"
@@ -1468,7 +1339,7 @@ export default function ReceivingPage() {
                               updateLine(
                                 index,
                                 "unit_cost",
-                                Number(event.target.value || 0)
+                                Number(event.target.value || 0),
                               )
                             }
                             className="w-32 rounded-md border border-gray-300 px-2 py-2 text-right"
@@ -1487,13 +1358,11 @@ export default function ReceivingPage() {
           )}
 
           <div>
-            <label className="mb-1 block text-sm font-medium">
-              Catatan
-            </label>
+            <label className="mb-1 block text-sm font-medium">Catatan</label>
             <input
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"                
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
               placeholder="Opsional"
             />
           </div>
@@ -1520,7 +1389,7 @@ export default function ReceivingPage() {
 
             {settlements.map((settlement, index) => {
               const method = methods.find(
-                (row) => row.id === settlement.settlement_method_id
+                (row) => row.id === settlement.settlement_method_id,
               );
 
               return (
@@ -1534,7 +1403,7 @@ export default function ReceivingPage() {
                       updateSettlement(
                         index,
                         "settlement_method_id",
-                        event.target.value
+                        event.target.value,
                       )
                     }
                     className="rounded-md border border-gray-300 px-3 py-2 text-sm"
@@ -1546,7 +1415,7 @@ export default function ReceivingPage() {
                       </option>
                     ))}
                   </select>
-                  
+
                   <input
                     type="number"
                     min="0"
@@ -1556,7 +1425,7 @@ export default function ReceivingPage() {
                       updateSettlement(
                         index,
                         "amount",
-                        Number(event.target.value || 0)
+                        Number(event.target.value || 0),
                       )
                     }
                     placeholder="Nominal"
@@ -1576,9 +1445,7 @@ export default function ReceivingPage() {
           </div>
 
           <div className="flex items-center justify-between rounded-lg bg-gray-50 p-4">
-            <span className="font-semibold text-gray-900">
-              Total Receiving
-            </span>
+            <span className="font-semibold text-gray-900">Total Receiving</span>
             <span className="text-lg font-bold text-gray-900">
               {rupiah(totalReceiving)}
             </span>
@@ -1643,10 +1510,7 @@ export default function ReceivingPage() {
               onChange={(event) =>
                 setStatusFilter(
                   event.target.value as
-                    | "POSTED"
-                    | "DRAFT"
-                    | "CANCELLED"
-                    | "ALL"
+                    "POSTED" | "DRAFT" | "CANCELLED" | "ALL",
                 )
               }
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
@@ -1704,13 +1568,19 @@ export default function ReceivingPage() {
             <tbody className="divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
+                  <td
+                    colSpan={9}
+                    className="px-4 py-8 text-center text-gray-500"
+                  >
                     Memuat Receiving...
                   </td>
                 </tr>
               ) : records.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
+                  <td
+                    colSpan={9}
+                    className="px-4 py-8 text-center text-gray-500"
+                  >
                     Belum ada Receiving Record.
                   </td>
                 </tr>
@@ -1731,7 +1601,7 @@ export default function ReceivingPage() {
                         </div>
                       )}
                     </td>
-                    
+
                     <td className="px-4 py-3">
                       <div>{record.purchase_order_number_snapshot}</div>
                       <div className="text-xs text-gray-500">

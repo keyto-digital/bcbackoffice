@@ -2,10 +2,7 @@
 // STOREKEEPER TYPES
 // ============================================================================
 
-export type TransactionKind =
-  | "TRANSFER"
-  | "OPNAME"
-  | "ADJUSTMENT";
+export type TransactionKind = "TRANSFER" | "OPNAME" | "ADJUSTMENT";
 
 export interface StoreOption {
   id: string;
@@ -131,4 +128,3 @@ export interface StockOpnameLine {
   qty: string;
   accountId: string;
 }
-

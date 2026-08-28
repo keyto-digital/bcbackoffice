@@ -104,25 +104,23 @@ export default function TransferDialog({
             type="button"
             disabled={saving}
             onClick={() => {
-
-                for (const row of details) {
-
-                    if (row.qty_transfer <= 0) {
-                        alert("Qty Transfer harus lebih dari 0.");
-                        return;
-                    }
-
-                    if (row.qty_transfer > row.qty_approved) {
-                        alert("Qty Transfer tidak boleh melebihi Qty Approved.");
-                        return;
-                    }
+              for (const row of details) {
+                if (row.qty_transfer <= 0) {
+                  alert("Qty Transfer harus lebih dari 0.");
+                  return;
                 }
-                onTransfer();
+
+                if (row.qty_transfer > row.qty_approved) {
+                  alert("Qty Transfer tidak boleh melebihi Qty Approved.");
+                  return;
+                }
+              }
+              onTransfer();
             }}
             className="rounded bg-green-600 px-4 py-2 text-white"
-        >
+          >
             Transfer
-        </button>
+          </button>
         </div>
       </div>
     </div>

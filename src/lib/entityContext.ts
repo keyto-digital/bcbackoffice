@@ -10,8 +10,9 @@ export interface EntityContext {
  * Ambil entity lengkap dari entity_id user
  * SATU-SATUNYA SUMBER KEBENARAN ENTITY
  */
-export async function getEntityContext(entity_id: string): Promise<EntityContext> {
-  
+export async function getEntityContext(
+  entity_id: string,
+): Promise<EntityContext> {
   const { data, error } = await supabase
     .from("entities")
     .select("id, kode, tipe")

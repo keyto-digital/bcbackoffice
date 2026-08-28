@@ -15,20 +15,11 @@ import Pagination from "@/components/common/Pagination";
 export default function StorekeeperPage(): JSX.Element {
   const [tab, setTab] = useState<"SUMMARY" | "CARD">("SUMMARY");
 
-  const [
-    summaryPage,
-    setSummaryPage,
-  ] = useState(1);
+  const [summaryPage, setSummaryPage] = useState(1);
 
-  const [
-    cardPage,
-    setCardPage,
-  ] = useState(1);
+  const [cardPage, setCardPage] = useState(1);
 
-  const [
-    pageSize,
-    setPageSize,
-  ] = useState(25);
+  const [pageSize, setPageSize] = useState(25);
 
   const [detailRow, setDetailRow] = useState<
     ReturnType<typeof useStorekeeper>["groupedMovements"][number] | null
@@ -58,63 +49,40 @@ export default function StorekeeperPage(): JSX.Element {
     accounts,
   } = useStorekeeper();
 
-  const summaryFrom =
-    (summaryPage - 1) *
-    pageSize;
+  const summaryFrom = (summaryPage - 1) * pageSize;
 
-  const summaryTo =
-    summaryFrom + pageSize;
+  const summaryTo = summaryFrom + pageSize;
 
-  const paginatedStocks =
-    filteredStocks.slice(
-      summaryFrom,
-      summaryTo
-    );
+  const paginatedStocks = filteredStocks.slice(summaryFrom, summaryTo);
 
-  const cardFrom =
-    (cardPage - 1) *
-    pageSize;
+  const cardFrom = (cardPage - 1) * pageSize;
 
-  const cardTo =
-    cardFrom + pageSize;
+  const cardTo = cardFrom + pageSize;
 
-  const paginatedMovements =
-    filteredMovements.slice(
-      cardFrom,
-      cardTo
-    );
+  const paginatedMovements = filteredMovements.slice(cardFrom, cardTo);
 
-  const summaryMeta =
-    createPaginationMeta(
-      summaryPage,
-      pageSize,
-      filteredStocks.length
-    );
+  const summaryMeta = createPaginationMeta(
+    summaryPage,
+    pageSize,
+    filteredStocks.length,
+  );
 
-  const cardMeta =
-    createPaginationMeta(
-      cardPage,
-      pageSize,
-      filteredMovements.length
-    );
+  const cardMeta = createPaginationMeta(
+    cardPage,
+    pageSize,
+    filteredMovements.length,
+  );
 
   useEffect(() => {
     setSummaryPage(1);
     setCardPage(1);
-  }, [
-    storeId,
-    itemId,
-    search,
-    dateFrom,
-    dateTo,
-  ]);
+  }, [storeId, itemId, search, dateFrom, dateTo]);
 
-  const transaction =
-    useInventoryTransaction({
-      stocks,
-      loadData,
-      setError,
-    });
+  const transaction = useInventoryTransaction({
+    stocks,
+    loadData,
+    setError,
+  });
 
   const exportExcel = useCallback(() => {
     const rows =
@@ -132,72 +100,40 @@ export default function StorekeeperPage(): JSX.Element {
           }))
         : filteredMovements.map((row) => ({
             Tanggal: row.movement_date,
-            Store: row.store
-              ? `${row.store.code} - ${row.store.name}`
-              : "-",
-            Kode:
-              row.items[0]?.code ?? "-",
+            Store: row.store ? `${row.store.code} - ${row.store.name}` : "-",
+            Kode: row.items[0]?.code ?? "-",
             Artikel:
               row.items.length > 1
                 ? `${row.items[0]?.name} (+${row.items.length - 1} artikel)`
-                : row.items[0]?.name ?? "-",
-            Tipe: getMovementLabel(
-              row.movement_type
-            ),
+                : (row.items[0]?.name ?? "-"),
+            Tipe: getMovementLabel(row.movement_type),
             Masuk: Number(row.quantity_in),
             Keluar: Number(row.quantity_out),
-            "Saldo Setelah": Number(
-              row.quantity_after
-            ),
-            Satuan:
-              row.items[0]?.unit_code ?? "-",
-            "Harga Average Setelah": Number(
-              row.average_cost_after
-            ),
-            Referensi:
-              row.reference ?? "-",
-            Keterangan:
-              row.description ?? "-",
+            "Saldo Setelah": Number(row.quantity_after),
+            Satuan: row.items[0]?.unit_code ?? "-",
+            "Harga Average Setelah": Number(row.average_cost_after),
+            Referensi: row.reference ?? "-",
+            Keterangan: row.description ?? "-",
           }));
 
     const workbook = XLSX.utils.book_new();
-    const sheetName =
-      tab === "SUMMARY"
-        ? "Stok"
-        : "Kartu Stok";
+    const sheetName = tab === "SUMMARY" ? "Stok" : "Kartu Stok";
 
-    const worksheet =
-      XLSX.utils.json_to_sheet(rows);
+    const worksheet = XLSX.utils.json_to_sheet(rows);
 
-    XLSX.utils.book_append_sheet(
-      workbook,
-      worksheet,
-      sheetName
-    );
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
 
-    const data = XLSX.write(
-      workbook,
-      {
-        bookType: "xlsx",
-        type: "array",
-      }
-    );
+    const data = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+    });
 
     const blob = new Blob([data], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
 
-    saveAs(
-      blob,
-      `Storekeeper-${inputDate(
-        new Date()
-      )}.xlsx`
-    );
-  }, [
-    tab,
-    filteredStocks,
-    filteredMovements,
-  ]);
+    saveAs(blob, `Storekeeper-${inputDate(new Date())}.xlsx`);
+  }, [tab, filteredStocks, filteredMovements]);
 
   /**
    * Export form Stock Opname.
@@ -212,54 +148,36 @@ export default function StorekeeperPage(): JSX.Element {
   const exportStockOpname = useCallback(() => {
     if (!storeId) {
       window.alert(
-        "Pilih Store terlebih dahulu untuk membuat Form Stock Opname."
+        "Pilih Store terlebih dahulu untuk membuat Form Stock Opname.",
       );
       return;
     }
 
-    const selectedStore =
-      stores.find(
-        (store) => store.id === storeId
-      );
+    const selectedStore = stores.find((store) => store.id === storeId);
 
     if (!selectedStore) {
-      window.alert(
-        "Store yang dipilih tidak ditemukan."
-      );
+      window.alert("Store yang dipilih tidak ditemukan.");
       return;
     }
 
     const opnameRows = stocks
-      .filter(
-        (row) =>
-          row.store_id === storeId
-      )
+      .filter((row) => row.store_id === storeId)
       .sort((a, b) =>
-        String(a.item_code).localeCompare(
-          String(b.item_code),
-          undefined,
-          { numeric: true }
-        )
+        String(a.item_code).localeCompare(String(b.item_code), undefined, {
+          numeric: true,
+        }),
       )
       .map((row, index) => ({
         No: index + 1,
         Store: `${selectedStore.code} - ${selectedStore.name}`,
         Kode: row.item_code,
         Artikel: row.item_name,
-        Kategori:
-          row.category_name ?? "-",
-        "Sub Kategori":
-          row.subcategory_name ?? "-",
+        Kategori: row.category_name ?? "-",
+        "Sub Kategori": row.subcategory_name ?? "-",
         Satuan: row.unit_code ?? "-",
-        "Qty Sistem": Number(
-          row.quantity_on_hand ?? 0
-        ),
-        "Harga Average": Number(
-          row.average_cost ?? 0
-        ),
-        "Nilai Sistem": Number(
-          row.stock_value ?? 0
-        ),
+        "Qty Sistem": Number(row.quantity_on_hand ?? 0),
+        "Harga Average": Number(row.average_cost ?? 0),
+        "Nilai Sistem": Number(row.stock_value ?? 0),
         "Qty Fisik": "",
         Selisih: "",
         "Nilai Selisih": "",
@@ -267,63 +185,36 @@ export default function StorekeeperPage(): JSX.Element {
       }));
 
     if (opnameRows.length === 0) {
-      window.alert(
-        "Tidak ada data stok untuk Store yang dipilih."
-      );
+      window.alert("Tidak ada data stok untuk Store yang dipilih.");
       return;
     }
 
-    const workbook =
-      XLSX.utils.book_new();
+    const workbook = XLSX.utils.book_new();
 
-    const worksheet =
-      XLSX.utils.json_to_sheet(
-        opnameRows
-      );
+    const worksheet = XLSX.utils.json_to_sheet(opnameRows);
 
-    const widths = [
-      6, 22, 14, 30, 18, 20, 10,
-      14, 16, 16, 14, 12, 16, 30,
-    ];
+    const widths = [6, 22, 14, 30, 18, 20, 10, 14, 16, 16, 14, 12, 16, 30];
 
-    worksheet["!cols"] =
-      widths.map((wch) => ({
-        wch,
-      }));
+    worksheet["!cols"] = widths.map((wch) => ({
+      wch,
+    }));
 
-    XLSX.utils.book_append_sheet(
-      workbook,
-      worksheet,
-      "Stock Opname"
-    );
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Stock Opname");
 
-    const data = XLSX.write(
-      workbook,
-      {
-        bookType: "xlsx",
-        type: "array",
-      }
-    );
+    const data = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+    });
 
-    const blob = new Blob(
-      [data],
-      {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      }
-    );
+    const blob = new Blob([data], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
 
     saveAs(
       blob,
-      `Stock-Opname-${selectedStore.code}-${inputDate(
-        new Date()
-      )}.xlsx`
+      `Stock-Opname-${selectedStore.code}-${inputDate(new Date())}.xlsx`,
     );
-  }, [
-    storeId,
-    stores,
-    stocks,
-  ]);
-
+  }, [storeId, stores, stocks]);
 
   const printSummary = useCallback(() => {
     const rows = filteredStocks
@@ -338,7 +229,7 @@ export default function StorekeeperPage(): JSX.Element {
             <td class="right">${quantity(row.quantity_on_hand)}</td>
             <td class="right">${money(row.average_cost)}</td>
             <td class="right">${money(row.stock_value)}</td>
-          </tr>`
+          </tr>`,
       )
       .join("");
 
@@ -360,8 +251,8 @@ export default function StorekeeperPage(): JSX.Element {
         <body>
           <h1>LAPORAN PERSEDIAAN</h1>
           <div class="muted">Per ${dateFrom} s.d. ${dateTo} | Nilai persediaan: ${money(
-      totalValue
-    )}</div>
+            totalValue,
+          )}</div>
           <table>
             <thead>
               <tr>
@@ -386,7 +277,11 @@ export default function StorekeeperPage(): JSX.Element {
         </body>
       </html>`;
 
-    const popup = window.open("", "_blank", "noopener,noreferrer,width=1000,height=800");
+    const popup = window.open(
+      "",
+      "_blank",
+      "noopener,noreferrer,width=1000,height=800",
+    );
     if (!popup) {
       window.alert("Popup print diblokir browser.");
       return;
@@ -407,7 +302,8 @@ export default function StorekeeperPage(): JSX.Element {
         <div>
           <h1 className="text-2xl font-bold">Storekeeper</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Monitoring stok fisik dan kartu mutasi. Saldo hanya berubah melalui transaksi yang diposting.
+            Monitoring stok fisik dan kartu mutasi. Saldo hanya berubah melalui
+            transaksi yang diposting.
           </p>
         </div>
 
@@ -493,30 +389,27 @@ export default function StorekeeperPage(): JSX.Element {
             value={itemId}
             onChange={(e) => setItemId(e.target.value)}
             className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-        >
+          >
             <option value="">Semua Artikel</option>
 
             {stocks.map((row) => (
-                <option
-                    key={`${row.store_id}-${row.item_id}`}
-                    value={row.item_id}
-                >
-                    {row.item_code} - {row.item_name}
-                </option>
+              <option
+                key={`${row.store_id}-${row.item_id}`}
+                value={row.item_id}
+              >
+                {row.item_code} - {row.item_name}
+              </option>
             ))}
-        </select>
+          </select>
 
           <input
             type="date"
             value={dateFrom}
-            onChange={(e) =>
-              setDateFrom(e.target.value)
-            }
+            onChange={(e) => setDateFrom(e.target.value)}
             onClick={(e) => {
-              const input =
-                e.currentTarget as HTMLInputElement & {
-                  showPicker?: () => void;
-                };
+              const input = e.currentTarget as HTMLInputElement & {
+                showPicker?: () => void;
+              };
 
               input.showPicker?.();
             }}
@@ -526,14 +419,11 @@ export default function StorekeeperPage(): JSX.Element {
           <input
             type="date"
             value={dateTo}
-            onChange={(e) =>
-              setDateTo(e.target.value)
-            }
+            onChange={(e) => setDateTo(e.target.value)}
             onClick={(e) => {
-              const input =
-                e.currentTarget as HTMLInputElement & {
-                  showPicker?: () => void;
-                };
+              const input = e.currentTarget as HTMLInputElement & {
+                showPicker?: () => void;
+              };
 
               input.showPicker?.();
             }}
@@ -587,7 +477,9 @@ export default function StorekeeperPage(): JSX.Element {
         <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b px-5 py-4">
             <h2 className="font-semibold">Persediaan per Store</h2>
-            <span className="text-sm font-medium text-gray-700">Total: {money(totalValue)}</span>
+            <span className="text-sm font-medium text-gray-700">
+              Total: {money(totalValue)}
+            </span>
           </div>
 
           <div className="overflow-x-auto">
@@ -643,32 +535,23 @@ export default function StorekeeperPage(): JSX.Element {
                         </div>
                       </td>
 
-                      <td className="px-3 py-3">
-                        {row.unit_code}
+                      <td className="px-3 py-3">{row.unit_code}</td>
+
+                      <td className="px-3 py-3 text-right">
+                        {quantity(row.quantity_on_hand)}
                       </td>
 
                       <td className="px-3 py-3 text-right">
-                        {quantity(
-                          row.quantity_on_hand
-                        )}
-                      </td>
-
-                      <td className="px-3 py-3 text-right">
-                        {money(
-                          row.average_cost
-                        )}
+                        {money(row.average_cost)}
                       </td>
 
                       <td className="px-3 py-3 text-right font-medium">
-                        {money(
-                          row.stock_value
-                        )}
+                        {money(row.stock_value)}
                       </td>
                     </tr>
                   ))
                 )}
               </tbody>
-
             </table>
           </div>
           <div className="border-t bg-white px-4 py-3">
@@ -688,7 +571,8 @@ export default function StorekeeperPage(): JSX.Element {
           <div className="border-b px-5 py-4">
             <h2 className="font-semibold">Kartu Mutasi Stok</h2>
             <p className="mt-1 text-sm text-gray-500">
-              Periode default bulan berjalan. Pilih artikel untuk kartu per item.
+              Periode default bulan berjalan. Pilih artikel untuk kartu per
+              item.
             </p>
           </div>
 
@@ -714,22 +598,26 @@ export default function StorekeeperPage(): JSX.Element {
               <tbody className="divide-y divide-gray-200">
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                    <td
+                      colSpan={8}
+                      className="px-4 py-8 text-center text-gray-500"
+                    >
                       Memuat mutasi...
                     </td>
                   </tr>
                 ) : filteredMovements.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                    <td
+                      colSpan={8}
+                      className="px-4 py-8 text-center text-gray-500"
+                    >
                       Tidak ada mutasi pada periode ini.
                     </td>
                   </tr>
                 ) : (
                   paginatedMovements.map((row) => (
                     <tr key={row.id}>
-                      <td className="px-3 py-3">
-                        {row.movement_date}
-                      </td>
+                      <td className="px-3 py-3">{row.movement_date}</td>
 
                       <td className="px-3 py-3">
                         {getMovementLabel(row.movement_type)}
@@ -774,15 +662,15 @@ export default function StorekeeperPage(): JSX.Element {
 
                       <td className="px-3 py-3">
                         {row.reference ?? "-"}
-                        <div className="text-gray-500">{row.description ?? ""}</div>
+                        <div className="text-gray-500">
+                          {row.description ?? ""}
+                        </div>
                       </td>
 
                       <td className="px-3 py-2 text-center">
                         <button
                           type="button"
-                          onClick={() =>
-                            setDetailRow(row)
-                          }
+                          onClick={() => setDetailRow(row)}
                           className="rounded border border-blue-500 px-2 py-1 text-blue-600 hover:bg-blue-50"
                         >
                           👁 Detail
@@ -794,9 +682,7 @@ export default function StorekeeperPage(): JSX.Element {
                       </td>
 
                       <td className="px-3 py-2 text-center">
-                        {getWIBTimestampFromUTC(
-                          row.created_at
-                        )}
+                        {getWIBTimestampFromUTC(row.created_at)}
                       </td>
                     </tr>
                   ))
@@ -819,12 +705,10 @@ export default function StorekeeperPage(): JSX.Element {
       )}
 
       <MovementDetailModal
-          open={detailRow!==null}
-          row={detailRow}
-          onClose={()=>
-              setDetailRow(null)
-          }
-      />   
+        open={detailRow !== null}
+        row={detailRow}
+        onClose={() => setDetailRow(null)}
+      />
 
       <InventoryTransactionModal
         open={transaction.isOpen}

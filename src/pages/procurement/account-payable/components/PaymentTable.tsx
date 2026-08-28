@@ -1,8 +1,4 @@
-import {
-  Eye,
-  Pencil,
-  Trash2,
-} from "lucide-react";
+import { Eye, Pencil, Trash2 } from "lucide-react";
 
 import type { ApPayment } from "../types";
 
@@ -75,7 +71,7 @@ export default function PaymentTable({
     if (!payment.payment_request_id) return "-";
 
     const request = paymentRequests.find(
-      (item) => item.id === payment.payment_request_id
+      (item) => item.id === payment.payment_request_id,
     );
 
     return request?.payment_request_number ?? "-";
@@ -85,7 +81,7 @@ export default function PaymentTable({
     if (!payment.payment_method_id) return "-";
 
     const method = paymentMethods.find(
-      (item) => item.id === payment.payment_method_id
+      (item) => item.id === payment.payment_method_id,
     );
 
     if (!method) return "-";
@@ -118,25 +114,19 @@ export default function PaymentTable({
       <table className="min-w-[1180px] w-full text-sm">
         <thead>
           <tr className="border-b bg-gray-50">
-            <th className="px-4 py-3 text-left font-semibold">
-              No. Payment
-            </th>
+            <th className="px-4 py-3 text-left font-semibold">No. Payment</th>
 
             <th className="px-4 py-3 text-left font-semibold">
               Payment Voucher
             </th>
 
-            <th className="px-4 py-3 text-left font-semibold">
-              Tanggal
-            </th>
+            <th className="px-4 py-3 text-left font-semibold">Tanggal</th>
 
             <th className="px-4 py-3 text-left font-semibold">
               Metode Pembayaran
             </th>
 
-            <th className="px-4 py-3 text-left font-semibold">
-              Reference
-            </th>
+            <th className="px-4 py-3 text-left font-semibold">Reference</th>
 
             <th className="px-4 py-3 text-right font-semibold">
               Total Payment
@@ -162,17 +152,11 @@ export default function PaymentTable({
                 {getPaymentVoucher(payment)}
               </td>
 
-              <td className="px-4 py-3">
-                {formatDate(payment.payment_date)}
-              </td>
+              <td className="px-4 py-3">{formatDate(payment.payment_date)}</td>
 
-              <td className="px-4 py-3">
-                {getPaymentMethod(payment)}
-              </td>
+              <td className="px-4 py-3">{getPaymentMethod(payment)}</td>
 
-              <td className="px-4 py-3">
-                {payment.reference_number || "-"}
-              </td>
+              <td className="px-4 py-3">{payment.reference_number || "-"}</td>
 
               <td className="px-4 py-3 text-right font-semibold">
                 {formatCurrency(payment.amount)}

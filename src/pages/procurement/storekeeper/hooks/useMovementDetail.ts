@@ -18,18 +18,12 @@ type MovementDetailRawRow = {
     | {
         code: string | null;
         name: string | null;
-        unit:
-          | { code: string | null }
-          | { code: string | null }[]
-          | null;
+        unit: { code: string | null } | { code: string | null }[] | null;
       }
     | {
         code: string | null;
         name: string | null;
-        unit:
-          | { code: string | null }
-          | { code: string | null }[]
-          | null;
+        unit: { code: string | null } | { code: string | null }[] | null;
       }[]
     | null;
 
@@ -45,10 +39,7 @@ type MovementDetailRawRow = {
     | null;
 };
 
-type MovementDetailRow = Omit<
-  MovementDetailRawRow,
-  "item" | "store"
-> & {
+type MovementDetailRow = Omit<MovementDetailRawRow, "item" | "store"> & {
   item: {
     code: string | null;
     name: string | null;
@@ -64,25 +55,21 @@ type MovementDetailRow = Omit<
 };
 
 export function useMovementDetail() {
-
-  const [loading,setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const [rows, setRows] = useState<MovementDetailRow[]>([]);
 
-  const loadDetail=
-    useCallback(
+  const loadDetail = useCallback(async (reference: string) => {
+    if (!reference) {
+      setRows([]);
+      return;
+    }
 
-    async(reference:string)=>{
-      if(!reference){
-        setRows([]);
-        return;
-      }
-
-      setLoading(true);
-      const {data,error}=
-      await supabase
+    setLoading(true);
+    const { data, error } = await supabase
       .from("inventory_movements")
-      .select(`
+      .select(
+        `
         id,
         movement_date,
         movement_type,
@@ -107,60 +94,51 @@ export function useMovementDetail() {
           code,
           name
         )
-      `)
-
-      .eq(
-        "reference",
-        reference
+      `,
       )
 
-      .order(
-        "movement_type"
+      .eq("reference", reference)
+
+      .order("movement_type");
+
+    if (error) {
+      console.error(error);
+      setRows([]);
+    } else {
+      const movementRows = (data ?? []).map(
+        (row: MovementDetailRawRow): MovementDetailRow => ({
+          ...row,
+
+          item: Array.isArray(row.item)
+            ? row.item[0]
+              ? {
+                  code: row.item[0].code,
+                  name: row.item[0].name,
+                  unit: Array.isArray(row.item[0].unit)
+                    ? (row.item[0].unit[0] ?? null)
+                    : row.item[0].unit,
+                }
+              : null
+            : row.item
+              ? {
+                  code: row.item.code,
+                  name: row.item.name,
+                  unit: Array.isArray(row.item.unit)
+                    ? (row.item.unit[0] ?? null)
+                    : row.item.unit,
+                }
+              : null,
+
+          store: Array.isArray(row.store) ? (row.store[0] ?? null) : row.store,
+        }),
       );
 
-      if(error){
-        console.error(error);
-        setRows([]);
+      setRows(movementRows);
+    }
+    setLoading(false);
+  }, []);
 
-      }else{
-        const movementRows = (data ?? []).map(
-          (row: MovementDetailRawRow): MovementDetailRow => ({
-            ...row,
-
-            item: Array.isArray(row.item)
-              ? row.item[0]
-                ? {
-                    code: row.item[0].code,
-                    name: row.item[0].name,
-                    unit: Array.isArray(row.item[0].unit)
-                      ? row.item[0].unit[0] ?? null
-                      : row.item[0].unit,
-                  }
-                : null
-              : row.item
-                ? {
-                    code: row.item.code,
-                    name: row.item.name,
-                    unit: Array.isArray(row.item.unit)
-                      ? row.item.unit[0] ?? null
-                      : row.item.unit,
-                  }
-                : null,
-
-            store: Array.isArray(row.store)
-              ? row.store[0] ?? null
-              : row.store,
-          })
-        );
-
-        setRows(movementRows);
-      }
-      setLoading(false);
-    },
-    []
-  );
-
-  return{
+  return {
     loading,
     rows,
     loadDetail,

@@ -1,8 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { supabase } from "@/lib/supabaseClient";
 import { getCustomUser } from "@/lib/authUser";
@@ -39,41 +35,26 @@ type PurchaseOrderResult = {
 
 const EXPORT_BATCH_SIZE = 1000;
 
-export function usePurchaseOrders(
-  page = 1,
-  pageSize = 25,
-  search = ""
-) {
-  const [purchaseOrders, setPurchaseOrders] =
-    useState<PurchaseOrder[]>([]);
+export function usePurchaseOrders(page = 1, pageSize = 25, search = "") {
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
 
-  const [totalCount, setTotalCount] =
-    useState(0);
+  const [totalCount, setTotalCount] = useState(0);
 
-  const [suppliers, setSuppliers] =
-    useState<SupplierOption[]>([]);
+  const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
 
-  const [items, setItems] =
-    useState<ItemOption[]>([]);
+  const [items, setItems] = useState<ItemOption[]>([]);
 
-  const [loading, setLoading] =
-    useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const [loadingMasters, setLoadingMasters] =
-    useState(false);
+  const [loadingMasters, setLoadingMasters] = useState(false);
 
-  const [saving, setSaving] =
-    useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const [error, setError] =
-    useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const user =
-    getCustomUser();
+  const user = getCustomUser();
 
-  const entityId =
-    user?.entity_id ?? null;
-
+  const entityId = user?.entity_id ?? null;
 
   /*
    * ==========================================================
@@ -88,38 +69,23 @@ export function usePurchaseOrders(
    * ==========================================================
    */
 
-  const fetchPurchaseOrders =
-    useCallback(async () => {
-      setLoading(true);
-      setError(null);
+  const fetchPurchaseOrders = useCallback(async () => {
+    setLoading(true);
+    setError(null);
 
-      try {
-        const safePage =
-          Math.max(
-            1,
-            Number(page) || 1
-          );
+    try {
+      const safePage = Math.max(1, Number(page) || 1);
 
-        const safePageSize =
-          Math.max(
-            1,
-            Number(pageSize) || 25
-          );
+      const safePageSize = Math.max(1, Number(pageSize) || 25);
 
-        const from =
-          (safePage - 1) *
-          safePageSize;
+      const from = (safePage - 1) * safePageSize;
 
-        const to =
-          from +
-          safePageSize -
-          1;
+      const to = from + safePageSize - 1;
 
-        let query =
-          supabase
-            .from("purchase_orders")
-            .select(
-              `
+      let query = supabase
+        .from("purchase_orders")
+        .select(
+          `
                 *,
                 store:stores (
                   id,
@@ -127,143 +93,93 @@ export function usePurchaseOrders(
                   name
                 )
               `,
-              {
-                count: "exact",
-              }
-            )
-            .order(
-              "order_date",
-              {
-                ascending: false,
-              }
-            )
-            .order(
-              "created_at",
-              {
-                ascending: false,
-              }
-            );
+          {
+            count: "exact",
+          },
+        )
+        .order("order_date", {
+          ascending: false,
+        })
+        .order("created_at", {
+          ascending: false,
+        });
 
-        /*
-         * ------------------------------------------------------
-         * ENTITY
-         * ------------------------------------------------------
-         */
+      /*
+       * ------------------------------------------------------
+       * ENTITY
+       * ------------------------------------------------------
+       */
 
-        if (entityId) {
-          query =
-            query.eq(
-              "entity_id",
-              entityId
-            );
-        }
+      if (entityId) {
+        query = query.eq("entity_id", entityId);
+      }
 
-        /*
-         * ------------------------------------------------------
-         * SERVER-SIDE SEARCH
-         *
-         * Tetap menggunakan field yang sebelumnya dicari:
-         * - nomor PO
-         * - kode supplier
-         * - nama supplier
-         * - status
-         * ------------------------------------------------------
-         */
+      /*
+       * ------------------------------------------------------
+       * SERVER-SIDE SEARCH
+       *
+       * Tetap menggunakan field yang sebelumnya dicari:
+       * - nomor PO
+       * - kode supplier
+       * - nama supplier
+       * - status
+       * ------------------------------------------------------
+       */
 
-        const keyword =
-          search.trim();
+      const keyword = search.trim();
 
-        if (keyword) {
-          const safeKeyword =
-            keyword
-              .replace(
-                /[%_]/g,
-                "\\$&"
-              )
-              .replace(
-                /,/g,
-                " "
-              );
+      if (keyword) {
+        const safeKeyword = keyword.replace(/[%_]/g, "\\$&").replace(/,/g, " ");
 
-          query =
-            query.or(
-              [
-                `po_number.ilike.%${safeKeyword}%`,
-                `supplier_code_snapshot.ilike.%${safeKeyword}%`,
-                `supplier_name_snapshot.ilike.%${safeKeyword}%`,
-                `status.ilike.%${safeKeyword}%`,
-              ].join(",")
-            );
-        }
-
-        /*
-         * ------------------------------------------------------
-         * SERVER-SIDE PAGINATION
-         * ------------------------------------------------------
-         */
-
-        const {
-          data,
-          error: fetchError,
-          count,
-        } = await query.range(
-          from,
-          to
+        query = query.or(
+          [
+            `po_number.ilike.%${safeKeyword}%`,
+            `supplier_code_snapshot.ilike.%${safeKeyword}%`,
+            `supplier_name_snapshot.ilike.%${safeKeyword}%`,
+            `status.ilike.%${safeKeyword}%`,
+          ].join(","),
         );
+      }
 
-        if (fetchError) {
-          setError(
-            fetchError.message
-          );
+      /*
+       * ------------------------------------------------------
+       * SERVER-SIDE PAGINATION
+       * ------------------------------------------------------
+       */
 
-          setPurchaseOrders([]);
-          setTotalCount(0);
+      const { data, error: fetchError, count } = await query.range(from, to);
 
-          return;
-        }
-
-        const normalizedPurchaseOrders =
-          (data ?? []).map(
-            (row) => ({
-              ...row,
-
-              store_name:
-                Array.isArray(
-                  row.store
-                )
-                  ? row.store[0]
-                      ?.name ?? null
-                  : row.store?.name ??
-                    null,
-            })
-          );
-
-        setPurchaseOrders(
-          normalizedPurchaseOrders as PurchaseOrder[]
-        );
-
-        setTotalCount(
-          count ?? 0
-        );
-      } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Gagal memuat Purchase Order."
-        );
+      if (fetchError) {
+        setError(fetchError.message);
 
         setPurchaseOrders([]);
         setTotalCount(0);
-      } finally {
-        setLoading(false);
-      }
-    }, [
-      entityId,
-      page,
-      pageSize,
-      search,
-    ]);
 
+        return;
+      }
+
+      const normalizedPurchaseOrders = (data ?? []).map((row) => ({
+        ...row,
+
+        store_name: Array.isArray(row.store)
+          ? (row.store[0]?.name ?? null)
+          : (row.store?.name ?? null),
+      }));
+
+      setPurchaseOrders(normalizedPurchaseOrders as PurchaseOrder[]);
+
+      setTotalCount(count ?? 0);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Gagal memuat Purchase Order.",
+      );
+
+      setPurchaseOrders([]);
+      setTotalCount(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [entityId, page, pageSize, search]);
 
   /*
    * ==========================================================
@@ -276,39 +192,30 @@ export function usePurchaseOrders(
    * ==========================================================
    */
 
-  const fetchMasters =
-    useCallback(async () => {
-      setLoadingMasters(true);
-      setError(null);
+  const fetchMasters = useCallback(async () => {
+    setLoadingMasters(true);
+    setError(null);
 
-      let supplierQuery =
-        supabase
-          .from("suppliers")
-          .select(
-            `
+    let supplierQuery = supabase
+      .from("suppliers")
+      .select(
+        `
               id,
               code,
               name,
               default_payment_term_days,
               is_active
-            `
-          )
-          .eq(
-            "is_active",
-            true
-          )
-          .order(
-            "code",
-            {
-              ascending: true,
-            }
-          );
+            `,
+      )
+      .eq("is_active", true)
+      .order("code", {
+        ascending: true,
+      });
 
-      let itemQuery =
-        supabase
-          .from("items")
-          .select(
-            `
+    let itemQuery = supabase
+      .from("items")
+      .select(
+        `
               id,
               code,
               name,
@@ -327,108 +234,58 @@ export function usePurchaseOrders(
                 code,
                 name
               )
-            `
-          )
-          .eq(
-            "is_active",
-            true
-          )
-          .order(
-            "code",
-            {
-              ascending: true,
-            }
-          );
+            `,
+      )
+      .eq("is_active", true)
+      .order("code", {
+        ascending: true,
+      });
 
-      if (entityId) {
-        supplierQuery =
-          supplierQuery.eq(
-            "entity_id",
-            entityId
-          );
+    if (entityId) {
+      supplierQuery = supplierQuery.eq("entity_id", entityId);
 
-        itemQuery =
-          itemQuery.eq(
-            "entity_id",
-            entityId
-          );
-      }
+      itemQuery = itemQuery.eq("entity_id", entityId);
+    }
 
-      const [
-        supplierResult,
-        itemResult,
-      ] = await Promise.all([
-        supplierQuery,
-        itemQuery,
-      ]);
-
-      if (supplierResult.error) {
-        setError(
-          supplierResult.error.message
-        );
-
-        setSuppliers([]);
-      } else {
-        setSuppliers(
-          (supplierResult.data ??
-            []) as SupplierOption[]
-        );
-      }
-
-      if (itemResult.error) {
-        setError(
-          itemResult.error.message
-        );
-
-        setItems([]);
-      } else {
-        const normalizedItems =
-          (
-            itemResult.data ??
-            []
-          ).map(
-            (item) => ({
-              ...item,
-
-              category:
-                Array.isArray(
-                  item.category
-                )
-                  ? item.category[0] ??
-                    null
-                  : item.category ??
-                    null,
-
-              subcategory:
-                Array.isArray(
-                  item.subcategory
-                )
-                  ? item.subcategory[0] ??
-                    null
-                  : item.subcategory ??
-                    null,
-
-              unit:
-                Array.isArray(
-                  item.unit
-                )
-                  ? item.unit[0] ??
-                    null
-                  : item.unit ??
-                    null,
-            })
-          );
-
-        setItems(
-          normalizedItems as ItemOption[]
-        );
-      }
-
-      setLoadingMasters(false);
-    }, [
-      entityId,
+    const [supplierResult, itemResult] = await Promise.all([
+      supplierQuery,
+      itemQuery,
     ]);
 
+    if (supplierResult.error) {
+      setError(supplierResult.error.message);
+
+      setSuppliers([]);
+    } else {
+      setSuppliers((supplierResult.data ?? []) as SupplierOption[]);
+    }
+
+    if (itemResult.error) {
+      setError(itemResult.error.message);
+
+      setItems([]);
+    } else {
+      const normalizedItems = (itemResult.data ?? []).map((item) => ({
+        ...item,
+
+        category: Array.isArray(item.category)
+          ? (item.category[0] ?? null)
+          : (item.category ?? null),
+
+        subcategory: Array.isArray(item.subcategory)
+          ? (item.subcategory[0] ?? null)
+          : (item.subcategory ?? null),
+
+        unit: Array.isArray(item.unit)
+          ? (item.unit[0] ?? null)
+          : (item.unit ?? null),
+      }));
+
+      setItems(normalizedItems as ItemOption[]);
+    }
+
+    setLoadingMasters(false);
+  }, [entityId]);
 
   /*
    * ==========================================================
@@ -438,17 +295,11 @@ export function usePurchaseOrders(
 
   useEffect(() => {
     void fetchPurchaseOrders();
-  }, [
-    fetchPurchaseOrders,
-  ]);
-
+  }, [fetchPurchaseOrders]);
 
   useEffect(() => {
     void fetchMasters();
-  }, [
-    fetchMasters,
-  ]);
-
+  }, [fetchMasters]);
 
   /*
    * ==========================================================
@@ -458,23 +309,15 @@ export function usePurchaseOrders(
    * ==========================================================
    */
 
-  const fetchPurchaseOrderDetails =
-    async (
-      purchaseOrderId: string
-    ): Promise<
-      PurchaseOrderLineForm[] | null
-    > => {
-      setError(null);
+  const fetchPurchaseOrderDetails = async (
+    purchaseOrderId: string,
+  ): Promise<PurchaseOrderLineForm[] | null> => {
+    setError(null);
 
-      const {
-        data,
-        error: detailError,
-      } = await supabase
-        .from(
-          "purchase_order_details"
-        )
-        .select(
-          `
+    const { data, error: detailError } = await supabase
+      .from("purchase_order_details")
+      .select(
+        `
             item_id,
             item_code_snapshot,
             item_name_snapshot,
@@ -484,75 +327,39 @@ export function usePurchaseOrders(
             discount_amount,
             tax_amount,
             notes
-          `
-        )
-        .eq(
-          "purchase_order_id",
-          purchaseOrderId
-        )
-        .order(
-          "line_number",
-          {
-            ascending: true,
-          }
-        );
+          `,
+      )
+      .eq("purchase_order_id", purchaseOrderId)
+      .order("line_number", {
+        ascending: true,
+      });
 
-      if (detailError) {
-        setError(
-          detailError.message
-        );
+    if (detailError) {
+      setError(detailError.message);
 
-        return null;
-      }
+      return null;
+    }
 
-      return (
-        (data ??
-          []) as PurchaseOrderDetailRow[]
-      ).map(
-        (detail) => ({
-          item_id:
-            detail.item_id,
+    return ((data ?? []) as PurchaseOrderDetailRow[]).map((detail) => ({
+      item_id: detail.item_id,
 
-          item_code_snapshot:
-            detail.item_code_snapshot,
+      item_code_snapshot: detail.item_code_snapshot,
 
-          item_name_snapshot:
-            detail.item_name_snapshot,
+      item_name_snapshot: detail.item_name_snapshot,
 
-          unit_code_snapshot:
-            detail.unit_code_snapshot,
+      unit_code_snapshot: detail.unit_code_snapshot,
 
-          quantity_ordered:
-            Number(
-              detail.quantity_ordered ||
-                0
-            ),
+      quantity_ordered: Number(detail.quantity_ordered || 0),
 
-          unit_price:
-            Number(
-              detail.unit_price ||
-                0
-            ),
+      unit_price: Number(detail.unit_price || 0),
 
-          discount_amount:
-            Number(
-              detail.discount_amount ||
-                0
-            ),
+      discount_amount: Number(detail.discount_amount || 0),
 
-          tax_amount:
-            Number(
-              detail.tax_amount ||
-                0
-            ),
+      tax_amount: Number(detail.tax_amount || 0),
 
-          notes:
-            detail.notes ??
-            "",
-        })
-      );
-    };
-
+      notes: detail.notes ?? "",
+    }));
+  };
 
   /*
    * ==========================================================
@@ -567,131 +374,79 @@ export function usePurchaseOrders(
    * ==========================================================
    */
 
-  const exportPurchaseOrders =
-    useCallback(async () => {
-      if (!entityId) {
-        throw new Error(
-          "Entity user tidak ditemukan."
-        );
-      }
+  const exportPurchaseOrders = useCallback(async () => {
+    if (!entityId) {
+      throw new Error("Entity user tidak ditemukan.");
+    }
 
-      const allOrders:
-        PurchaseOrder[] = [];
+    const allOrders: PurchaseOrder[] = [];
 
-      let offset = 0;
+    let offset = 0;
 
-      const keyword =
-        search.trim();
+    const keyword = search.trim();
 
-      while (true) {
-        let query =
-          supabase
-            .from(
-              "purchase_orders"
-            )
-            .select(
-              `
+    while (true) {
+      let query = supabase
+        .from("purchase_orders")
+        .select(
+          `
                 *,
                 store:stores (
                   id,
                   code,
                   name
                 )
-              `
-            )
-            .eq(
-              "entity_id",
-              entityId
-            )
-            .order(
-              "order_date",
-              {
-                ascending: false,
-              }
-            )
-            .order(
-              "created_at",
-              {
-                ascending: false,
-              }
-            );
+              `,
+        )
+        .eq("entity_id", entityId)
+        .order("order_date", {
+          ascending: false,
+        })
+        .order("created_at", {
+          ascending: false,
+        });
 
-        if (keyword) {
-          const safeKeyword =
-            keyword
-              .replace(
-                /[%_]/g,
-                "\\$&"
-              )
-              .replace(
-                /,/g,
-                " "
-              );
+      if (keyword) {
+        const safeKeyword = keyword.replace(/[%_]/g, "\\$&").replace(/,/g, " ");
 
-          query =
-            query.or(
-              [
-                `po_number.ilike.%${safeKeyword}%`,
-                `supplier_code_snapshot.ilike.%${safeKeyword}%`,
-                `supplier_name_snapshot.ilike.%${safeKeyword}%`,
-                `status.ilike.%${safeKeyword}%`,
-              ].join(",")
-            );
-        }
-
-        const {
-          data,
-          error: exportError,
-        } = await query.range(
-          offset,
-          offset +
-            EXPORT_BATCH_SIZE -
-            1
+        query = query.or(
+          [
+            `po_number.ilike.%${safeKeyword}%`,
+            `supplier_code_snapshot.ilike.%${safeKeyword}%`,
+            `supplier_name_snapshot.ilike.%${safeKeyword}%`,
+            `status.ilike.%${safeKeyword}%`,
+          ].join(","),
         );
-
-        if (exportError) {
-          throw new Error(
-            exportError.message
-          );
-        }
-
-        const batch =
-          (data ?? []).map(
-            (row) => ({
-              ...row,
-
-              store_name:
-                Array.isArray(
-                  row.store
-                )
-                  ? row.store[0]
-                      ?.name ?? null
-                  : row.store?.name ??
-                    null,
-            })
-          ) as PurchaseOrder[];
-
-        allOrders.push(
-          ...batch
-        );
-
-        if (
-          batch.length <
-          EXPORT_BATCH_SIZE
-        ) {
-          break;
-        }
-
-        offset +=
-          EXPORT_BATCH_SIZE;
       }
 
-      return allOrders;
-    }, [
-      entityId,
-      search,
-    ]);
+      const { data, error: exportError } = await query.range(
+        offset,
+        offset + EXPORT_BATCH_SIZE - 1,
+      );
 
+      if (exportError) {
+        throw new Error(exportError.message);
+      }
+
+      const batch = (data ?? []).map((row) => ({
+        ...row,
+
+        store_name: Array.isArray(row.store)
+          ? (row.store[0]?.name ?? null)
+          : (row.store?.name ?? null),
+      })) as PurchaseOrder[];
+
+      allOrders.push(...batch);
+
+      if (batch.length < EXPORT_BATCH_SIZE) {
+        break;
+      }
+
+      offset += EXPORT_BATCH_SIZE;
+    }
+
+    return allOrders;
+  }, [entityId, search]);
 
   /*
    * ==========================================================
@@ -701,67 +456,45 @@ export function usePurchaseOrders(
    * ==========================================================
    */
 
-  const createPurchaseOrder =
-    async (
-      payload: PurchaseOrderFormData
-    ) => {
-      setSaving(true);
-      setError(null);
+  const createPurchaseOrder = async (payload: PurchaseOrderFormData) => {
+    setSaving(true);
+    setError(null);
 
-      const {
-        data,
-        error: createError,
-      } = await supabase.rpc(
-        "create_purchase_order",
-        {
-          p_entity_id:
-            entityId,
+    const { data, error: createError } = await supabase.rpc(
+      "create_purchase_order",
+      {
+        p_entity_id: entityId,
 
-          p_order_date:
-            payload.order_date,
+        p_order_date: payload.order_date,
 
-          p_expected_delivery_date:
-            payload.expected_delivery_date ||
-            null,
+        p_expected_delivery_date: payload.expected_delivery_date || null,
 
-          p_supplier_id:
-            payload.supplier_id,
+        p_supplier_id: payload.supplier_id,
 
-          p_store_id:
-            payload.store_id,
+        p_store_id: payload.store_id,
 
-          p_payment_term_days:
-            Number(
-              payload.payment_term_days ||
-                0
-            ),
+        p_payment_term_days: Number(payload.payment_term_days || 0),
 
-          p_notes:
-            payload.notes ||
-            null,
+        p_notes: payload.notes || null,
 
-          p_details:
-            payload.details,
-        }
-      );
+        p_details: payload.details,
+      },
+    );
 
-      if (createError) {
-        setError(
-          createError.message
-        );
-
-        setSaving(false);
-
-        return null;
-      }
-
-      await fetchPurchaseOrders();
+    if (createError) {
+      setError(createError.message);
 
       setSaving(false);
 
-      return data as PurchaseOrderResult;
-    };
+      return null;
+    }
 
+    await fetchPurchaseOrders();
+
+    setSaving(false);
+
+    return data as PurchaseOrderResult;
+  };
 
   /*
    * ==========================================================
@@ -769,68 +502,48 @@ export function usePurchaseOrders(
    * ==========================================================
    */
 
-  const updatePurchaseOrderDraft =
-    async (
-      purchaseOrderId: string,
-      payload: PurchaseOrderFormData
-    ) => {
-      setSaving(true);
-      setError(null);
+  const updatePurchaseOrderDraft = async (
+    purchaseOrderId: string,
+    payload: PurchaseOrderFormData,
+  ) => {
+    setSaving(true);
+    setError(null);
 
-      const {
-        data,
-        error: updateError,
-      } = await supabase.rpc(
-        "update_purchase_order_draft",
-        {
-          p_purchase_order_id:
-            purchaseOrderId,
+    const { data, error: updateError } = await supabase.rpc(
+      "update_purchase_order_draft",
+      {
+        p_purchase_order_id: purchaseOrderId,
 
-          p_order_date:
-            payload.order_date,
+        p_order_date: payload.order_date,
 
-          p_expected_delivery_date:
-            payload.expected_delivery_date ||
-            null,
+        p_expected_delivery_date: payload.expected_delivery_date || null,
 
-          p_supplier_id:
-            payload.supplier_id,
+        p_supplier_id: payload.supplier_id,
 
-          p_store_id:
-            payload.store_id,
+        p_store_id: payload.store_id,
 
-          p_payment_term_days:
-            Number(
-              payload.payment_term_days ||
-                0
-            ),
+        p_payment_term_days: Number(payload.payment_term_days || 0),
 
-          p_notes:
-            payload.notes ||
-            null,
+        p_notes: payload.notes || null,
 
-          p_details:
-            payload.details,
-        }
-      );
+        p_details: payload.details,
+      },
+    );
 
-      if (updateError) {
-        setError(
-          updateError.message
-        );
-
-        setSaving(false);
-
-        return null;
-      }
-
-      await fetchPurchaseOrders();
+    if (updateError) {
+      setError(updateError.message);
 
       setSaving(false);
 
-      return data as PurchaseOrderResult;
-    };
+      return null;
+    }
 
+    await fetchPurchaseOrders();
+
+    setSaving(false);
+
+    return data as PurchaseOrderResult;
+  };
 
   /*
    * ==========================================================
@@ -838,41 +551,31 @@ export function usePurchaseOrders(
    * ==========================================================
    */
 
-  const deletePurchaseOrderDraft =
-    async (
-      purchaseOrderId: string
-    ) => {
-      setSaving(true);
-      setError(null);
+  const deletePurchaseOrderDraft = async (purchaseOrderId: string) => {
+    setSaving(true);
+    setError(null);
 
-      const {
-        data,
-        error: deleteError,
-      } = await supabase.rpc(
-        "delete_purchase_order_draft",
-        {
-          p_purchase_order_id:
-            purchaseOrderId,
-        }
-      );
+    const { data, error: deleteError } = await supabase.rpc(
+      "delete_purchase_order_draft",
+      {
+        p_purchase_order_id: purchaseOrderId,
+      },
+    );
 
-      if (deleteError) {
-        setError(
-          deleteError.message
-        );
-
-        setSaving(false);
-
-        return null;
-      }
-
-      await fetchPurchaseOrders();
+    if (deleteError) {
+      setError(deleteError.message);
 
       setSaving(false);
 
-      return data as PurchaseOrderResult;
-    };
+      return null;
+    }
 
+    await fetchPurchaseOrders();
+
+    setSaving(false);
+
+    return data as PurchaseOrderResult;
+  };
 
   /*
    * ==========================================================
@@ -880,41 +583,31 @@ export function usePurchaseOrders(
    * ==========================================================
    */
 
-  const openPurchaseOrder =
-    async (
-      purchaseOrderId: string
-    ) => {
-      setSaving(true);
-      setError(null);
+  const openPurchaseOrder = async (purchaseOrderId: string) => {
+    setSaving(true);
+    setError(null);
 
-      const {
-        data,
-        error: openError,
-      } = await supabase.rpc(
-        "open_purchase_order",
-        {
-          p_purchase_order_id:
-            purchaseOrderId,
-        }
-      );
+    const { data, error: openError } = await supabase.rpc(
+      "open_purchase_order",
+      {
+        p_purchase_order_id: purchaseOrderId,
+      },
+    );
 
-      if (openError) {
-        setError(
-          openError.message
-        );
-
-        setSaving(false);
-
-        return null;
-      }
-
-      await fetchPurchaseOrders();
+    if (openError) {
+      setError(openError.message);
 
       setSaving(false);
 
-      return data as PurchaseOrderResult;
-    };
+      return null;
+    }
 
+    await fetchPurchaseOrders();
+
+    setSaving(false);
+
+    return data as PurchaseOrderResult;
+  };
 
   /*
    * ==========================================================
@@ -922,45 +615,36 @@ export function usePurchaseOrders(
    * ==========================================================
    */
 
-  const cancelPurchaseOrder =
-    async (
-      purchaseOrderId: string,
-      cancelReason: string
-    ) => {
-      setSaving(true);
-      setError(null);
+  const cancelPurchaseOrder = async (
+    purchaseOrderId: string,
+    cancelReason: string,
+  ) => {
+    setSaving(true);
+    setError(null);
 
-      const {
-        data,
-        error: cancelError,
-      } = await supabase.rpc(
-        "cancel_purchase_order",
-        {
-          p_purchase_order_id:
-            purchaseOrderId,
+    const { data, error: cancelError } = await supabase.rpc(
+      "cancel_purchase_order",
+      {
+        p_purchase_order_id: purchaseOrderId,
 
-          p_cancel_reason:
-            cancelReason,
-        }
-      );
+        p_cancel_reason: cancelReason,
+      },
+    );
 
-      if (cancelError) {
-        setError(
-          cancelError.message
-        );
-
-        setSaving(false);
-
-        return null;
-      }
-
-      await fetchPurchaseOrders();
+    if (cancelError) {
+      setError(cancelError.message);
 
       setSaving(false);
 
-      return data as PurchaseOrderResult;
-    };
+      return null;
+    }
 
+    await fetchPurchaseOrders();
+
+    setSaving(false);
+
+    return data as PurchaseOrderResult;
+  };
 
   /*
    * ==========================================================
@@ -968,45 +652,36 @@ export function usePurchaseOrders(
    * ==========================================================
    */
 
-  const closePurchaseOrderOutstanding =
-    async (
-      purchaseOrderId: string,
-      closeReason: string
-    ) => {
-      setSaving(true);
-      setError(null);
+  const closePurchaseOrderOutstanding = async (
+    purchaseOrderId: string,
+    closeReason: string,
+  ) => {
+    setSaving(true);
+    setError(null);
 
-      const {
-        data,
-        error: closeError,
-      } = await supabase.rpc(
-        "close_purchase_order_outstanding",
-        {
-          p_purchase_order_id:
-            purchaseOrderId,
+    const { data, error: closeError } = await supabase.rpc(
+      "close_purchase_order_outstanding",
+      {
+        p_purchase_order_id: purchaseOrderId,
 
-          p_close_reason:
-            closeReason,
-        }
-      );
+        p_close_reason: closeReason,
+      },
+    );
 
-      if (closeError) {
-        setError(
-          closeError.message
-        );
-
-        setSaving(false);
-
-        return null;
-      }
-
-      await fetchPurchaseOrders();
+    if (closeError) {
+      setError(closeError.message);
 
       setSaving(false);
 
-      return data as PurchaseOrderResult;
-    };
+      return null;
+    }
 
+    await fetchPurchaseOrders();
+
+    setSaving(false);
+
+    return data as PurchaseOrderResult;
+  };
 
   /*
    * ==========================================================

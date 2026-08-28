@@ -11,17 +11,17 @@ export interface TransferDocument {
   movement_date: string;
   created_at: string;
   created_by: string | null;
-  fromStore:{
-  id:string;
-  code:string;
-  name:string;
-}|null;
+  fromStore: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
 
-toStore:{
-  id:string;
-  code:string;
-  name:string;
-}|null;
+  toStore: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
   items: TransferItem[];
   totalQty: number;
   totalValue: number;

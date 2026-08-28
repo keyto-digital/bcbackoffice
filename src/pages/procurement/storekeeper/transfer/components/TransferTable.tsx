@@ -8,11 +8,7 @@ interface Props {
   onDetail: (row: TransferDocument) => void;
 }
 
-export default function TransferTable({
-  loading,
-  documents,
-  onDetail,
-}: Props) {
+export default function TransferTable({ loading, documents, onDetail }: Props) {
   if (loading) {
     return (
       <div className="rounded border bg-white p-6 text-center">
@@ -31,10 +27,8 @@ export default function TransferTable({
 
   return (
     <div className="overflow-x-auto rounded border bg-white">
-
       {/* Header */}
       <div className="grid min-w-[1500px] grid-cols-[60px_120px_200px_220px_220px_260px_100px_140px_100px_180px_100px] bg-slate-100 text-sm font-semibold">
-
         <div className="border-r border-b p-3 text-center">No</div>
         <div className="border-r border-b p-3">Tanggal</div>
         <div className="border-r border-b p-3">No Transfer</div>
@@ -46,7 +40,6 @@ export default function TransferTable({
         <div className="border-r border-b p-3 text-center">User</div>
         <div className="border-r border-b p-3">Posting</div>
         <div className="border-b p-3 text-center">Aksi</div>
-
       </div>
 
       {documents.map((doc, index) => {
@@ -57,13 +50,9 @@ export default function TransferTable({
             key={doc.reference}
             className="grid min-w-[1500px] grid-cols-[60px_120px_200px_220px_220px_260px_100px_140px_100px_180px_100px] text-sm hover:bg-slate-50"
           >
-            <div className="border-r border-b p-3 text-center">
-              {index + 1}
-            </div>
+            <div className="border-r border-b p-3 text-center">{index + 1}</div>
 
-            <div className="border-r border-b p-3">
-              {doc.movement_date}
-            </div>
+            <div className="border-r border-b p-3">{doc.movement_date}</div>
 
             <div className="border-r border-b p-3 font-medium">
               {doc.reference}
@@ -76,15 +65,11 @@ export default function TransferTable({
             </div>
 
             <div className="border-r border-b p-3">
-              {doc.toStore
-                ? `${doc.toStore.code} - ${doc.toStore.name}`
-                : "-"}
+              {doc.toStore ? `${doc.toStore.code} - ${doc.toStore.name}` : "-"}
             </div>
 
             <div className="border-r border-b p-3">
-              {first
-                ? `${first.code} - ${first.name}`
-                : "-"}
+              {first ? `${first.code} - ${first.name}` : "-"}
             </div>
 
             <div className="border-r border-b p-3 text-right">

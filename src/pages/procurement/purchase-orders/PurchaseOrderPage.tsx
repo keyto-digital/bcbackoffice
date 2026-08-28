@@ -8,9 +8,15 @@ import { saveAs } from "file-saver";
 import { hasAccess } from "@/lib/hasAccess";
 import { usePurchaseOrders } from "./hooks/usePurchaseOrders";
 import { getCustomUser } from "@/lib/authUser";
-import type { PurchaseOrder, PurchaseOrderFormData, PurchaseOrderLineForm, PurchaseOrderStatus } from "./types";
-import SearchableSelect, { type SearchableSelectOption } from "@/components/common/SearchableSelect";
-
+import type {
+  PurchaseOrder,
+  PurchaseOrderFormData,
+  PurchaseOrderLineForm,
+  PurchaseOrderStatus,
+} from "./types";
+import SearchableSelect, {
+  type SearchableSelectOption,
+} from "@/components/common/SearchableSelect";
 
 type Store = {
   id: string;
@@ -20,64 +26,38 @@ type Store = {
   is_active?: boolean;
 };
 
-const statusLabels:
-  Record<
-    PurchaseOrderStatus,
-    string
-  > = {
-    DRAFT: "Draft",
-    APPROVED: "Approved",
-    OPEN: "Open",
-    PARTIAL_RECEIVED:
-      "Sebagian Diterima",
-    CLOSED: "Closed",
-    CANCELLED: "Cancelled",
-  };
+const statusLabels: Record<PurchaseOrderStatus, string> = {
+  DRAFT: "Draft",
+  APPROVED: "Approved",
+  OPEN: "Open",
+  PARTIAL_RECEIVED: "Sebagian Diterima",
+  CLOSED: "Closed",
+  CANCELLED: "Cancelled",
+};
 
+const statusClasses: Record<PurchaseOrderStatus, string> = {
+  DRAFT: "bg-gray-100 text-gray-700",
 
-const statusClasses:
-  Record<
-    PurchaseOrderStatus,
-    string
-  > = {
-    DRAFT:
-      "bg-gray-100 text-gray-700",
+  APPROVED: "bg-blue-100 text-blue-700",
 
-    APPROVED:
-      "bg-blue-100 text-blue-700",
+  OPEN: "bg-green-100 text-green-700",
 
-    OPEN:
-      "bg-green-100 text-green-700",
+  PARTIAL_RECEIVED: "bg-yellow-100 text-yellow-700",
 
-    PARTIAL_RECEIVED:
-      "bg-yellow-100 text-yellow-700",
+  CLOSED: "bg-purple-100 text-purple-700",
 
-    CLOSED:
-      "bg-purple-100 text-purple-700",
-
-    CANCELLED:
-      "bg-red-100 text-red-700",
-  };
-
+  CANCELLED: "bg-red-100 text-red-700",
+};
 
 function todayInputValue() {
   const now = new Date();
 
-  const timezoneOffset =
-    now.getTimezoneOffset() *
-    60_000;
+  const timezoneOffset = now.getTimezoneOffset() * 60_000;
 
-  return new Date(
-    now.getTime() -
-      timezoneOffset
-  )
-    .toISOString()
-    .slice(0, 10);
+  return new Date(now.getTime() - timezoneOffset).toISOString().slice(0, 10);
 }
 
-
-function createEmptyLine():
-  PurchaseOrderLineForm {
+function createEmptyLine(): PurchaseOrderLineForm {
   return {
     item_id: "",
     quantity_ordered: 1,
@@ -88,78 +68,43 @@ function createEmptyLine():
   };
 }
 
-
-function createInitialForm():
-  PurchaseOrderFormData {
-  const entityId =
-    getCustomUser()?.entity_id ??
-    null;
+function createInitialForm(): PurchaseOrderFormData {
+  const entityId = getCustomUser()?.entity_id ?? null;
 
   return {
     entity_id: entityId,
-    order_date:
-      todayInputValue(),
-    expected_delivery_date:
-      "",
+    order_date: todayInputValue(),
+    expected_delivery_date: "",
     supplier_id: "",
     store_id: "",
     payment_term_days: 0,
     notes: "",
-    details: [
-      createEmptyLine(),
-    ],
+    details: [createEmptyLine()],
   };
 }
 
-
-function formatCurrency(
-  value: number
-) {
-  return new Intl.NumberFormat(
-    "id-ID",
-    {
-      style: "currency",
-      currency: "IDR",
-      maximumFractionDigits: 0,
-    }
-  ).format(
-    Number(value || 0)
-  );
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
 }
 
-
-function formatNumber(
-  value: number
-) {
-  return new Intl.NumberFormat(
-    "id-ID",
-    {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 4,
-    }
-  ).format(
-    Number(value || 0)
-  );
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("id-ID", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 4,
+  }).format(Number(value || 0));
 }
 
-
-function formatDate(
-  value: string
-) {
-  return new Intl.DateTimeFormat(
-    "id-ID",
-    {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    }
-  ).format(
-    new Date(
-      `${value}T00:00:00`
-    )
-  );
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(`${value}T00:00:00`));
 }
-
 
 /*
  * ==========================================================
@@ -171,68 +116,36 @@ function formatDate(
 
 function printPurchaseOrder(
   purchaseOrder: PurchaseOrder,
-  details: PurchaseOrderLineForm[]
+  details: PurchaseOrderLineForm[],
 ) {
   const rows = details
-    .map(
-      (
-        detail,
-        index
-      ) => {
-        const total =
-          Number(
-            detail.quantity_ordered
-          ) *
-            Number(
-              detail.unit_price
-            ) -
-          Number(
-            detail.discount_amount
-          ) +
-          Number(
-            detail.tax_amount
-          );
+    .map((detail, index) => {
+      const total =
+        Number(detail.quantity_ordered) * Number(detail.unit_price) -
+        Number(detail.discount_amount) +
+        Number(detail.tax_amount);
 
-        return `
+      return `
           <tr>
             <td>${index + 1}</td>
             <td>${detail.item_code_snapshot ?? "-"}</td>
             <td>${detail.item_name_snapshot ?? "-"}</td>
-            <td class="right">${Number(
-              detail.quantity_ordered
-            )}</td>
+            <td class="right">${Number(detail.quantity_ordered)}</td>
             <td>${detail.unit_code_snapshot ?? "-"}</td>
-            <td class="right">${formatCurrency(
-              Number(
-                detail.unit_price
-              )
-            )}</td>
-            <td class="right">${formatCurrency(
-              total
-            )}</td>
+            <td class="right">${formatCurrency(Number(detail.unit_price))}</td>
+            <td class="right">${formatCurrency(total)}</td>
           </tr>
         `;
-      }
-    )
+    })
     .join("");
 
-
-  const printWindow =
-    window.open(
-      "",
-      "_blank",
-      "width=1000,height=800"
-    );
-
+  const printWindow = window.open("", "_blank", "width=1000,height=800");
 
   if (!printWindow) {
-    window.alert(
-      "Popup print diblokir browser."
-    );
+    window.alert("Popup print diblokir browser.");
 
     return;
   }
-
 
   printWindow.document.write(`
     <!doctype html>
@@ -502,9 +415,7 @@ function printPurchaseOrder(
             <span>
               ${
                 purchaseOrder.expected_delivery_date
-                  ? formatDate(
-                      purchaseOrder.expected_delivery_date
-                    )
+                  ? formatDate(purchaseOrder.expected_delivery_date)
                   : "-"
               }
             </span>
@@ -550,9 +461,7 @@ function printPurchaseOrder(
             </span>
 
             <span class="value">
-              ${formatDate(
-                purchaseOrder.order_date
-              )}
+              ${formatDate(purchaseOrder.order_date)}
             </span>
 
 
@@ -565,11 +474,7 @@ function printPurchaseOrder(
             </span>
 
             <span class="value">
-              ${
-                statusLabels[
-                  purchaseOrder.status
-                ]
-              }
+              ${statusLabels[purchaseOrder.status]}
             </span>
 
 
@@ -582,10 +487,7 @@ function printPurchaseOrder(
             </span>
 
             <span class="value">
-              ${
-                purchaseOrder.store_name ??
-                "-"
-              }
+              ${purchaseOrder.store_name ?? "-"}
             </span>
 
           </div>
@@ -624,9 +526,7 @@ function printPurchaseOrder(
             </td>
 
             <td class="right">
-              ${formatCurrency(
-                purchaseOrder.subtotal
-              )}
+              ${formatCurrency(purchaseOrder.subtotal)}
             </td>
           </tr>
 
@@ -639,9 +539,7 @@ function printPurchaseOrder(
             </td>
 
             <td class="right">
-              ${formatCurrency(
-                purchaseOrder.discount_amount
-              )}
+              ${formatCurrency(purchaseOrder.discount_amount)}
             </td>
           </tr>
 
@@ -654,9 +552,7 @@ function printPurchaseOrder(
             </td>
 
             <td class="right">
-              ${formatCurrency(
-                purchaseOrder.tax_amount
-              )}
+              ${formatCurrency(purchaseOrder.tax_amount)}
             </td>
           </tr>
 
@@ -670,9 +566,7 @@ function printPurchaseOrder(
 
             <td class="right">
               <strong>
-                ${formatCurrency(
-                  purchaseOrder.grand_total
-                )}
+                ${formatCurrency(purchaseOrder.grand_total)}
               </strong>
             </td>
           </tr>
@@ -688,10 +582,7 @@ function printPurchaseOrder(
 
           <br />
 
-          ${
-            purchaseOrder.notes ||
-            "-"
-          }
+          ${purchaseOrder.notes || "-"}
 
         </div>
 
@@ -728,10 +619,8 @@ function printPurchaseOrder(
     </html>
   `);
 
-
   printWindow.document.close();
 }
-
 
 /*
  * ==========================================================
@@ -740,7 +629,6 @@ function printPurchaseOrder(
  */
 
 export function PurchaseOrderPage() {
-
   /*
    * ========================================================
    * PAGINATION STANDARD PROJECT
@@ -751,13 +639,7 @@ export function PurchaseOrderPage() {
    * ========================================================
    */
 
-  const {
-    page,
-    pageSize,
-    setPage,
-    setPageSize,
-  } = usePagination();
-
+  const { page, pageSize, setPage, setPageSize } = usePagination();
 
   /*
    * ========================================================
@@ -767,15 +649,9 @@ export function PurchaseOrderPage() {
    * ========================================================
    */
 
-  const [
-    search,
-    setSearchState,
-  ] = useState("");
+  const [search, setSearchState] = useState("");
 
-
-  const setSearch = (
-    value: string
-  ) => {
+  const setSearch = (value: string) => {
     setSearchState(value);
 
     /*
@@ -785,7 +661,6 @@ export function PurchaseOrderPage() {
 
     setPage(1);
   };
-
 
   /*
    * ========================================================
@@ -816,32 +691,14 @@ export function PurchaseOrderPage() {
     closePurchaseOrderOutstanding,
 
     exportPurchaseOrders,
-  } = usePurchaseOrders(
-    page,
-    pageSize,
-    search
-  );
+  } = usePurchaseOrders(page, pageSize, search);
 
+  const [showForm, setShowForm] = useState(false);
 
-  const [
-    showForm,
-    setShowForm,
-  ] = useState(false);
+  const [editingPurchaseOrder, setEditingPurchaseOrder] =
+    useState<PurchaseOrder | null>(null);
 
-
-  const [
-    editingPurchaseOrder,
-    setEditingPurchaseOrder,
-  ] =
-    useState<PurchaseOrder | null>(
-      null
-    );
-
-
-  const [
-    access,
-    setAccess,
-  ] = useState({
+  const [access, setAccess] = useState({
     create: false,
     editDraft: false,
     deleteDraft: false,
@@ -852,23 +709,11 @@ export function PurchaseOrderPage() {
     export: false,
   });
 
+  const [formData, setFormData] = useState<PurchaseOrderFormData>(() =>
+    createInitialForm(),
+  );
 
-  const [
-    formData,
-    setFormData,
-  ] =
-    useState<PurchaseOrderFormData>(
-      () =>
-        createInitialForm()
-    );
-
-
-  const [
-    stores,
-    setStores,
-  ] =
-    useState<Store[]>([]);
-
+  const [stores, setStores] = useState<Store[]>([]);
 
   /*
    * ========================================================
@@ -879,46 +724,24 @@ export function PurchaseOrderPage() {
    */
 
   useEffect(() => {
+    const loadStores = async () => {
+      const { data, error } = await supabase
+        .from("stores")
+        .select("id, code, name, entity_id, is_active")
+        .eq("is_active", true)
+        .order("code");
 
-    const loadStores =
-      async () => {
+      if (error) {
+        console.error("Gagal memuat store:", error);
 
-        const {
-          data,
-          error,
-        } = await supabase
-          .from("stores")
-          .select(
-            "id, code, name, entity_id, is_active"
-          )
-          .eq(
-            "is_active",
-            true
-          )
-          .order("code");
+        return;
+      }
 
-
-        if (error) {
-          console.error(
-            "Gagal memuat store:",
-            error
-          );
-
-          return;
-        }
-
-
-        setStores(
-          (data ??
-            []) as Store[]
-        );
-      };
-
+      setStores((data ?? []) as Store[]);
+    };
 
     void loadStores();
-
   }, []);
-
 
   /*
    * ========================================================
@@ -927,9 +750,7 @@ export function PurchaseOrderPage() {
    */
 
   useEffect(() => {
-
     async function loadAccess() {
-
       const [
         create,
         editDraft,
@@ -939,41 +760,23 @@ export function PurchaseOrderPage() {
         closeOutstanding,
         print,
         exportExcel,
-      ] =
-        await Promise.all([
-          hasAccess(
-            "purchase_order.create"
-          ),
+      ] = await Promise.all([
+        hasAccess("purchase_order.create"),
 
-          hasAccess(
-            "purchase_order.edit_draft"
-          ),
+        hasAccess("purchase_order.edit_draft"),
 
-          hasAccess(
-            "purchase_order.delete_draft"
-          ),
+        hasAccess("purchase_order.delete_draft"),
 
-          hasAccess(
-            "purchase_order.open"
-          ),
+        hasAccess("purchase_order.open"),
 
-          hasAccess(
-            "purchase_order.cancel"
-          ),
+        hasAccess("purchase_order.cancel"),
 
-          hasAccess(
-            "purchase_order.close_outstanding"
-          ),
+        hasAccess("purchase_order.close_outstanding"),
 
-          hasAccess(
-            "purchase_order.print"
-          ),
+        hasAccess("purchase_order.print"),
 
-          hasAccess(
-            "purchase_order.export"
-          ),
-        ]);
-
+        hasAccess("purchase_order.export"),
+      ]);
 
       setAccess({
         create,
@@ -983,16 +786,12 @@ export function PurchaseOrderPage() {
         cancel,
         closeOutstanding,
         print,
-        export:
-          exportExcel,
+        export: exportExcel,
       });
     }
 
-
     void loadAccess();
-
   }, []);
-
 
   /*
    * ========================================================
@@ -1002,21 +801,10 @@ export function PurchaseOrderPage() {
    * ========================================================
    */
 
-  const paginationMeta =
-    useMemo(
-      () =>
-        createPaginationMeta(
-          page,
-          pageSize,
-          totalCount
-        ),
-      [
-        page,
-        pageSize,
-        totalCount,
-      ]
-    );
-
+  const paginationMeta = useMemo(
+    () => createPaginationMeta(page, pageSize, totalCount),
+    [page, pageSize, totalCount],
+  );
 
   /*
    * ========================================================
@@ -1024,101 +812,38 @@ export function PurchaseOrderPage() {
    * ========================================================
    */
 
-  const selectedSupplier =
-    useMemo(
-      () =>
-        suppliers.find(
-          (supplier) =>
-            supplier.id ===
-            formData.supplier_id
-        ),
+  const selectedSupplier = useMemo(
+    () => suppliers.find((supplier) => supplier.id === formData.supplier_id),
 
-      [
-        suppliers,
-        formData.supplier_id,
-      ]
+    [suppliers, formData.supplier_id],
+  );
+
+  const formSubtotal = useMemo(() => {
+    return formData.details.reduce((total, line) => {
+      return (
+        total +
+        Number(line.quantity_ordered || 0) * Number(line.unit_price || 0)
+      );
+    }, 0);
+  }, [formData.details]);
+
+  const formDiscount = useMemo(() => {
+    return formData.details.reduce(
+      (total, line) => total + Number(line.discount_amount || 0),
+
+      0,
     );
+  }, [formData.details]);
 
+  const formTax = useMemo(() => {
+    return formData.details.reduce(
+      (total, line) => total + Number(line.tax_amount || 0),
 
-  const formSubtotal =
-    useMemo(() => {
+      0,
+    );
+  }, [formData.details]);
 
-      return formData.details.reduce(
-        (
-          total,
-          line
-        ) => {
-
-          return (
-            total +
-            Number(
-              line.quantity_ordered ||
-                0
-            ) *
-              Number(
-                line.unit_price ||
-                  0
-              )
-          );
-
-        },
-        0
-      );
-
-    }, [
-      formData.details,
-    ]);
-
-
-  const formDiscount =
-    useMemo(() => {
-
-      return formData.details.reduce(
-        (
-          total,
-          line
-        ) =>
-          total +
-          Number(
-            line.discount_amount ||
-              0
-          ),
-
-        0
-      );
-
-    }, [
-      formData.details,
-    ]);
-
-
-  const formTax =
-    useMemo(() => {
-
-      return formData.details.reduce(
-        (
-          total,
-          line
-        ) =>
-          total +
-          Number(
-            line.tax_amount ||
-              0
-          ),
-
-        0
-      );
-
-    }, [
-      formData.details,
-    ]);
-
-
-  const formGrandTotal =
-    formSubtotal -
-    formDiscount +
-    formTax;
-
+  const formGrandTotal = formSubtotal - formDiscount + formTax;
 
   /*
    * ========================================================
@@ -1126,35 +851,21 @@ export function PurchaseOrderPage() {
    * ========================================================
    */
 
-  const openCreateForm =
-    () => {
+  const openCreateForm = () => {
+    setEditingPurchaseOrder(null);
 
-      setEditingPurchaseOrder(
-        null
-      );
+    setFormData(createInitialForm());
 
-      setFormData(
-        createInitialForm()
-      );
+    setShowForm(true);
+  };
 
-      setShowForm(true);
-    };
+  const cancelCreateForm = () => {
+    setEditingPurchaseOrder(null);
 
+    setFormData(createInitialForm());
 
-  const cancelCreateForm =
-    () => {
-
-      setEditingPurchaseOrder(
-        null
-      );
-
-      setFormData(
-        createInitialForm()
-      );
-
-      setShowForm(false);
-    };
-
+    setShowForm(false);
+  };
 
   /*
    * ========================================================
@@ -1162,34 +873,17 @@ export function PurchaseOrderPage() {
    * ========================================================
    */
 
-  const handleSupplierChange =
-    (
-      supplierId: string
-    ) => {
+  const handleSupplierChange = (supplierId: string) => {
+    const supplier = suppliers.find((row) => row.id === supplierId);
 
-      const supplier =
-        suppliers.find(
-          (row) =>
-            row.id ===
-            supplierId
-        );
+    setFormData((previous) => ({
+      ...previous,
 
+      supplier_id: supplierId,
 
-      setFormData(
-        (previous) => ({
-          ...previous,
-
-          supplier_id:
-            supplierId,
-
-          payment_term_days:
-            supplier
-              ?.default_payment_term_days ??
-            0,
-        })
-      );
-    };
-
+      payment_term_days: supplier?.default_payment_term_days ?? 0,
+    }));
+  };
 
   /*
    * ========================================================
@@ -1197,78 +891,40 @@ export function PurchaseOrderPage() {
    * ========================================================
    */
 
-  const addLine =
-    () => {
+  const addLine = () => {
+    setFormData((previous) => ({
+      ...previous,
 
-      setFormData(
-        (previous) => ({
-          ...previous,
+      details: [...previous.details, createEmptyLine()],
+    }));
+  };
 
-          details: [
-            ...previous.details,
-            createEmptyLine(),
-          ],
-        })
-      );
-    };
+  const removeLine = (index: number) => {
+    setFormData((previous) => ({
+      ...previous,
 
+      details: previous.details.filter((_, lineIndex) => lineIndex !== index),
+    }));
+  };
 
-  const removeLine =
-    (
-      index: number
-    ) => {
+  const updateLine = (
+    index: number,
+    field: keyof PurchaseOrderLineForm,
+    value: string | number,
+  ) => {
+    setFormData((previous) => ({
+      ...previous,
 
-      setFormData(
-        (previous) => ({
-          ...previous,
-
-          details:
-            previous.details.filter(
-              (
-                _,
-                lineIndex
-              ) =>
-                lineIndex !==
-                index
-            ),
-        })
-      );
-    };
-
-
-  const updateLine =
-    (
-      index: number,
-      field:
-        keyof PurchaseOrderLineForm,
-      value:
-        | string
-        | number
-    ) => {
-
-      setFormData(
-        (previous) => ({
-          ...previous,
-
-          details:
-            previous.details.map(
-              (
-                line,
-                lineIndex
-              ) =>
-                lineIndex ===
-                index
-                  ? {
-                      ...line,
-                      [field]:
-                        value,
-                    }
-                  : line
-            ),
-        })
-      );
-    };
-
+      details: previous.details.map((line, lineIndex) =>
+        lineIndex === index
+          ? {
+              ...line,
+              [field]: value,
+            }
+          : line,
+      ),
+    }));
+  };
 
   /*
    * ========================================================
@@ -1276,95 +932,43 @@ export function PurchaseOrderPage() {
    * ========================================================
    */
 
-  const handleItemChange =
-    (
-      index: number,
-      itemId: string
-    ) => {
+  const handleItemChange = (index: number, itemId: string) => {
+    const item = items.find((row) => row.id === itemId);
 
-      const item =
-        items.find(
-          (row) =>
-            row.id ===
-            itemId
-        );
+    setFormData((previous) => ({
+      ...previous,
 
+      details: previous.details.map((line, lineIndex) =>
+        lineIndex === index
+          ? {
+              ...line,
 
-      setFormData(
-        (previous) => ({
-          ...previous,
+              item_id: itemId,
 
-          details:
-            previous.details.map(
-              (
-                line,
-                lineIndex
-              ) =>
-                lineIndex ===
-                index
-                  ? {
-                      ...line,
-
-                      item_id:
-                        itemId,
-
-                      unit_price:
-                        Number(
-                          item?.standard_cost ||
-                            0
-                        ),
-                    }
-                  : line
-            ),
-        })
-      );
-    };
-
-    const itemSelectOptions =
-  useMemo<
-    SearchableSelectOption[]
-  >(
-    () =>
-      items.map(
-        (
-          item
-        ) => {
-
-          const code =
-            (
-              item.code ??
-              ""
-            ).trim();
-
-          const name =
-            (
-              item.name ??
-              ""
-            ).trim();
-
-          return {
-            value:
-              item.id,
-
-            label:
-              code && name
-                ? `${code} - ${name}`
-                : (
-                    name ||
-                    code ||
-                    "-"
-                  ),
-
-            searchText:
-              `${code} ${name}`,
-          };
-        }
+              unit_price: Number(item?.standard_cost || 0),
+            }
+          : line,
       ),
-    [
-      items,
-    ]
-  );
+    }));
+  };
 
+  const itemSelectOptions = useMemo<SearchableSelectOption[]>(
+    () =>
+      items.map((item) => {
+        const code = (item.code ?? "").trim();
+
+        const name = (item.name ?? "").trim();
+
+        return {
+          value: item.id,
+
+          label: code && name ? `${code} - ${name}` : name || code || "-",
+
+          searchText: `${code} ${name}`,
+        };
+      }),
+    [items],
+  );
 
   /*
    * ========================================================
@@ -1372,68 +976,40 @@ export function PurchaseOrderPage() {
    * ========================================================
    */
 
-  const handleEditDraft =
-    async (
-      purchaseOrder: PurchaseOrder
-    ) => {
+  const handleEditDraft = async (purchaseOrder: PurchaseOrder) => {
+    const details = await fetchPurchaseOrderDetails(purchaseOrder.id);
 
-      const details =
-        await fetchPurchaseOrderDetails(
-          purchaseOrder.id
-        );
+    if (!details) {
+      return;
+    }
 
+    setEditingPurchaseOrder(purchaseOrder);
 
-      if (!details) {
-        return;
-      }
+    setFormData({
+      entity_id: purchaseOrder.entity_id,
 
+      order_date: purchaseOrder.order_date,
 
-      setEditingPurchaseOrder(
-        purchaseOrder
-      );
+      expected_delivery_date: purchaseOrder.expected_delivery_date ?? "",
 
+      supplier_id: purchaseOrder.supplier_id,
 
-      setFormData({
-        entity_id:
-          purchaseOrder.entity_id,
+      store_id: purchaseOrder.store_id ?? "",
 
-        order_date:
-          purchaseOrder.order_date,
+      payment_term_days: Number(purchaseOrder.payment_term_days || 0),
 
-        expected_delivery_date:
-          purchaseOrder.expected_delivery_date ??
-          "",
+      notes: purchaseOrder.notes ?? "",
 
-        supplier_id:
-          purchaseOrder.supplier_id,
+      details,
+    });
 
-        store_id:
-          purchaseOrder.store_id ??
-          "",
+    setShowForm(true);
 
-        payment_term_days:
-          Number(
-            purchaseOrder.payment_term_days ||
-              0
-          ),
-
-        notes:
-          purchaseOrder.notes ??
-          "",
-
-        details,
-      });
-
-
-      setShowForm(true);
-
-
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-    };
-
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  };
 
   /*
    * ========================================================
@@ -1441,36 +1017,21 @@ export function PurchaseOrderPage() {
    * ========================================================
    */
 
-  const handleDeleteDraft =
-    async (
-      purchaseOrder: PurchaseOrder
-    ) => {
+  const handleDeleteDraft = async (purchaseOrder: PurchaseOrder) => {
+    const confirmed = window.confirm(
+      `Hapus Draft PO ${purchaseOrder.po_number}?`,
+    );
 
-      const confirmed =
-        window.confirm(
-          `Hapus Draft PO ${purchaseOrder.po_number}?`
-        );
+    if (!confirmed) {
+      return;
+    }
 
+    const result = await deletePurchaseOrderDraft(purchaseOrder.id);
 
-      if (!confirmed) {
-        return;
-      }
-
-
-      const result =
-        await deletePurchaseOrderDraft(
-          purchaseOrder.id
-        );
-
-
-      if (result?.success) {
-
-        window.alert(
-          `Draft PO ${result.po_number} berhasil dihapus.`
-        );
-      }
-    };
-
+    if (result?.success) {
+      window.alert(`Draft PO ${result.po_number} berhasil dihapus.`);
+    }
+  };
 
   /*
    * ========================================================
@@ -1478,139 +1039,71 @@ export function PurchaseOrderPage() {
    * ========================================================
    */
 
-  const handleSubmit =
-    async (
-      event: React.FormEvent
-    ) => {
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
 
-      event.preventDefault();
+    if (!formData.supplier_id) {
+      window.alert("Supplier wajib dipilih.");
 
+      return;
+    }
 
-      if (
-        !formData.supplier_id
-      ) {
+    if (!formData.store_id) {
+      window.alert("Store/Gudang tujuan wajib dipilih.");
 
-        window.alert(
-          "Supplier wajib dipilih."
-        );
+      return;
+    }
 
-        return;
-      }
+    if (formData.details.length === 0) {
+      window.alert("Purchase Order minimal memiliki satu item.");
 
+      return;
+    }
 
-      if (
-        !formData.store_id
-      ) {
+    for (let index = 0; index < formData.details.length; index += 1) {
+      const line = formData.details[index];
 
-        window.alert(
-          "Store/Gudang tujuan wajib dipilih."
-        );
-
-        return;
-      }
-
-
-      if (
-        formData.details.length ===
-        0
-      ) {
-
-        window.alert(
-          "Purchase Order minimal memiliki satu item."
-        );
+      if (!line.item_id) {
+        window.alert(`Item pada baris ${index + 1} wajib dipilih.`);
 
         return;
       }
 
+      if (Number(line.quantity_ordered) <= 0) {
+        window.alert(`Kuantitas pada baris ${index + 1} harus lebih dari nol.`);
 
-      for (
-        let index = 0;
-        index <
-        formData.details.length;
-        index += 1
-      ) {
-
-        const line =
-          formData.details[
-            index
-          ];
-
-
-        if (!line.item_id) {
-
-          window.alert(
-            `Item pada baris ${
-              index + 1
-            } wajib dipilih.`
-          );
-
-          return;
-        }
-
-
-        if (
-          Number(
-            line.quantity_ordered
-          ) <= 0
-        ) {
-
-          window.alert(
-            `Kuantitas pada baris ${
-              index + 1
-            } harus lebih dari nol.`
-          );
-
-          return;
-        }
-
-
-        if (
-          Number(
-            line.unit_price
-          ) < 0 ||
-          Number(
-            line.discount_amount
-          ) < 0 ||
-          Number(
-            line.tax_amount
-          ) < 0
-        ) {
-
-          window.alert(
-            `Harga, diskon, dan pajak pada baris ${
-              index + 1
-            } tidak boleh negatif.`
-          );
-
-          return;
-        }
+        return;
       }
 
+      if (
+        Number(line.unit_price) < 0 ||
+        Number(line.discount_amount) < 0 ||
+        Number(line.tax_amount) < 0
+      ) {
+        window.alert(
+          `Harga, diskon, dan pajak pada baris ${
+            index + 1
+          } tidak boleh negatif.`,
+        );
 
-      const result =
+        return;
+      }
+    }
+
+    const result = editingPurchaseOrder
+      ? await updatePurchaseOrderDraft(editingPurchaseOrder.id, formData)
+      : await createPurchaseOrder(formData);
+
+    if (result?.success) {
+      window.alert(
         editingPurchaseOrder
-          ? await updatePurchaseOrderDraft(
-              editingPurchaseOrder.id,
-              formData
-            )
-          : await createPurchaseOrder(
-              formData
-            );
+          ? `Draft PO ${result.po_number} berhasil diperbarui.`
+          : `Purchase Order ${result.po_number} berhasil dibuat sebagai Draft.`,
+      );
 
-
-      if (result?.success) {
-
-        window.alert(
-          editingPurchaseOrder
-            ? `Draft PO ${result.po_number} berhasil diperbarui.`
-            : `Purchase Order ${result.po_number} berhasil dibuat sebagai Draft.`
-        );
-
-
-        cancelCreateForm();
-      }
-    };
-
+      cancelCreateForm();
+    }
+  };
 
   /*
    * ========================================================
@@ -1618,36 +1111,23 @@ export function PurchaseOrderPage() {
    * ========================================================
    */
 
-  const handleOpenPurchaseOrder =
-    async (
-      purchaseOrder: PurchaseOrder
-    ) => {
+  const handleOpenPurchaseOrder = async (purchaseOrder: PurchaseOrder) => {
+    const confirmed = window.confirm(
+      `Buka PO ${purchaseOrder.po_number} agar dapat diproses Receiving?`,
+    );
 
-      const confirmed =
-        window.confirm(
-          `Buka PO ${purchaseOrder.po_number} agar dapat diproses Receiving?`
-        );
+    if (!confirmed) {
+      return;
+    }
 
+    const success = await openPurchaseOrder(purchaseOrder.id);
 
-      if (!confirmed) {
-        return;
-      }
-
-
-      const success =
-        await openPurchaseOrder(
-          purchaseOrder.id
-        );
-
-
-      if (success) {
-
-        window.alert(
-          `PO ${purchaseOrder.po_number} sudah berstatus Open dan siap untuk Receiving.`
-        );
-      }
-    };
-
+    if (success) {
+      window.alert(
+        `PO ${purchaseOrder.po_number} sudah berstatus Open dan siap untuk Receiving.`,
+      );
+    }
+  };
 
   /*
    * ========================================================
@@ -1655,37 +1135,21 @@ export function PurchaseOrderPage() {
    * ========================================================
    */
 
-  const handleCancelPurchaseOrder =
-    async (
-      purchaseOrder: PurchaseOrder
-    ) => {
+  const handleCancelPurchaseOrder = async (purchaseOrder: PurchaseOrder) => {
+    const reason = window.prompt(
+      `Alasan Cancel PO ${purchaseOrder.po_number}:`,
+    );
 
-      const reason =
-        window.prompt(
-          `Alasan Cancel PO ${purchaseOrder.po_number}:`
-        );
+    if (!reason?.trim()) {
+      return;
+    }
 
+    const result = await cancelPurchaseOrder(purchaseOrder.id, reason.trim());
 
-      if (!reason?.trim()) {
-        return;
-      }
-
-
-      const result =
-        await cancelPurchaseOrder(
-          purchaseOrder.id,
-          reason.trim()
-        );
-
-
-      if (result?.success) {
-
-        window.alert(
-          `PO ${result.po_number} berhasil dibatalkan.`
-        );
-      }
-    };
-
+    if (result?.success) {
+      window.alert(`PO ${result.po_number} berhasil dibatalkan.`);
+    }
+  };
 
   /*
    * ========================================================
@@ -1693,37 +1157,24 @@ export function PurchaseOrderPage() {
    * ========================================================
    */
 
-  const handleCloseOutstanding =
-    async (
-      purchaseOrder: PurchaseOrder
-    ) => {
+  const handleCloseOutstanding = async (purchaseOrder: PurchaseOrder) => {
+    const reason = window.prompt(
+      `Alasan Close Outstanding PO ${purchaseOrder.po_number}:`,
+    );
 
-      const reason =
-        window.prompt(
-          `Alasan Close Outstanding PO ${purchaseOrder.po_number}:`
-        );
+    if (!reason?.trim()) {
+      return;
+    }
 
+    const result = await closePurchaseOrderOutstanding(
+      purchaseOrder.id,
+      reason.trim(),
+    );
 
-      if (!reason?.trim()) {
-        return;
-      }
-
-
-      const result =
-        await closePurchaseOrderOutstanding(
-          purchaseOrder.id,
-          reason.trim()
-        );
-
-
-      if (result?.success) {
-
-        window.alert(
-          `PO ${result.po_number} berhasil ditutup.`
-        );
-      }
-    };
-
+    if (result?.success) {
+      window.alert(`PO ${result.po_number} berhasil ditutup.`);
+    }
+  };
 
   /*
    * ========================================================
@@ -1731,28 +1182,15 @@ export function PurchaseOrderPage() {
    * ========================================================
    */
 
-  const handlePrintPurchaseOrder =
-    async (
-      purchaseOrder: PurchaseOrder
-    ) => {
+  const handlePrintPurchaseOrder = async (purchaseOrder: PurchaseOrder) => {
+    const details = await fetchPurchaseOrderDetails(purchaseOrder.id);
 
-      const details =
-        await fetchPurchaseOrderDetails(
-          purchaseOrder.id
-        );
+    if (!details) {
+      return;
+    }
 
-
-      if (!details) {
-        return;
-      }
-
-
-      printPurchaseOrder(
-        purchaseOrder,
-        details
-      );
-    };
-
+    printPurchaseOrder(purchaseOrder, details);
+  };
 
   /*
    * ========================================================
@@ -1762,164 +1200,88 @@ export function PurchaseOrderPage() {
    * ========================================================
    */
 
-  const handleExportPurchaseOrders =
-    async () => {
+  const handleExportPurchaseOrders = async () => {
+    try {
+      if (totalCount === 0) {
+        window.alert("Tidak ada Purchase Order yang dapat diexport.");
 
-      try {
-
-        if (
-          totalCount ===
-          0
-        ) {
-
-          window.alert(
-            "Tidak ada Purchase Order yang dapat diexport."
-          );
-
-          return;
-        }
-
-
-        const data =
-          await exportPurchaseOrders();
-
-
-        if (
-          data.length ===
-          0
-        ) {
-
-          window.alert(
-            "Tidak ada Purchase Order yang dapat diexport."
-          );
-
-          return;
-        }
-
-
-        const rows =
-          data.map(
-            (
-              purchaseOrder
-            ) => ({
-              "Nomor PO":
-                purchaseOrder.po_number,
-
-              Tanggal:
-                purchaseOrder.order_date,
-
-              Supplier:
-                purchaseOrder.supplier_name_snapshot,
-
-              "Kode Supplier":
-                purchaseOrder.supplier_code_snapshot,
-
-              Termin:
-                `${purchaseOrder.payment_term_days} hari`,
-
-              Subtotal:
-                Number(
-                  purchaseOrder.subtotal
-                ),
-
-              Diskon:
-                Number(
-                  purchaseOrder.discount_amount
-                ),
-
-              Pajak:
-                Number(
-                  purchaseOrder.tax_amount
-                ),
-
-              "Grand Total":
-                Number(
-                  purchaseOrder.grand_total
-                ),
-
-              Status:
-                statusLabels[
-                  purchaseOrder.status
-                ],
-
-              "Store Tujuan":
-                purchaseOrder.store_name ??
-                "",
-
-              Catatan:
-                purchaseOrder.notes ??
-                "",
-            })
-          );
-
-
-        const worksheet =
-          XLSX.utils.json_to_sheet(
-            rows
-          );
-
-
-        worksheet["!cols"] = [
-          { wch: 18 },
-          { wch: 14 },
-          { wch: 30 },
-          { wch: 16 },
-          { wch: 12 },
-          { wch: 18 },
-          { wch: 18 },
-          { wch: 18 },
-          { wch: 18 },
-          { wch: 20 },
-          { wch: 40 },
-        ];
-
-
-        const workbook =
-          XLSX.utils.book_new();
-
-
-        XLSX.utils.book_append_sheet(
-          workbook,
-          worksheet,
-          "Purchase Order"
-        );
-
-
-        const file =
-          XLSX.write(
-            workbook,
-            {
-              bookType: "xlsx",
-              type: "array",
-            }
-          );
-
-
-        saveAs(
-          new Blob(
-            [file],
-            {
-              type:
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            }
-          ),
-          `Purchase-Order-${todayInputValue()}.xlsx`
-        );
-
-      } catch (err) {
-
-        window.alert(
-          err instanceof Error
-            ? err.message
-            : "Gagal export Purchase Order."
-        );
+        return;
       }
-    };
 
+      const data = await exportPurchaseOrders();
+
+      if (data.length === 0) {
+        window.alert("Tidak ada Purchase Order yang dapat diexport.");
+
+        return;
+      }
+
+      const rows = data.map((purchaseOrder) => ({
+        "Nomor PO": purchaseOrder.po_number,
+
+        Tanggal: purchaseOrder.order_date,
+
+        Supplier: purchaseOrder.supplier_name_snapshot,
+
+        "Kode Supplier": purchaseOrder.supplier_code_snapshot,
+
+        Termin: `${purchaseOrder.payment_term_days} hari`,
+
+        Subtotal: Number(purchaseOrder.subtotal),
+
+        Diskon: Number(purchaseOrder.discount_amount),
+
+        Pajak: Number(purchaseOrder.tax_amount),
+
+        "Grand Total": Number(purchaseOrder.grand_total),
+
+        Status: statusLabels[purchaseOrder.status],
+
+        "Store Tujuan": purchaseOrder.store_name ?? "",
+
+        Catatan: purchaseOrder.notes ?? "",
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+
+      worksheet["!cols"] = [
+        { wch: 18 },
+        { wch: 14 },
+        { wch: 30 },
+        { wch: 16 },
+        { wch: 12 },
+        { wch: 18 },
+        { wch: 18 },
+        { wch: 18 },
+        { wch: 18 },
+        { wch: 20 },
+        { wch: 40 },
+      ];
+
+      const workbook = XLSX.utils.book_new();
+
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Purchase Order");
+
+      const file = XLSX.write(workbook, {
+        bookType: "xlsx",
+        type: "array",
+      });
+
+      saveAs(
+        new Blob([file], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }),
+        `Purchase-Order-${todayInputValue()}.xlsx`,
+      );
+    } catch (err) {
+      window.alert(
+        err instanceof Error ? err.message : "Gagal export Purchase Order.",
+      );
+    }
+  };
 
   return (
     <div className="w-full pr-2 space-y-4">
-
       {/* ==================================================
           HEADER
       ================================================== */}
@@ -1939,39 +1301,25 @@ export function PurchaseOrderPage() {
           <input
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm md:w-80"
             value={search}
-            onChange={(
-              event
-            ) =>
-              setSearch(
-                event.target.value
-              )
-            }
+            onChange={(event) => setSearch(event.target.value)}
             placeholder="Cari nomor PO atau supplier..."
           />
 
           {access.export && (
             <button
               type="button"
-              onClick={
-                handleExportPurchaseOrders
-              }
-              disabled={
-                loading ||
-                totalCount === 0
-              }
+              onClick={handleExportPurchaseOrders}
+              disabled={loading || totalCount === 0}
               className="rounded-md border border-green-300 bg-green-50 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Export Excel
             </button>
           )}
 
-
           {access.create && (
             <button
               type="button"
-              onClick={
-                openCreateForm
-              }
+              onClick={openCreateForm}
               className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
             >
               + Buat PO
@@ -1979,7 +1327,6 @@ export function PurchaseOrderPage() {
           )}
         </div>
       </div>
-
 
       {/* ==================================================
           ERROR
@@ -2001,15 +1348,12 @@ export function PurchaseOrderPage() {
         </div>
       )}
 
-
       {/* ==================================================
           FORM
       ================================================== */}
       {showForm && (
         <form
-          onSubmit={
-            handleSubmit
-          }
+          onSubmit={handleSubmit}
           className="space-y-5 rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
         >
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -2029,9 +1373,7 @@ export function PurchaseOrderPage() {
 
             <button
               type="button"
-              onClick={
-                cancelCreateForm
-              }
+              onClick={cancelCreateForm}
               className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
             >
               Batal
@@ -2046,19 +1388,12 @@ export function PurchaseOrderPage() {
 
               <input
                 type="date"
-                value={
-                  formData.order_date
-                }
-                onChange={(
-                  event
-                ) =>
-                  setFormData(
-                    (previous) => ({
-                      ...previous,
-                      order_date:
-                        event.target.value,
-                    })
-                  )
+                value={formData.order_date}
+                onChange={(event) =>
+                  setFormData((previous) => ({
+                    ...previous,
+                    order_date: event.target.value,
+                  }))
                 }
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
               />
@@ -2071,19 +1406,12 @@ export function PurchaseOrderPage() {
 
               <input
                 type="date"
-                value={
-                  formData.expected_delivery_date
-                }
-                onChange={(
-                  event
-                ) =>
-                  setFormData(
-                    (previous) => ({
-                      ...previous,
-                      expected_delivery_date:
-                        event.target.value,
-                    })
-                  )
+                value={formData.expected_delivery_date}
+                onChange={(event) =>
+                  setFormData((previous) => ({
+                    ...previous,
+                    expected_delivery_date: event.target.value,
+                  }))
                 }
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
               />
@@ -2095,39 +1423,17 @@ export function PurchaseOrderPage() {
               </label>
 
               <select
-                value={
-                  formData.supplier_id
-                }
-                onChange={(
-                  event
-                ) =>
-                  handleSupplierChange(
-                    event.target.value
-                  )
-                }
+                value={formData.supplier_id}
+                onChange={(event) => handleSupplierChange(event.target.value)}
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
               >
-                <option value="">
-                  Pilih supplier
-                </option>
+                <option value="">Pilih supplier</option>
 
-                {suppliers.map(
-                  (
-                    supplier
-                  ) => (
-                    <option
-                      key={
-                        supplier.id
-                      }
-                      value={
-                        supplier.id
-                      }
-                    >
-                      {supplier.code} -{" "}
-                      {supplier.name}
-                    </option>
-                  )
-                )}
+                {suppliers.map((supplier) => (
+                  <option key={supplier.id} value={supplier.id}>
+                    {supplier.code} - {supplier.name}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -2137,43 +1443,22 @@ export function PurchaseOrderPage() {
               </label>
 
               <select
-                value={
-                  formData.store_id
-                }
-                onChange={(
-                  event
-                ) =>
-                  setFormData(
-                    (previous) => ({
-                      ...previous,
-                      store_id:
-                        event.target.value,
-                    })
-                  )
+                value={formData.store_id}
+                onChange={(event) =>
+                  setFormData((previous) => ({
+                    ...previous,
+                    store_id: event.target.value,
+                  }))
                 }
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
               >
-                <option value="">
-                  Pilih Store/Gudang Tujuan
-                </option>
+                <option value="">Pilih Store/Gudang Tujuan</option>
 
-                {stores.map(
-                  (
-                    store
-                  ) => (
-                    <option
-                      key={
-                        store.id
-                      }
-                      value={
-                        store.id
-                      }
-                    >
-                      {store.code} -{" "}
-                      {store.name}
-                    </option>
-                  )
-                )}
+                {stores.map((store) => (
+                  <option key={store.id} value={store.id}>
+                    {store.code} - {store.name}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -2185,32 +1470,19 @@ export function PurchaseOrderPage() {
               <input
                 type="number"
                 min="0"
-                value={
-                  formData.payment_term_days
-                }
-                onChange={(
-                  event
-                ) =>
-                  setFormData(
-                    (previous) => ({
-                      ...previous,
-                      payment_term_days:
-                        Number(
-                          event.target.value ||
-                            0
-                        ),
-                    })
-                  )
+                value={formData.payment_term_days}
+                onChange={(event) =>
+                  setFormData((previous) => ({
+                    ...previous,
+                    payment_term_days: Number(event.target.value || 0),
+                  }))
                 }
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
               />
 
               {selectedSupplier && (
                 <p className="mt-1 text-xs text-gray-500">
-                  Default supplier:{" "}
-                  {
-                    selectedSupplier.default_payment_term_days
-                  }{" "}
+                  Default supplier: {selectedSupplier.default_payment_term_days}{" "}
                   hari.
                 </p>
               )}
@@ -2222,19 +1494,12 @@ export function PurchaseOrderPage() {
               </label>
 
               <textarea
-                value={
-                  formData.notes
-                }
-                onChange={(
-                  event
-                ) =>
-                  setFormData(
-                    (previous) => ({
-                      ...previous,
-                      notes:
-                        event.target.value,
-                    })
-                  )
+                value={formData.notes}
+                onChange={(event) =>
+                  setFormData((previous) => ({
+                    ...previous,
+                    notes: event.target.value,
+                  }))
                 }
                 rows={2}
                 placeholder="Catatan Purchase Order (opsional)"
@@ -2285,223 +1550,131 @@ export function PurchaseOrderPage() {
               </thead>
 
               <tbody className="divide-y divide-gray-200">
-                {formData.details.map(
-                  (
-                    line,
-                    index
-                  ) => {
+                {formData.details.map((line, index) => {
+                  const selectedItem = items.find(
+                    (item) => item.id === line.item_id,
+                  );
 
-                    const selectedItem =
-                      items.find(
-                        (
-                          item
-                        ) =>
-                          item.id ===
-                          line.item_id
-                      );
+                  const lineTotal =
+                    Number(line.quantity_ordered || 0) *
+                      Number(line.unit_price || 0) -
+                    Number(line.discount_amount || 0) +
+                    Number(line.tax_amount || 0);
 
-                    const lineTotal =
-                      Number(
-                        line.quantity_ordered ||
-                          0
-                      ) *
-                        Number(
-                          line.unit_price ||
-                            0
-                        ) -
-                      Number(
-                        line.discount_amount ||
-                          0
-                      ) +
-                      Number(
-                        line.tax_amount ||
-                          0
-                      );
+                  return (
+                    <tr key={index}>
+                      <td className="px-3 py-3">
+                        <SearchableSelect
+                          value={line.item_id}
 
-                    return (
-                      <tr
-                        key={
-                          index
-                        }
-                      >
-                        <td className="px-3 py-3">
-                          <SearchableSelect
-                            value={
-                              line.item_id
-                            }
+                          options={itemSelectOptions}
 
-                            options={
-                              itemSelectOptions
-                            }
+                          placeholder={"Cari kode atau nama artikel..."}
 
-                            placeholder={
-                              "Cari kode atau nama artikel..."
-                            }
+                          disabled={loadingMasters || saving}
 
-                            disabled={
-                              loadingMasters ||
-                              saving
-                            }
+                          onChange={(itemId) => handleItemChange(index, itemId)}
 
-                            onChange={
-                              (
-                                itemId
-                              ) =>
-                                handleItemChange(
-                                  index,
-                                  itemId
-                                )
-                            }
+                          emptyMessage={"Artikel tidak ditemukan."}
+                        />
+                      </td>
 
-                            emptyMessage={
-                              "Artikel tidak ditemukan."
-                            }
-                          />
-                        </td>
-
-                        <td className="px-3 py-3">
-                          <input
-                            type="number"
-                            min="0.0001"
-                            step="0.0001"
-                            value={
-                              line.quantity_ordered
-                            }
-                            onChange={(
-                              event
-                            ) =>
-                              updateLine(
-                                index,
-                                "quantity_ordered",
-                                Number(
-                                  event.target.value ||
-                                    0
-                                )
-                              )
-                            }
-                            className="w-24 rounded-md border border-gray-300 px-2 py-2 text-right text-sm"
-                          />
-                        </td>
-
-                        <td className="px-3 py-3 text-gray-700">
-                          {
-                            selectedItem
-                              ?.unit
-                              ?.code ??
-                            "-"
+                      <td className="px-3 py-3">
+                        <input
+                          type="number"
+                          min="0.0001"
+                          step="0.0001"
+                          value={line.quantity_ordered}
+                          onChange={(event) =>
+                            updateLine(
+                              index,
+                              "quantity_ordered",
+                              Number(event.target.value || 0),
+                            )
                           }
-                        </td>
+                          className="w-24 rounded-md border border-gray-300 px-2 py-2 text-right text-sm"
+                        />
+                      </td>
 
-                        <td className="px-3 py-3">
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={
-                              line.unit_price
-                            }
-                            onChange={(
-                              event
-                            ) =>
-                              updateLine(
-                                index,
-                                "unit_price",
-                                Number(
-                                  event.target.value ||
-                                    0
-                                )
-                              )
-                            }
-                            className="w-32 rounded-md border border-gray-300 px-2 py-2 text-right text-sm"
-                          />
-                        </td>
+                      <td className="px-3 py-3 text-gray-700">
+                        {selectedItem?.unit?.code ?? "-"}
+                      </td>
 
-                        <td className="px-3 py-3">
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={
-                              line.discount_amount
-                            }
-                            onChange={(
-                              event
-                            ) =>
-                              updateLine(
-                                index,
-                                "discount_amount",
-                                Number(
-                                  event.target.value ||
-                                    0
-                                )
-                              )
-                            }
-                            className="w-28 rounded-md border border-gray-300 px-2 py-2 text-right text-sm"
-                          />
-                        </td>
+                      <td className="px-3 py-3">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={line.unit_price}
+                          onChange={(event) =>
+                            updateLine(
+                              index,
+                              "unit_price",
+                              Number(event.target.value || 0),
+                            )
+                          }
+                          className="w-32 rounded-md border border-gray-300 px-2 py-2 text-right text-sm"
+                        />
+                      </td>
 
-                        <td className="px-3 py-3">
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={
-                              line.tax_amount
-                            }
-                            onChange={(
-                              event
-                            ) =>
-                              updateLine(
-                                index,
-                                "tax_amount",
-                                Number(
-                                  event.target.value ||
-                                    0
-                                )
-                              )
-                            }
-                            className="w-28 rounded-md border border-gray-300 px-2 py-2 text-right text-sm"
-                          />
-                        </td>
+                      <td className="px-3 py-3">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={line.discount_amount}
+                          onChange={(event) =>
+                            updateLine(
+                              index,
+                              "discount_amount",
+                              Number(event.target.value || 0),
+                            )
+                          }
+                          className="w-28 rounded-md border border-gray-300 px-2 py-2 text-right text-sm"
+                        />
+                      </td>
 
-                        <td className="px-3 py-3 text-right font-medium text-gray-900">
-                          {formatCurrency(
-                            lineTotal
-                          )}
-                        </td>
+                      <td className="px-3 py-3">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={line.tax_amount}
+                          onChange={(event) =>
+                            updateLine(
+                              index,
+                              "tax_amount",
+                              Number(event.target.value || 0),
+                            )
+                          }
+                          className="w-28 rounded-md border border-gray-300 px-2 py-2 text-right text-sm"
+                        />
+                      </td>
 
-                        <td className="px-3 py-3 text-center">
-                          <button
-                            type="button"
-                            disabled={
-                              formData.details
-                                .length ===
-                              1
-                            }
-                            onClick={() =>
-                              removeLine(
-                                index
-                              )
-                            }
-                            className="text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            Hapus
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  }
-                )}
+                      <td className="px-3 py-3 text-right font-medium text-gray-900">
+                        {formatCurrency(lineTotal)}
+                      </td>
 
+                      <td className="px-3 py-3 text-center">
+                        <button
+                          type="button"
+                          disabled={formData.details.length === 1}
+                          onClick={() => removeLine(index)}
+                          className="text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Hapus
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
 
           <button
             type="button"
-            onClick={
-              addLine
-            }
+            onClick={addLine}
             className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
           >
             + Tambah Baris Item
@@ -2509,108 +1682,67 @@ export function PurchaseOrderPage() {
 
           <div className="ml-auto w-full rounded-lg bg-gray-50 p-4 md:w-96">
             <div className="flex justify-between text-sm text-gray-600">
-              <span>
-                Subtotal
-              </span>
+              <span>Subtotal</span>
 
-              <span>
-                {formatCurrency(
-                  formSubtotal
-                )}
-              </span>
+              <span>{formatCurrency(formSubtotal)}</span>
             </div>
 
             <div className="mt-2 flex justify-between text-sm text-gray-600">
-              <span>
-                Diskon
-              </span>
+              <span>Diskon</span>
 
-              <span>
-                {formatCurrency(
-                  formDiscount
-                )}
-              </span>
+              <span>{formatCurrency(formDiscount)}</span>
             </div>
 
             <div className="mt-2 flex justify-between text-sm text-gray-600">
-              <span>
-                Pajak
-              </span>
+              <span>Pajak</span>
 
-              <span>
-                {formatCurrency(
-                  formTax
-                )}
-              </span>
-
+              <span>{formatCurrency(formTax)}</span>
             </div>
 
             <div className="mt-3 flex justify-between border-t border-gray-300 pt-3 text-base font-semibold text-gray-900">
-              <span>
-                Total PO
-              </span>
+              <span>Total PO</span>
 
-              <span>
-                {formatCurrency(
-                  formGrandTotal
-                )}
-              </span>
+              <span>{formatCurrency(formGrandTotal)}</span>
             </div>
           </div>
 
           <div className="flex justify-end gap-3">
-
             <button
               type="button"
-              onClick={
-                cancelCreateForm
-              }
+              onClick={cancelCreateForm}
               className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
             >
               Batal
             </button>
 
-
             <button
               type="submit"
-              disabled={
-                saving
-              }
+              disabled={saving}
               className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-
               {saving
                 ? "Menyimpan..."
                 : editingPurchaseOrder
                   ? "Simpan Perubahan Draft"
                   : "Simpan Draft PO"}
-
             </button>
-
           </div>
-
         </form>
       )}
-
 
       {/* ==================================================
           PO TABLE
       ================================================== */}
 
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-
         <div className="border-b border-gray-200 px-5 py-4">
-
           <div className="flex items-center justify-between">
-
             <h2 className="font-semibold text-gray-900">
               Daftar Purchase Order
             </h2>
 
             <span className="text-xs text-gray-500">
-              Total {formatNumber(
-                totalCount
-              )} PO
+              Total {formatNumber(totalCount)} PO
             </span>
           </div>
         </div>
@@ -2619,29 +1751,17 @@ export function PurchaseOrderPage() {
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 font-medium">
-                  Nomor PO
-                </th>
+                <th className="px-4 py-3 font-medium">Nomor PO</th>
 
-                <th className="px-4 py-3 font-medium">
-                  Tanggal
-                </th>
+                <th className="px-4 py-3 font-medium">Tanggal</th>
 
-                <th className="px-4 py-3 font-medium">
-                  Supplier
-                </th>
+                <th className="px-4 py-3 font-medium">Supplier</th>
 
-                <th className="px-4 py-3 font-medium">
-                  Total
-                </th>
+                <th className="px-4 py-3 font-medium">Total</th>
 
-                <th className="px-4 py-3 font-medium">
-                  Status
-                </th>
+                <th className="px-4 py-3 font-medium">Status</th>
 
-                <th className="px-4 py-3 font-medium">
-                  Aksi
-                </th>
+                <th className="px-4 py-3 font-medium">Aksi</th>
               </tr>
             </thead>
 
@@ -2655,7 +1775,6 @@ export function PurchaseOrderPage() {
                     Memuat Purchase Order...
                   </td>
                 </tr>
-
               ) : purchaseOrders.length === 0 ? (
                 <tr>
                   <td
@@ -2668,191 +1787,137 @@ export function PurchaseOrderPage() {
                   </td>
                 </tr>
               ) : (
-                purchaseOrders.map(
-                  (
-                    purchaseOrder
-                  ) => (
+                purchaseOrders.map((purchaseOrder) => (
+                  <tr key={purchaseOrder.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium text-gray-900">
+                      {purchaseOrder.po_number}
+                    </td>
 
-                    <tr
-                      key={purchaseOrder.id}
-                      className="hover:bg-gray-50"
-                    >
-                      <td className="px-4 py-3 font-medium text-gray-900">
-                        {purchaseOrder.po_number}
-                      </td>
+                    <td className="px-4 py-3 text-gray-700">
+                      {purchaseOrder.order_date}
+                    </td>
 
-                      <td className="px-4 py-3 text-gray-700">
-                        {purchaseOrder.order_date}
-                      </td>
+                    <td className="px-4 py-3 text-gray-700">
+                      <div>{purchaseOrder.supplier_name_snapshot}</div>
 
-                      <td className="px-4 py-3 text-gray-700">
-                        <div>
-                          {purchaseOrder.supplier_name_snapshot}
-                        </div>
+                      <div className="mt-1 text-xs text-gray-500">
+                        {purchaseOrder.supplier_code_snapshot}
+                      </div>
+                    </td>
 
-                        <div className="mt-1 text-xs text-gray-500">
-                          {purchaseOrder.supplier_code_snapshot}
-                        </div>
-                      </td>
+                    <td className="px-4 py-3 text-gray-700">
+                      {formatCurrency(purchaseOrder.grand_total)}
+                    </td>
 
-                      <td className="px-4 py-3 text-gray-700">
-                        {formatCurrency(
-                          purchaseOrder.grand_total
-                        )}
-                      </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded-full px-2 py-1 text-xs ${
+                          statusClasses[purchaseOrder.status]
+                        }`}
+                      >
+                        {statusLabels[purchaseOrder.status]}
+                      </span>
+                    </td>
 
-                      <td className="px-4 py-3">
-                        <span
-                          className={`rounded-full px-2 py-1 text-xs ${
-                            statusClasses[
-                              purchaseOrder.status
-                            ]
-                          }`}
-                        >
-                          {
-                            statusLabels[
-                              purchaseOrder.status
-                            ]
+                    <td className="whitespace-nowrap px-4 py-3 text-right">
+                      {access.print && (
+                        <button
+                          type="button"
+                          disabled={saving}
+                          onClick={() =>
+                            handlePrintPurchaseOrder(purchaseOrder)
                           }
-                        </span>
-                      </td>
+                          className="mr-3 text-gray-700 hover:text-gray-900 disabled:opacity-50"
+                        >
+                          Print A4
+                        </button>
+                      )}
 
-                      <td className="whitespace-nowrap px-4 py-3 text-right">
-                        {access.print && (
-                          <button
-                            type="button"
-                            disabled={
-                              saving
-                            }
-                            onClick={() =>
-                              handlePrintPurchaseOrder(
-                                purchaseOrder
-                              )
-                            }
-                            className="mr-3 text-gray-700 hover:text-gray-900 disabled:opacity-50"
-                          >
-                            Print A4
-                          </button>
-                        )}
-
-                        {purchaseOrder.status ===
-                          "DRAFT" && (
-                          <>
-                            {access.editDraft && (
-                              <button
-                                type="button"
-                                disabled={
-                                  saving
-                                }
-                                onClick={() =>
-                                  handleEditDraft(
-                                    purchaseOrder
-                                  )
-                                }
-                                className="mr-3 text-blue-600 hover:text-blue-800 disabled:opacity-50"
-                              >
-                                Edit
-                              </button>
-                            )}
-
-                            {access.open && (
-                              <button
-                                type="button"
-                                disabled={
-                                  saving
-                                }
-                                onClick={() =>
-                                  handleOpenPurchaseOrder(
-                                    purchaseOrder
-                                  )
-                                }
-                                className="mr-3 text-green-600 hover:text-green-800 disabled:opacity-50"
-                              >
-                                Buka PO
-                              </button>
-                            )}
-
-                            {access.deleteDraft && (
-                              <button
-                                type="button"
-                                disabled={
-                                  saving
-                                }
-                                onClick={() =>
-                                  handleDeleteDraft(
-                                    purchaseOrder
-                                  )
-                                }
-                                className="text-red-600 hover:text-red-800 disabled:opacity-50"
-                              >
-                                Hapus
-                              </button>
-                            )}
-                          </>
-                        )}
-
-                        {purchaseOrder.status ===
-                          "OPEN" && (
-                          <>
-                            {access.cancel && (
-                              <button
-                                type="button"
-                                disabled={
-                                  saving
-                                }
-                                onClick={() =>
-                                  handleCancelPurchaseOrder(
-                                    purchaseOrder
-                                  )
-                                }
-                                className="mr-3 text-red-600 hover:text-red-800 disabled:opacity-50"
-                              >
-                                Cancel PO
-                              </button>
-                            )}
-
-                            {access.closeOutstanding && (
-                              <button
-                                type="button"
-                                disabled={
-                                  saving
-                                }
-                                onClick={() =>
-                                  handleCloseOutstanding(
-                                    purchaseOrder
-                                  )
-                                }
-                                className="text-orange-600 hover:text-orange-800 disabled:opacity-50"
-                              >
-                                Close Outstanding
-                              </button>
-                            )}
-                          </>
-                        )}
-
-                        {purchaseOrder.status ===
-                          "PARTIAL_RECEIVED" &&
-                          access.closeOutstanding && (
-
+                      {purchaseOrder.status === "DRAFT" && (
+                        <>
+                          {access.editDraft && (
                             <button
                               type="button"
-                              disabled={
-                                saving
-                              }
+                              disabled={saving}
+                              onClick={() => handleEditDraft(purchaseOrder)}
+                              className="mr-3 text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                            >
+                              Edit
+                            </button>
+                          )}
+
+                          {access.open && (
+                            <button
+                              type="button"
+                              disabled={saving}
                               onClick={() =>
-                                handleCloseOutstanding(
-                                  purchaseOrder
-                                )
+                                handleOpenPurchaseOrder(purchaseOrder)
+                              }
+                              className="mr-3 text-green-600 hover:text-green-800 disabled:opacity-50"
+                            >
+                              Buka PO
+                            </button>
+                          )}
+
+                          {access.deleteDraft && (
+                            <button
+                              type="button"
+                              disabled={saving}
+                              onClick={() => handleDeleteDraft(purchaseOrder)}
+                              className="text-red-600 hover:text-red-800 disabled:opacity-50"
+                            >
+                              Hapus
+                            </button>
+                          )}
+                        </>
+                      )}
+
+                      {purchaseOrder.status === "OPEN" && (
+                        <>
+                          {access.cancel && (
+                            <button
+                              type="button"
+                              disabled={saving}
+                              onClick={() =>
+                                handleCancelPurchaseOrder(purchaseOrder)
+                              }
+                              className="mr-3 text-red-600 hover:text-red-800 disabled:opacity-50"
+                            >
+                              Cancel PO
+                            </button>
+                          )}
+
+                          {access.closeOutstanding && (
+                            <button
+                              type="button"
+                              disabled={saving}
+                              onClick={() =>
+                                handleCloseOutstanding(purchaseOrder)
                               }
                               className="text-orange-600 hover:text-orange-800 disabled:opacity-50"
                             >
                               Close Outstanding
                             </button>
                           )}
-                      </td>
-                    </tr>
-                  )
-                )
+                        </>
+                      )}
+
+                      {purchaseOrder.status === "PARTIAL_RECEIVED" &&
+                        access.closeOutstanding && (
+                          <button
+                            type="button"
+                            disabled={saving}
+                            onClick={() =>
+                              handleCloseOutstanding(purchaseOrder)
+                            }
+                            className="text-orange-600 hover:text-orange-800 disabled:opacity-50"
+                          >
+                            Close Outstanding
+                          </button>
+                        )}
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
@@ -2865,7 +1930,7 @@ export function PurchaseOrderPage() {
           <div className="px-5 pb-4">
             <Pagination
               meta={paginationMeta}
-              onPageChange={setPage              }
+              onPageChange={setPage}
               onPageSizeChange={setPageSize}
             />
           </div>

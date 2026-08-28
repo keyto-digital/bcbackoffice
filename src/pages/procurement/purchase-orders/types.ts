@@ -1,10 +1,5 @@
 export type PurchaseOrderStatus =
-  | "DRAFT"
-  | "APPROVED"
-  | "OPEN"
-  | "PARTIAL_RECEIVED"
-  | "CLOSED"
-  | "CANCELLED";
+  "DRAFT" | "APPROVED" | "OPEN" | "PARTIAL_RECEIVED" | "CLOSED" | "CANCELLED";
 
 export type SupplierOption = {
   id: string;

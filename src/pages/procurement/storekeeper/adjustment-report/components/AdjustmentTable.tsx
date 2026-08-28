@@ -31,111 +31,67 @@ export default function AdjustmentTable({
 
   return (
     <div className="overflow-x-auto rounded border bg-white">
-
       {/* Header */}
       <div className="grid min-w-[1700px] grid-cols-[60px_120px_220px_220px_260px_110px_110px_110px_150px_100px_180px_100px] bg-slate-100 text-sm font-semibold">
+        <div className="border-r border-b p-3 text-center">No</div>
 
-        <div className="border-r border-b p-3 text-center">
-          No
-        </div>
+        <div className="border-r border-b p-3">Tanggal</div>
 
-        <div className="border-r border-b p-3">
-          Tanggal
-        </div>
+        <div className="border-r border-b p-3">No Adjustment</div>
 
-        <div className="border-r border-b p-3">
-          No Adjustment
-        </div>
+        <div className="border-r border-b p-3">Gudang</div>
 
-        <div className="border-r border-b p-3">
-          Gudang
-        </div>
+        <div className="border-r border-b p-3">Artikel</div>
 
-        <div className="border-r border-b p-3">
-          Artikel
-        </div>
+        <div className="border-r border-b p-3 text-right">Qty Sebelum</div>
 
-        <div className="border-r border-b p-3 text-right">
-          Qty Sebelum
-        </div>
+        <div className="border-r border-b p-3 text-right">Qty Adj</div>
 
-        <div className="border-r border-b p-3 text-right">
-          Qty Adj
-        </div>
+        <div className="border-r border-b p-3 text-right">Qty Sesudah</div>
 
-        <div className="border-r border-b p-3 text-right">
-          Qty Sesudah
-        </div>
+        <div className="border-r border-b p-3 text-right">Nilai</div>
 
-        <div className="border-r border-b p-3 text-right">
-          Nilai
-        </div>
+        <div className="border-r border-b p-3 text-center">User</div>
 
-        <div className="border-r border-b p-3 text-center">
-          User
-        </div>
+        <div className="border-r border-b p-3">Posting</div>
 
-        <div className="border-r border-b p-3">
-          Posting
-        </div>
-
-        <div className="border-b p-3 text-center">
-          Aksi
-        </div>
-
+        <div className="border-b p-3 text-center">Aksi</div>
       </div>
 
       {documents.map((doc, index) => {
-
         const first = doc.items[0];
 
         return (
-
           <div
             key={doc.reference}
             className="grid min-w-[1700px] grid-cols-[60px_120px_220px_220px_260px_110px_110px_110px_150px_100px_180px_100px] text-sm hover:bg-slate-50"
           >
+            <div className="border-r border-b p-3 text-center">{index + 1}</div>
 
-            <div className="border-r border-b p-3 text-center">
-              {index + 1}
-            </div>
-
-            <div className="border-r border-b p-3">
-              {doc.movement_date}
-            </div>
+            <div className="border-r border-b p-3">{doc.movement_date}</div>
 
             <div className="border-r border-b p-3 font-medium">
               {doc.reference}
             </div>
 
             <div className="border-r border-b p-3">
-              {doc.store
-                ? `${doc.store.code} - ${doc.store.name}`
-                : "-"}
+              {doc.store ? `${doc.store.code} - ${doc.store.name}` : "-"}
             </div>
 
             <div className="border-r border-b p-3">
-              {first
-                ? `${first.code} - ${first.name}`
-                : "-"}
+              {first ? `${first.code} - ${first.name}` : "-"}
             </div>
 
             <div className="border-r border-b p-3 text-right">
-              {first
-                ? quantity(first.qtyBefore)
-                : "-"}
+              {first ? quantity(first.qtyBefore) : "-"}
             </div>
 
             <div className="border-r border-b p-3 text-right text-red-600 font-semibold">
-              {first
-                ? quantity(first.qtyAdjustment)
-                : "-"}
+              {first ? quantity(first.qtyAdjustment) : "-"}
             </div>
 
             <div className="border-r border-b p-3 text-right">
-              {first
-                ? quantity(first.qtyAfter)
-                : "-"}
+              {first ? quantity(first.qtyAfter) : "-"}
             </div>
 
             <div className="border-r border-b p-3 text-right">
@@ -151,7 +107,6 @@ export default function AdjustmentTable({
             </div>
 
             <div className="border-b p-3 text-center">
-
               <button
                 type="button"
                 onClick={() => onDetail(doc)}
@@ -159,15 +114,10 @@ export default function AdjustmentTable({
               >
                 Detail
               </button>
-
             </div>
-
           </div>
-
         );
-
       })}
-
     </div>
   );
 }

@@ -1,23 +1,22 @@
-import type {InventoryRequest,InventoryRequestLineForm} from "../types";
+import type { InventoryRequest, InventoryRequestLineForm } from "../types";
 
-function fmtDate(value?:string|null){
-    if(!value)return "-";
-    return new Date(value).toLocaleDateString("id-ID");
+function fmtDate(value?: string | null) {
+  if (!value) return "-";
+  return new Date(value).toLocaleDateString("id-ID");
 }
 
-function fmtQty(value:number){
-    return Number(value||0).toLocaleString("id-ID",{
-        minimumFractionDigits:0,
-        maximumFractionDigits:4
-    });
+function fmtQty(value: number) {
+  return Number(value || 0).toLocaleString("id-ID", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 4,
+  });
 }
 
 export function printInventoryRequest(
-    header:InventoryRequest,
-    details:InventoryRequestLineForm[]
-){
-
-const html=`
+  header: InventoryRequest,
+  details: InventoryRequestLineForm[],
+) {
+  const html = `
 
 <html>
 
@@ -186,19 +185,21 @@ STORE REQUEST
 
 <tbody>
 
-${details.map((x,i)=>`
+${details
+  .map(
+    (x, i) => `
 
 <tr>
 
 <td class="center">
 
-${i+1}
+${i + 1}
 
 </td>
 
 <td>
 
-${x.item_code??""} - ${x.item_name??""}
+${x.item_code ?? ""} - ${x.item_name ?? ""}
 
 </td>
 
@@ -222,13 +223,15 @@ ${fmtQty(x.qty_transfer)}
 
 <td>
 
-${x.remarks??""}
+${x.remarks ?? ""}
 
 </td>
 
 </tr>
 
-`).join("")}
+`,
+  )
+  .join("")}
 
 </tbody>
 
@@ -300,14 +303,13 @@ window.close();
 
 `;
 
-const win=window.open("","_blank","width=900,height=900");
+  const win = window.open("", "_blank", "width=900,height=900");
 
-if(!win)return;
+  if (!win) return;
 
-win.document.open();
+  win.document.open();
 
-win.document.write(html);
+  win.document.write(html);
 
-win.document.close();
-
+  win.document.close();
 }

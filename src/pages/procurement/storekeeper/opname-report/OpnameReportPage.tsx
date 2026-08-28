@@ -15,17 +15,13 @@ import {
 
 import { printReport } from "@/utils/printReport";
 
-import type {
-  OpnameDocument,
-} from "./types";
+import type { OpnameDocument } from "./types";
 
 import OpnameFilter from "./components/OpnameFilter";
 import OpnameTable from "./components/OpnameTable";
 import OpnameDetailModal from "./components/OpnameDetailModal";
 
-import {
-  useOpnameList,
-} from "./hooks/useOpnameList";
+import { useOpnameList } from "./hooks/useOpnameList";
 
 import Pagination from "@/components/common/Pagination";
 
@@ -44,12 +40,7 @@ export default function OpnameReportPage() {
     fetchAllFilteredDocuments,
   } = useOpnameList();
 
-  const [
-    detail,
-    setDetail,
-  ] = useState<OpnameDocument | null>(
-    null
-  );
+  const [detail, setDetail] = useState<OpnameDocument | null>(null);
 
   // =========================================================
   // EXPORT EXCEL
@@ -58,25 +49,15 @@ export default function OpnameReportPage() {
 
   const handleExport = async () => {
     try {
-      const rows =
-        await fetchAllFilteredDocuments();
+      const rows = await fetchAllFilteredDocuments();
 
       exportReport({
         filename: `Stock_Opname_${formatReportDateRange(
-          filter.dateFrom
-            ? new Date(
-                `${filter.dateFrom}T00:00:00`
-              )
-            : null,
-          filter.dateTo
-            ? new Date(
-                `${filter.dateTo}T00:00:00`
-              )
-            : null
+          filter.dateFrom ? new Date(`${filter.dateFrom}T00:00:00`) : null,
+          filter.dateTo ? new Date(`${filter.dateTo}T00:00:00`) : null,
         )}.xlsx`,
 
-        sheetName:
-          "Stock Opname",
+        sheetName: "Stock Opname",
 
         columns: [
           {
@@ -110,12 +91,7 @@ export default function OpnameReportPage() {
           {
             label: "Nilai",
             key: "nilai",
-            format: (value) =>
-              formatNumber(
-                Number(
-                  value ?? 0
-                )
-              ),
+            format: (value) => formatNumber(Number(value ?? 0)),
           },
           {
             label: "User",
@@ -127,73 +103,34 @@ export default function OpnameReportPage() {
           },
         ],
 
-        rows: rows.map(
-          (doc) => ({
-            tanggal:
-              doc.movement_date,
+        rows: rows.map((doc) => ({
+          tanggal: doc.movement_date,
 
-            reference:
-              doc.reference,
+          reference: doc.reference,
 
-            gudang:
-              doc.store
-                ? `${doc.store.code} - ${doc.store.name}`
-                : "",
+          gudang: doc.store ? `${doc.store.code} - ${doc.store.name}` : "",
 
-            artikel:
-              doc.items
-                .map(
-                  (item) =>
-                    `${item.code} - ${item.name}`
-                )
-                .join(", "),
+          artikel: doc.items
+            .map((item) => `${item.code} - ${item.name}`)
+            .join(", "),
 
-            qtySystem:
-              doc.items.reduce(
-                (
-                  sum,
-                  item
-                ) =>
-                  sum +
-                  item.qtySystem,
-                0
-              ),
+          qtySystem: doc.items.reduce((sum, item) => sum + item.qtySystem, 0),
 
-            qtyOpname:
-              doc.items.reduce(
-                (
-                  sum,
-                  item
-                ) =>
-                  sum +
-                  item.qtyOpname,
-                0
-              ),
+          qtyOpname: doc.items.reduce((sum, item) => sum + item.qtyOpname, 0),
 
-            selisih:
-              doc.totalDifference,
+          selisih: doc.totalDifference,
 
-            nilai:
-              doc.totalValue,
+          nilai: doc.totalValue,
 
-            user:
-              doc.created_by ??
-              "",
+          user: doc.created_by ?? "",
 
-            posting:
-              doc.created_at,
-          })
-        ),
+          posting: doc.created_at,
+        })),
       });
     } catch (error) {
-      console.error(
-        "Export Stock Opname gagal:",
-        error
-      );
+      console.error("Export Stock Opname gagal:", error);
 
-      alert(
-        "Gagal melakukan export Stock Opname."
-      );
+      alert("Gagal melakukan export Stock Opname.");
     }
   };
 
@@ -204,37 +141,27 @@ export default function OpnameReportPage() {
 
   const handlePrint = async () => {
     try {
-      const rows =
-        await fetchAllFilteredDocuments();
+      const rows = await fetchAllFilteredDocuments();
 
-      const currentUser =
-        getCustomUser();
+      const currentUser = getCustomUser();
 
-      const printedBy =
-        currentUser?.name ||
-        "-";
+      const printedBy = currentUser?.name || "-";
 
       printReport({
-        title:
-          "LAPORAN STOCK OPNAME",
+        title: "LAPORAN STOCK OPNAME",
 
         period:
-          filter.dateFrom ||
-          filter.dateTo
+          filter.dateFrom || filter.dateTo
             ? `${
                 filter.dateFrom
                   ? formatReportDisplayDate(
-                      new Date(
-                        `${filter.dateFrom}T00:00:00`
-                      )
+                      new Date(`${filter.dateFrom}T00:00:00`),
                     )
                   : "-"
               } s/d ${
                 filter.dateTo
                   ? formatReportDisplayDate(
-                      new Date(
-                        `${filter.dateTo}T00:00:00`
-                      )
+                      new Date(`${filter.dateTo}T00:00:00`),
                     )
                   : "-"
               }`
@@ -273,23 +200,13 @@ export default function OpnameReportPage() {
             label: "Selisih",
             key: "difference",
             align: "right",
-            format: (value) =>
-              formatNumber(
-                Number(
-                  value ?? 0
-                )
-              ),
+            format: (value) => formatNumber(Number(value ?? 0)),
           },
           {
             label: "Nilai",
             key: "value",
             align: "right",
-            format: (value) =>
-              formatNumber(
-                Number(
-                  value ?? 0
-                )
-              ),
+            format: (value) => formatNumber(Number(value ?? 0)),
           },
           {
             label: "User",
@@ -297,127 +214,62 @@ export default function OpnameReportPage() {
           },
         ],
 
-        rows: rows.map(
-          (doc) => ({
-            tanggal:
-              doc.movement_date,
+        rows: rows.map((doc) => ({
+          tanggal: doc.movement_date,
 
-            reference:
-              doc.reference,
+          reference: doc.reference,
 
-            store:
-              doc.store
-                ? `${doc.store.code} - ${doc.store.name}`
-                : "",
+          store: doc.store ? `${doc.store.code} - ${doc.store.name}` : "",
 
-            artikel:
-              doc.items
-                .map(
-                  (item) =>
-                    `${item.code} - ${item.name}`
-                )
-                .join(", "),
+          artikel: doc.items
+            .map((item) => `${item.code} - ${item.name}`)
+            .join(", "),
 
-            qtySystem:
-              doc.items.reduce(
-                (
-                  sum,
-                  item
-                ) =>
-                  sum +
-                  item.qtySystem,
-                0
-              ),
+          qtySystem: doc.items.reduce((sum, item) => sum + item.qtySystem, 0),
 
-            qtyOpname:
-              doc.items.reduce(
-                (
-                  sum,
-                  item
-                ) =>
-                  sum +
-                  item.qtyOpname,
-                0
-              ),
+          qtyOpname: doc.items.reduce((sum, item) => sum + item.qtyOpname, 0),
 
-            difference:
-              doc.totalDifference,
+          difference: doc.totalDifference,
 
-            value:
-              doc.totalValue,
+          value: doc.totalValue,
 
-            user:
-              doc.created_by ??
-              "",
-          })
-        ),
+          user: doc.created_by ?? "",
+        })),
 
         footer: [
           {
-            label:
-              "Jumlah Dokumen",
+            label: "Jumlah Dokumen",
 
-            value:
-              rows.length,
+            value: rows.length,
           },
 
           {
-            label:
-              "Total Selisih",
+            label: "Total Selisih",
 
-            value:
-              formatNumber(
-                rows.reduce(
-                  (
-                    sum,
-                    doc
-                  ) =>
-                    sum +
-                    doc.totalDifference,
-                  0
-                )
-              ),
+            value: formatNumber(
+              rows.reduce((sum, doc) => sum + doc.totalDifference, 0),
+            ),
           },
 
           {
-            label:
-              "Total Nilai",
+            label: "Total Nilai",
 
-            value:
-              money(
-                rows.reduce(
-                  (
-                    sum,
-                    doc
-                  ) =>
-                    sum +
-                    doc.totalValue,
-                  0
-                )
-              ),
+            value: money(rows.reduce((sum, doc) => sum + doc.totalValue, 0)),
           },
         ],
       });
     } catch (error) {
-      console.error(
-        "Print Stock Opname gagal:",
-        error
-      );
+      console.error("Print Stock Opname gagal:", error);
 
-      alert(
-        "Gagal mencetak Stock Opname."
-      );
+      alert("Gagal mencetak Stock Opname.");
     }
   };
 
   return (
     <div className="w-full space-y-4">
-
       {/* HEADER */}
       <div>
-        <h1 className="text-2xl font-bold">
-          Stock Opname
-        </h1>
+        <h1 className="text-2xl font-bold">Stock Opname</h1>
 
         <p className="text-sm text-gray-500">
           Daftar seluruh dokumen stock opname.
@@ -426,20 +278,12 @@ export default function OpnameReportPage() {
 
       {/* FILTER + ACTION */}
       <div className="mb-4 pr-8 flex flex-col gap-3">
-
-        <OpnameFilter
-          filter={filter}
-          stores={stores}
-          onChange={setFilter}
-        />
+        <OpnameFilter filter={filter} stores={stores} onChange={setFilter} />
 
         <div className="flex flex-wrap items-center gap-2 pr-8">
-
           <button
             type="button"
-            onClick={
-              handleExport
-            }
+            onClick={handleExport}
             className="flex items-center gap-2 rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700"
           >
             Export Excel
@@ -447,56 +291,38 @@ export default function OpnameReportPage() {
 
           <button
             type="button"
-            onClick={
-              handlePrint
-            }
+            onClick={handlePrint}
             className="flex items-center gap-2 rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
           >
             Print
           </button>
-
         </div>
       </div>
 
       {/* TABLE */}
       <div className="overflow-x-auto pr-8">
-
         <OpnameTable
           loading={loading}
           documents={documents}
           onDetail={setDetail}
         />
-
       </div>
 
       {/* PAGINATION */}
       <div className="pr-8">
-
         <Pagination
-          meta={
-            paginationMeta
-          }
-          onPageChange={
-            goToPage
-          }
-          onPageSizeChange={
-            changePageSize
-          }
+          meta={paginationMeta}
+          onPageChange={goToPage}
+          onPageSizeChange={changePageSize}
         />
-
       </div>
 
       {/* DETAIL */}
       <OpnameDetailModal
-        open={
-          detail !== null
-        }
+        open={detail !== null}
         row={detail}
-        onClose={() =>
-          setDetail(null)
-        }
+        onClose={() => setDetail(null)}
       />
-
     </div>
   );
 }

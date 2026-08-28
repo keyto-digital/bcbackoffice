@@ -30,10 +30,9 @@ export default function RoleProtectedRoute({
     return <Navigate to="/login" replace />;
   }
 
-  const accessList =
-    Array.isArray(user?.access)
-      ? user.access
-      : typeof user?.access === "string"
+  const accessList = Array.isArray(user?.access)
+    ? user.access
+    : typeof user?.access === "string"
       ? [user.access]
       : [];
 
@@ -49,8 +48,9 @@ export default function RoleProtectedRoute({
 
   const normalize = (s: string) => s.toLowerCase().trim();
   const accessSet = new Set(accessList.map(normalize));
-  const requiredArray = (Array.isArray(requiredAccess) ? requiredAccess : [requiredAccess])
-  .filter((r): r is string => typeof r === "string");
+  const requiredArray = (
+    Array.isArray(requiredAccess) ? requiredAccess : [requiredAccess]
+  ).filter((r): r is string => typeof r === "string");
 
   const hasAccess = requiredArray.some((r) => accessSet.has(normalize(r)));
 

@@ -42,7 +42,8 @@ export const apService = {
   getPaymentSettlementMethods(entityId: string) {
     return supabase
       .from("purchase_settlement_methods")
-      .select(`
+      .select(
+        `
         id,
         entity_id,
         code,
@@ -53,23 +54,19 @@ export const apService = {
         is_system,
         is_active,
         available_for
-      `)
+      `,
+      )
       .eq("entity_id", entityId)
       .eq("is_active", true)
-      .in("available_for", [
-        "PAYMENT",
-        "BOTH",
-      ])
+      .in("available_for", ["PAYMENT", "BOTH"])
       .order("name");
   },
 
-  getOutstandingInvoices(
-    entityId: string,
-    supplierId: string
-  ) {
+  getOutstandingInvoices(entityId: string, supplierId: string) {
     return supabase
       .from("ap_invoices")
-      .select(`
+      .select(
+        `
         id,
         entity_id,
         receiving_record_id,
@@ -85,13 +82,11 @@ export const apService = {
         remaining_amount,
         status,
         notes
-      `)
+      `,
+      )
       .eq("entity_id", entityId)
       .eq("supplier_id", supplierId)
-      .in("status", [
-        "OPEN",
-        "PARTIAL",
-      ])
+      .in("status", ["OPEN", "PARTIAL"])
       .gt("remaining_amount", 0)
       .order("due_date", {
         ascending: true,
@@ -99,13 +94,11 @@ export const apService = {
       });
   },
 
-  getSupplierDeposits(
-    entityId: string,
-    supplierId: string
-  ) {
+  getSupplierDeposits(entityId: string, supplierId: string) {
     return supabase
       .from("supplier_deposits")
-      .select(`
+      .select(
+        `
         id,
         supplier_id,
         reference,
@@ -113,13 +106,11 @@ export const apService = {
         original_amount,
         allocated_amount,
         status
-      `)
+      `,
+      )
       .eq("entity_id", entityId)
       .eq("supplier_id", supplierId)
-      .in("status", [
-        "OPEN",
-        "PARTIAL",
-      ])
+      .in("status", ["OPEN", "PARTIAL"])
       .order("deposit_date", {
         ascending: false,
       });

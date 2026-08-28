@@ -31,7 +31,8 @@ export function useItemSubcategories(entityId?: string | null) {
 
     let accountQuery = supabase
       .from("accounts")
-      .select(`
+      .select(
+        `
         id,
         code,
         name,
@@ -39,7 +40,8 @@ export function useItemSubcategories(entityId?: string | null) {
         account_type,
         is_active,
         is_posting
-      `)
+      `,
+      )
       .eq("is_active", true)
       .eq("is_posting", true)
       .order("code", { ascending: true });
@@ -77,7 +79,8 @@ export function useItemSubcategories(entityId?: string | null) {
 
     let query = supabase
       .from(TABLE_NAME)
-      .select(`
+      .select(
+        `
         *,
         category:item_categories!item_subcategories_category_id_fkey (
           id, code, name, is_active
@@ -94,7 +97,8 @@ export function useItemSubcategories(entityId?: string | null) {
         stock_adjustment_account:accounts!item_subcategories_stock_adjustment_account_id_fkey (
           id, code, name, category_code, account_type, is_active, is_posting
         )
-      `)
+      `,
+      )
       .order("code", { ascending: true });
 
     if (entityId) {
@@ -118,30 +122,25 @@ export function useItemSubcategories(entityId?: string | null) {
     fetchSubcategories();
   }, [fetchMasters, fetchSubcategories]);
 
-  const createSubcategory = async (
-    payload: ItemSubcategoryFormData
-  ) => {
+  const createSubcategory = async (payload: ItemSubcategoryFormData) => {
     setSaving(true);
     setError(null);
 
-    const { error: createError } = await supabase
-      .from(TABLE_NAME)
-      .insert({
-        entity_id: payload.entity_id || null,
+    const { error: createError } = await supabase.from(TABLE_NAME).insert({
+      entity_id: payload.entity_id || null,
 
-        category_id: payload.category_id,
-        code: payload.code.trim().toUpperCase(),
-        name: payload.name.trim(),
-        description: payload.description.trim() || null,
+      category_id: payload.category_id,
+      code: payload.code.trim().toUpperCase(),
+      name: payload.name.trim(),
+      description: payload.description.trim() || null,
 
-        inventory_account_id: payload.inventory_account_id || null,
-        expense_account_id: payload.expense_account_id || null,
-        cogs_account_id: payload.cogs_account_id || null,
-        stock_adjustment_account_id:
-          payload.stock_adjustment_account_id || null,
+      inventory_account_id: payload.inventory_account_id || null,
+      expense_account_id: payload.expense_account_id || null,
+      cogs_account_id: payload.cogs_account_id || null,
+      stock_adjustment_account_id: payload.stock_adjustment_account_id || null,
 
-        is_active: payload.is_active,
-      });
+      is_active: payload.is_active,
+    });
 
     if (createError) {
       setError(createError.message);
@@ -156,7 +155,7 @@ export function useItemSubcategories(entityId?: string | null) {
 
   const updateSubcategory = async (
     id: string,
-    payload: ItemSubcategoryFormData
+    payload: ItemSubcategoryFormData,
   ) => {
     setSaving(true);
     setError(null);

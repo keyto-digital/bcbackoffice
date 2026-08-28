@@ -1,8 +1,4 @@
-export type SettlementType =
-  | "CREDIT_TERM"
-  | "DEPOSIT"
-  | "CASH_BANK"
-  | "OTHER";
+export type SettlementType = "CREDIT_TERM" | "DEPOSIT" | "CASH_BANK" | "OTHER";
 
 export type AccountOption = {
   id: string;

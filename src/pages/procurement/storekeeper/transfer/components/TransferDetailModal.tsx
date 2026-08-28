@@ -26,7 +26,9 @@ export default function TransferDetailModal({ open, row, onClose }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between border-b p-4">
           <h2 className="text-lg font-semibold">Detail Transfer</h2>
-          <button onClick={onClose} className="rounded border px-3 py-1">✕</button>
+          <button onClick={onClose} className="rounded border px-3 py-1">
+            ✕
+          </button>
         </div>
 
         {/* Content */}
@@ -35,10 +37,25 @@ export default function TransferDetailModal({ open, row, onClose }: Props) {
           <div className="grid grid-cols-3 gap-4">
             <Info label="No Transfer" value={row.reference} />
             <Info label="Tanggal" value={row.movement_date} />
-            <Info label="Posting" value={getWIBTimestampFromUTC(row.created_at)} />
+            <Info
+              label="Posting"
+              value={getWIBTimestampFromUTC(row.created_at)}
+            />
             <Info label="User" value={row.created_by ?? "-"} />
-            <Info label="Gudang Asal" value={row.fromStore ? `${row.fromStore.code} - ${row.fromStore.name}` : "-"} />
-            <Info label="Gudang Tujuan" value={row.toStore ? `${row.toStore.code} - ${row.toStore.name}` : "-"} />
+            <Info
+              label="Gudang Asal"
+              value={
+                row.fromStore
+                  ? `${row.fromStore.code} - ${row.fromStore.name}`
+                  : "-"
+              }
+            />
+            <Info
+              label="Gudang Tujuan"
+              value={
+                row.toStore ? `${row.toStore.code} - ${row.toStore.name}` : "-"
+              }
+            />
           </div>
 
           {/* Items Table */}
@@ -58,10 +75,12 @@ export default function TransferDetailModal({ open, row, onClose }: Props) {
           <h3 className="font-semibold">Riwayat Movement</h3>
           <Table
             headers={["Movement", "Store", "Qty", "Saldo", "Avg Cost"]}
-            rows={rows.map(line => [
+            rows={rows.map((line) => [
               line.movement_type,
               `${line.store?.code} - ${line.store?.name}`,
-              quantity(line.quantity_in > 0 ? line.quantity_in : line.quantity_out),
+              quantity(
+                line.quantity_in > 0 ? line.quantity_in : line.quantity_out,
+              ),
               quantity(line.quantity_after),
               money(line.average_cost_after),
             ])}
@@ -75,7 +94,10 @@ export default function TransferDetailModal({ open, row, onClose }: Props) {
             >
               Copy Reference
             </button>
-            <button onClick={onClose} className="rounded bg-blue-600 px-4 py-2 text-white">
+            <button
+              onClick={onClose}
+              className="rounded bg-blue-600 px-4 py-2 text-white"
+            >
               Tutup
             </button>
           </div>
@@ -95,13 +117,22 @@ function Info({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Table({ headers, rows }: { headers: string[]; rows: (string | number)[][] }) {
+function Table({
+  headers,
+  rows,
+}: {
+  headers: string[];
+  rows: (string | number)[][];
+}) {
   return (
     <table className="w-full border">
       <thead>
         <tr className="bg-slate-100">
           {headers.map((h, i) => (
-            <th key={i} className={`border p-2 ${i >= headers.length - 2 ? "text-right" : ""}`}>
+            <th
+              key={i}
+              className={`border p-2 ${i >= headers.length - 2 ? "text-right" : ""}`}
+            >
               {h}
             </th>
           ))}

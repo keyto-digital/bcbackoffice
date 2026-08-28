@@ -1,9 +1,4 @@
-export type StoreType =
-  | "WAREHOUSE"
-  | "STORE"
-  | "BAR"
-  | "KITCHEN"
-  | "OUTLET";
+export type StoreType = "WAREHOUSE" | "STORE" | "BAR" | "KITCHEN" | "OUTLET";
 
 export type Store = {
   id: string;

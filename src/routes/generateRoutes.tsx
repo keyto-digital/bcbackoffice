@@ -4,7 +4,9 @@ import menus from "../data/menus.json";
 export type RouteItem = {
   path: string;
   access: string[];
-  component: React.LazyExoticComponent<React.ComponentType<Record<string, unknown>>>;
+  component: React.LazyExoticComponent<
+    React.ComponentType<Record<string, unknown>>
+  >;
 };
 
 interface SubMenuItem {
@@ -20,7 +22,9 @@ interface MenuGroup {
   sub: SubMenuItem[];
 }
 
-export async function generateRoutes(userAccess: string[]): Promise<RouteItem[]> {
+export async function generateRoutes(
+  userAccess: string[],
+): Promise<RouteItem[]> {
   const normalize = (s?: string) => s?.toLowerCase().trim();
   const accessSet = new Set(userAccess.map(normalize));
   const routes: RouteItem[] = [];
@@ -32,7 +36,8 @@ export async function generateRoutes(userAccess: string[]): Promise<RouteItem[]>
       console.log("📦 Sub-menu mentah:", sub);
 
       const path = typeof sub.path === "string" ? sub.path.trim() : "";
-      const component = typeof sub.component === "string" ? sub.component.trim() : "";
+      const component =
+        typeof sub.component === "string" ? sub.component.trim() : "";
       const accessKey = normalize(sub.access);
 
       if (!path || !path.startsWith("/")) {

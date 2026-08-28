@@ -1,9 +1,6 @@
 import { useMemo, useState } from "react";
 
-import type {
-  PaginationMeta,
-  PaginationState,
-} from "./types";
+import type { PaginationMeta, PaginationState } from "./types";
 
 export const DEFAULT_PAGE_SIZE = 50;
 
@@ -11,19 +8,16 @@ export const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
 
 export function usePagination(
   initialPage = 1,
-  initialPageSize = DEFAULT_PAGE_SIZE
+  initialPageSize = DEFAULT_PAGE_SIZE,
 ) {
-  const [pagination, setPagination] =
-    useState<PaginationState>({
-      page: initialPage,
-      pageSize: initialPageSize,
-    });
+  const [pagination, setPagination] = useState<PaginationState>({
+    page: initialPage,
+    pageSize: initialPageSize,
+  });
 
-  const from =
-    (pagination.page - 1) * pagination.pageSize;
+  const from = (pagination.page - 1) * pagination.pageSize;
 
-  const to =
-    from + pagination.pageSize - 1;
+  const to = from + pagination.pageSize - 1;
 
   const setPage = (page: number) => {
     setPagination((current) => ({
@@ -43,11 +37,8 @@ export function usePagination(
     setPage(1);
   };
 
-  const createMeta = (
-    total: number
-  ): PaginationMeta => {
-    const totalPages =
-      Math.ceil(total / pagination.pageSize);
+  const createMeta = (total: number): PaginationMeta => {
+    const totalPages = Math.ceil(total / pagination.pageSize);
 
     return {
       page: pagination.page,
@@ -56,16 +47,14 @@ export function usePagination(
       totalPages,
       from,
       to,
-      hasPreviousPage:
-        pagination.page > 1,
-      hasNextPage:
-        pagination.page < totalPages,
+      hasPreviousPage: pagination.page > 1,
+      hasNextPage: pagination.page < totalPages,
     };
   };
 
   const meta = useMemo(
     () => createMeta(0),
-    [pagination.page, pagination.pageSize, from, to]
+    [pagination.page, pagination.pageSize, from, to],
   );
 
   return {

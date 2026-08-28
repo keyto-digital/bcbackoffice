@@ -43,16 +43,14 @@ export function useStores(entityId?: string | null) {
     setSaving(true);
     setError(null);
 
-    const { error: createError } = await supabase
-      .from(TABLE_NAME)
-      .insert({
-        entity_id: payload.entity_id || null,
-        code: payload.code.trim().toUpperCase(),
-        name: payload.name.trim(),
-        store_type: payload.store_type,
-        address: payload.address.trim() || null,
-        is_active: payload.is_active,
-      });
+    const { error: createError } = await supabase.from(TABLE_NAME).insert({
+      entity_id: payload.entity_id || null,
+      code: payload.code.trim().toUpperCase(),
+      name: payload.name.trim(),
+      store_type: payload.store_type,
+      address: payload.address.trim() || null,
+      is_active: payload.is_active,
+    });
 
     if (createError) {
       setError(createError.message);

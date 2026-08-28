@@ -1,23 +1,12 @@
-import {
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { supabase } from "@/lib/supabaseClient";
 
-import type {
-  PaginationMeta,
-} from "@/lib/pagination/types";
+import type { PaginationMeta } from "@/lib/pagination/types";
 
-import type {
-  TransferDocument,
-  TransferFilter,
-} from "../types";
+import type { TransferDocument, TransferFilter } from "../types";
 
-import type {
-  StoreOption,
-} from "../../types";
+import type { StoreOption } from "../../types";
 
 const DEFAULT_PAGE_SIZE = 25;
 
@@ -41,37 +30,20 @@ type TransferRpcRow = {
   created_at: string;
   created_by: string | null;
 
-  from_store:
-    | TransferRpcStore
-    | null;
+  from_store: TransferRpcStore | null;
 
-  to_store:
-    | TransferRpcStore
-    | null;
+  to_store: TransferRpcStore | null;
 
-  items:
-    | TransferRpcItem[]
-    | null;
+  items: TransferRpcItem[] | null;
 
-  total_qty:
-    | number
-    | string
-    | null;
+  total_qty: number | string | null;
 
-  total_value:
-    | number
-    | string
-    | null;
+  total_value: number | string | null;
 
-  total_count:
-    | number
-    | string
-    | null;
+  total_count: number | string | null;
 };
 
-function createEmptyPagination(
-  pageSize: number
-): PaginationMeta {
+function createEmptyPagination(pageSize: number): PaginationMeta {
   return {
     page: 1,
     pageSize,
@@ -84,87 +56,48 @@ function createEmptyPagination(
   };
 }
 
-function normalizeDocument(
-  row: TransferRpcRow
-): TransferDocument {
+function normalizeDocument(row: TransferRpcRow): TransferDocument {
   return {
-    reference:
-      row.reference,
+    reference: row.reference,
 
-    movement_date:
-      row.movement_date,
+    movement_date: row.movement_date,
 
-    created_at:
-      row.created_at,
+    created_at: row.created_at,
 
-    created_by:
-      row.created_by,
+    created_by: row.created_by,
 
-    fromStore:
-      row.from_store,
+    fromStore: row.from_store,
 
-    toStore:
-      row.to_store,
+    toStore: row.to_store,
 
-    items:
-      Array.isArray(row.items)
-        ? row.items.map(
-            (item) => ({
-              code:
-                item.code ?? "",
+    items: Array.isArray(row.items)
+      ? row.items.map((item) => ({
+          code: item.code ?? "",
 
-              name:
-                item.name ?? "",
+          name: item.name ?? "",
 
-              unit_code:
-                item.unit_code ??
-                null,
+          unit_code: item.unit_code ?? null,
 
-              qty: Number(
-                item.qty ?? 0
-              ),
+          qty: Number(item.qty ?? 0),
 
-              value: Number(
-                item.value ?? 0
-              ),
-            })
-          )
-        : [],
+          value: Number(item.value ?? 0),
+        }))
+      : [],
 
-    totalQty: Number(
-      row.total_qty ?? 0
-    ),
+    totalQty: Number(row.total_qty ?? 0),
 
-    totalValue: Number(
-      row.total_value ?? 0
-    ),
+    totalValue: Number(row.total_value ?? 0),
   };
 }
 
 export function useTransferList() {
-  const [
-    loading,
-    setLoading,
-  ] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const [
-    documents,
-    setDocuments,
-  ] = useState<
-    TransferDocument[]
-  >([]);
+  const [documents, setDocuments] = useState<TransferDocument[]>([]);
 
-  const [
-    stores,
-    setStores,
-  ] = useState<StoreOption[]>(
-    []
-  );
+  const [stores, setStores] = useState<StoreOption[]>([]);
 
-  const [
-    filter,
-    setFilter,
-  ] = useState<TransferFilter>({
+  const [filter, setFilter] = useState<TransferFilter>({
     dateFrom: "",
     dateTo: "",
     fromStoreId: "",
@@ -172,15 +105,9 @@ export function useTransferList() {
     keyword: "",
   });
 
-  const [
-    paginationMeta,
-    setPaginationMeta,
-  ] =
-    useState<PaginationMeta>(
-      createEmptyPagination(
-        DEFAULT_PAGE_SIZE
-      )
-    );
+  const [paginationMeta, setPaginationMeta] = useState<PaginationMeta>(
+    createEmptyPagination(DEFAULT_PAGE_SIZE),
+  );
 
   /*
    * =========================================================
@@ -191,38 +118,26 @@ export function useTransferList() {
   useEffect(() => {
     let cancelled = false;
 
-    const loadStores =
-      async () => {
-        const {
-          data,
-          error,
-        } = await supabase
-          .from("stores")
-          .select(
-            "id, code, name"
-          )
-          .order("code", {
-            ascending: true,
-          });
+    const loadStores = async () => {
+      const { data, error } = await supabase
+        .from("stores")
+        .select("id, code, name")
+        .order("code", {
+          ascending: true,
+        });
 
-        if (cancelled) {
-          return;
-        }
+      if (cancelled) {
+        return;
+      }
 
-        if (error) {
-          console.error(
-            "Gagal mengambil daftar store:",
-            error
-          );
+      if (error) {
+        console.error("Gagal mengambil daftar store:", error);
 
-          return;
-        }
+        return;
+      }
 
-        setStores(
-          (data ??
-            []) as StoreOption[]
-        );
-      };
+      setStores((data ?? []) as StoreOption[]);
+    };
 
     void loadStores();
 
@@ -251,52 +166,32 @@ export function useTransferList() {
     async (
       currentFilter: TransferFilter,
       requestedPage: number,
-      requestedPageSize: number
+      requestedPageSize: number,
     ) => {
       setLoading(true);
 
       try {
-        const {
-          data,
-          error,
-        } = await supabase.rpc(
-          "get_transfer_documents",
-          {
-            p_date_from:
-              currentFilter.dateFrom ||
-              null,
+        const { data, error } = await supabase.rpc("get_transfer_documents", {
+          p_date_from: currentFilter.dateFrom || null,
 
-            p_date_to:
-              currentFilter.dateTo ||
-              null,
+          p_date_to: currentFilter.dateTo || null,
 
-            p_from_store_id:
-              currentFilter.fromStoreId ||
-              null,
+          p_from_store_id: currentFilter.fromStoreId || null,
 
-            p_to_store_id:
-              currentFilter.toStoreId ||
-              null,
+          p_to_store_id: currentFilter.toStoreId || null,
 
-            p_keyword:
-              currentFilter.keyword
-                .trim() || "",
+          p_keyword: currentFilter.keyword.trim() || "",
 
-            p_page:
-              requestedPage,
+          p_page: requestedPage,
 
-            p_page_size:
-              requestedPageSize,
-          }
-        );
+          p_page_size: requestedPageSize,
+        });
 
         if (error) {
           throw error;
         }
 
-        const rows =
-          (data ??
-            []) as TransferRpcRow[];
+        const rows = (data ?? []) as TransferRpcRow[];
 
         /*
          * total_count berasal dari RPC.
@@ -305,19 +200,9 @@ export function useTransferList() {
          * total_count adalah jumlah DOKUMEN,
          * bukan jumlah movement.
          */
-        const total =
-          Number(
-            rows[0]?.total_count ??
-              0
-          );
+        const total = Number(rows[0]?.total_count ?? 0);
 
-        const totalPages =
-          total > 0
-            ? Math.ceil(
-                total /
-                  requestedPageSize
-              )
-            : 0;
+        const totalPages = total > 0 ? Math.ceil(total / requestedPageSize) : 0;
 
         /*
          * Bila halaman aktif sudah tidak valid
@@ -327,58 +212,27 @@ export function useTransferList() {
         const safePage =
           totalPages === 0
             ? 1
-            : Math.min(
-                Math.max(
-                  requestedPage,
-                  1
-                ),
-                totalPages
-              );
+            : Math.min(Math.max(requestedPage, 1), totalPages);
 
-        if (
-          safePage !==
-            requestedPage &&
-          total > 0
-        ) {
-          await load(
-            currentFilter,
-            safePage,
-            requestedPageSize
-          );
+        if (safePage !== requestedPage && total > 0) {
+          await load(currentFilter, safePage, requestedPageSize);
 
           return;
         }
 
-        const normalized =
-          rows.map(
-            normalizeDocument
-          );
+        const normalized = rows.map(normalizeDocument);
 
-        const from =
-          total === 0
-            ? 0
-            : (safePage - 1) *
-              requestedPageSize;
+        const from = total === 0 ? 0 : (safePage - 1) * requestedPageSize;
 
         const to =
-          total === 0
-            ? 0
-            : Math.min(
-                from +
-                  normalized.length -
-                  1,
-                total - 1
-              );
+          total === 0 ? 0 : Math.min(from + normalized.length - 1, total - 1);
 
-        setDocuments(
-          normalized
-        );
+        setDocuments(normalized);
 
         setPaginationMeta({
           page: safePage,
 
-          pageSize:
-            requestedPageSize,
+          pageSize: requestedPageSize,
 
           total,
 
@@ -388,31 +242,21 @@ export function useTransferList() {
 
           totalPages,
 
-          hasPreviousPage:
-            safePage > 1,
+          hasPreviousPage: safePage > 1,
 
-          hasNextPage:
-            safePage <
-            totalPages,
+          hasNextPage: safePage < totalPages,
         });
       } catch (error) {
-        console.error(
-          "Gagal mengambil Transfer:",
-          error
-        );
+        console.error("Gagal mengambil Transfer:", error);
 
         setDocuments([]);
 
-        setPaginationMeta(
-          createEmptyPagination(
-            requestedPageSize
-          )
-        );
+        setPaginationMeta(createEmptyPagination(requestedPageSize));
       } finally {
         setLoading(false);
       }
     },
-    []
+    [],
   );
 
   /*
@@ -425,16 +269,8 @@ export function useTransferList() {
    */
 
   useEffect(() => {
-    void load(
-      filter,
-      1,
-      paginationMeta.pageSize
-    );
-  }, [
-    filter,
-    load,
-    paginationMeta.pageSize,
-  ]);
+    void load(filter, 1, paginationMeta.pageSize);
+  }, [filter, load, paginationMeta.pageSize]);
 
   /*
    * =========================================================
@@ -442,37 +278,23 @@ export function useTransferList() {
    * =========================================================
    */
 
-  const goToPage =
-    useCallback(
-      (nextPage: number) => {
-        if (
-          nextPage < 1
-        ) {
-          return;
-        }
+  const goToPage = useCallback(
+    (nextPage: number) => {
+      if (nextPage < 1) {
+        return;
+      }
 
-        if (
-          paginationMeta.totalPages >
-            0 &&
-          nextPage >
-            paginationMeta.totalPages
-        ) {
-          return;
-        }
+      if (
+        paginationMeta.totalPages > 0 &&
+        nextPage > paginationMeta.totalPages
+      ) {
+        return;
+      }
 
-        void load(
-          filter,
-          nextPage,
-          paginationMeta.pageSize
-        );
-      },
-      [
-        filter,
-        load,
-        paginationMeta.pageSize,
-        paginationMeta.totalPages,
-      ]
-    );
+      void load(filter, nextPage, paginationMeta.pageSize);
+    },
+    [filter, load, paginationMeta.pageSize, paginationMeta.totalPages],
+  );
 
   /*
    * =========================================================
@@ -480,23 +302,16 @@ export function useTransferList() {
    * =========================================================
    */
 
-  const changePageSize =
-    useCallback(
-      (nextPageSize: number) => {
-        if (
-          nextPageSize <= 0
-        ) {
-          return;
-        }
+  const changePageSize = useCallback(
+    (nextPageSize: number) => {
+      if (nextPageSize <= 0) {
+        return;
+      }
 
-        void load(
-          filter,
-          1,
-          nextPageSize
-        );
-      },
-      [filter, load]
-    );
+      void load(filter, 1, nextPageSize);
+    },
+    [filter, load],
+  );
 
   /*
    * =========================================================
@@ -513,93 +328,55 @@ export function useTransferList() {
    * per batch.
    */
 
-  const fetchAllFilteredDocuments =
-    useCallback(
-      async (): Promise<
-        TransferDocument[]
-      > => {
-        const batchSize = 500;
+  const fetchAllFilteredDocuments = useCallback(async (): Promise<
+    TransferDocument[]
+  > => {
+    const batchSize = 500;
 
-        let currentPage = 1;
+    let currentPage = 1;
 
-        const allDocuments: TransferDocument[] =
-          [];
+    const allDocuments: TransferDocument[] = [];
 
-        while (true) {
-          const {
-            data,
-            error,
-          } = await supabase.rpc(
-            "get_transfer_documents",
-            {
-              p_date_from:
-                filter.dateFrom ||
-                null,
+    while (true) {
+      const { data, error } = await supabase.rpc("get_transfer_documents", {
+        p_date_from: filter.dateFrom || null,
 
-              p_date_to:
-                filter.dateTo ||
-                null,
+        p_date_to: filter.dateTo || null,
 
-              p_from_store_id:
-                filter.fromStoreId ||
-                null,
+        p_from_store_id: filter.fromStoreId || null,
 
-              p_to_store_id:
-                filter.toStoreId ||
-                null,
+        p_to_store_id: filter.toStoreId || null,
 
-              p_keyword:
-                filter.keyword
-                  .trim() || "",
+        p_keyword: filter.keyword.trim() || "",
 
-              p_page:
-                currentPage,
+        p_page: currentPage,
 
-              p_page_size:
-                batchSize,
-            }
-          );
+        p_page_size: batchSize,
+      });
 
-          if (error) {
-            throw error;
-          }
+      if (error) {
+        throw error;
+      }
 
-          const rows =
-            (data ??
-              []) as TransferRpcRow[];
+      const rows = (data ?? []) as TransferRpcRow[];
 
-          if (
-            rows.length === 0
-          ) {
-            break;
-          }
+      if (rows.length === 0) {
+        break;
+      }
 
-          allDocuments.push(
-            ...rows.map(
-              normalizeDocument
-            )
-          );
+      allDocuments.push(...rows.map(normalizeDocument));
 
-          const total =
-            Number(
-              rows[0]?.total_count ??
-                0
-            );
+      const total = Number(rows[0]?.total_count ?? 0);
 
-          if (
-            allDocuments.length >=
-            total
-          ) {
-            break;
-          }
+      if (allDocuments.length >= total) {
+        break;
+      }
 
-          currentPage += 1;
-        }
+      currentPage += 1;
+    }
 
-        return allDocuments;
-      },
-      [filter]
-    );
+    return allDocuments;
+  }, [filter]);
 
   /*
    * =========================================================
@@ -607,19 +384,9 @@ export function useTransferList() {
    * =========================================================
    */
 
-  const reload =
-    useCallback(() => {
-      void load(
-        filter,
-        paginationMeta.page,
-        paginationMeta.pageSize
-      );
-    }, [
-      filter,
-      load,
-      paginationMeta.page,
-      paginationMeta.pageSize,
-    ]);
+  const reload = useCallback(() => {
+    void load(filter, paginationMeta.page, paginationMeta.pageSize);
+  }, [filter, load, paginationMeta.page, paginationMeta.pageSize]);
 
   return {
     loading,

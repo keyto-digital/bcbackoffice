@@ -19,52 +19,32 @@ export default function Pagination({
 
   const start = meta.from + 1;
 
-  const end = Math.min(
-    meta.to + 1,
-    meta.total
-  );
+  const end = Math.min(meta.to + 1, meta.total);
 
   return (
     <div className="mt-4 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="text-sm text-gray-500">
-        Menampilkan{" "}
-        <span className="font-medium text-gray-700">
-          {start}
-        </span>
+        Menampilkan <span className="font-medium text-gray-700">{start}</span>
         {" - "}
-        <span className="font-medium text-gray-700">
-          {end}
-        </span>
+        <span className="font-medium text-gray-700">{end}</span>
         {" dari "}
-        <span className="font-medium text-gray-700">
-          {meta.total}
-        </span>
+        <span className="font-medium text-gray-700">{meta.total}</span>
         {" data"}
       </div>
 
       <div className="flex items-center gap-2">
-        <label
-          htmlFor="pagination-page-size"
-          className="text-sm text-gray-500"
-        >
+        <label htmlFor="pagination-page-size" className="text-sm text-gray-500">
           Tampilkan
         </label>
 
         <select
           id="pagination-page-size"
           value={meta.pageSize}
-          onChange={(event) =>
-            onPageSizeChange(
-              Number(event.target.value)
-            )
-          }
+          onChange={(event) => onPageSizeChange(Number(event.target.value))}
           className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm"
         >
           {pageSizeOptions.map((size) => (
-            <option
-              key={size}
-              value={size}
-            >
+            <option key={size} value={size}>
               {size}
             </option>
           ))}
@@ -73,9 +53,7 @@ export default function Pagination({
         <button
           type="button"
           disabled={!meta.hasPreviousPage}
-          onClick={() =>
-            onPageChange(meta.page - 1)
-          }
+          onClick={() => onPageChange(meta.page - 1)}
           className="rounded-md border border-gray-300 px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40"
         >
           Sebelumnya
@@ -90,9 +68,7 @@ export default function Pagination({
         <button
           type="button"
           disabled={!meta.hasNextPage}
-          onClick={() =>
-            onPageChange(meta.page + 1)
-          }
+          onClick={() => onPageChange(meta.page + 1)}
           className="rounded-md border border-gray-300 px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40"
         >
           Berikutnya

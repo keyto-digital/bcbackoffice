@@ -14,7 +14,7 @@ import {
   FaShoppingCart,
   FaClipboardList,
   FaWarehouse,
-  FaMoneyBillWave
+  FaMoneyBillWave,
 } from "react-icons/fa";
 import { createPortal } from "react-dom";
 
@@ -41,7 +41,10 @@ interface Menu {
 }
 
 // ======== 🔹 Ikon Mapping ========
-const ICONS: Record<string, React.ComponentType<{ style?: React.CSSProperties }>> = {
+const ICONS: Record<
+  string,
+  React.ComponentType<{ style?: React.CSSProperties }>
+> = {
   FaBus,
   FaUsers,
   FaChartBar,
@@ -52,10 +55,12 @@ const ICONS: Record<string, React.ComponentType<{ style?: React.CSSProperties }>
   FaShoppingCart,
   FaClipboardList,
   FaWarehouse,
-  FaMoneyBillWave
+  FaMoneyBillWave,
 };
 
-const getIcon = (name?: string): React.ComponentType<{ style?: React.CSSProperties }> => {
+const getIcon = (
+  name?: string,
+): React.ComponentType<{ style?: React.CSSProperties }> => {
   if (!name) return FaCogs;
   const Icon = ICONS[name as keyof typeof ICONS];
   return Icon || FaCogs;
@@ -80,7 +85,8 @@ export default function Sidebar({
   const menuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // ===== Toggle menu utama =====
-  const toggleMenu = (key: string) => setOpenMenu(openMenu === key ? null : key);
+  const toggleMenu = (key: string) =>
+    setOpenMenu(openMenu === key ? null : key);
   const isActive = (path?: string) => path && location.pathname === path;
   const normalize = (s?: string) => (s ? s.toLowerCase().trim() : "");
   const accessSet = new Set(userAccess.map(normalize));
@@ -120,19 +126,19 @@ export default function Sidebar({
         const subMenus = typedData.filter((m) => m.parent);
 
         const menusTree: Menu[] = rootMenus.map((menu) => ({
-        ...menu,
-        sub: subMenus
-          .filter((sub) => sub.parent === menu.id)
-          .map((sub) => ({
-            id: sub.id,
-            label: sub.label,
-            path: sub.path,
-            access: sub.access,
-            parent: sub.parent ?? "",
-            order: sub.order,
-          })),
-      }));
-      
+          ...menu,
+          sub: subMenus
+            .filter((sub) => sub.parent === menu.id)
+            .map((sub) => ({
+              id: sub.id,
+              label: sub.label,
+              path: sub.path,
+              access: sub.access,
+              parent: sub.parent ?? "",
+              order: sub.order,
+            })),
+        }));
+
         setMenus(menusTree);
       } catch (err) {
         console.error("Error ambil menu:", err);
@@ -148,7 +154,8 @@ export default function Sidebar({
     };
 
     window.addEventListener("refreshSidebar", handleRefreshSidebar);
-    return () => window.removeEventListener("refreshSidebar", handleRefreshSidebar);
+    return () =>
+      window.removeEventListener("refreshSidebar", handleRefreshSidebar);
   }, []);
 
   // ===== Tooltip posisi =====
@@ -220,7 +227,9 @@ export default function Sidebar({
                   if (menu.path && menu.path.trim() !== "") {
                     navigate(menu.path);
                   } else {
-                    console.warn(`Menu "${menu.label}" tidak punya path — tidak navigate.`);
+                    console.warn(
+                      `Menu "${menu.label}" tidak punya path — tidak navigate.`,
+                    );
                   }
                 }}
                 onMouseEnter={() => setHoveredMenu(menuKey)}
@@ -251,69 +260,76 @@ export default function Sidebar({
                   <FaChevronDown
                     style={{
                       transition: "transform 0.3s",
-                      transform: openMenu === menuKey ? "rotate(180deg)" : "rotate(0)",
+                      transform:
+                        openMenu === menuKey ? "rotate(180deg)" : "rotate(0)",
                     }}
                   />
                 )}
               </div>
 
               {/* Tooltip collapsed */}
-              {isCollapsed && hoveredMenu === menuKey && menu.sub.length > 0 &&
-              createPortal(
-                <div
-                  style={{
-                    position: "fixed",
-                    top: tooltipPos.top,
-                    left: tooltipPos.left,
-                    background: "#0068EF",
-                    padding: "2px 0",
-                    borderRadius: "6px",
-                    zIndex: 9999,
-                    minWidth: "180px",
-                    boxShadow: "0 4px 10px rgba(0,0,0,0.3)",
-                    fontSize: "12px",
-                    lineHeight: "1.4",
-                  }}
-                  onMouseEnter={() => setHoveredMenu(menuKey)}
-                  onMouseLeave={() => setHoveredMenu(null)}
-                >
+              {isCollapsed &&
+                hoveredMenu === menuKey &&
+                menu.sub.length > 0 &&
+                createPortal(
                   <div
                     style={{
-                      fontWeight: "bold",
-                      padding: "8px 12px",
-                      borderBottom: "1px solid rgba(255,255,255,0.2)",
-                      color: "white",
+                      position: "fixed",
+                      top: tooltipPos.top,
+                      left: tooltipPos.left,
+                      background: "#0068EF",
+                      padding: "2px 0",
+                      borderRadius: "6px",
+                      zIndex: 9999,
+                      minWidth: "180px",
+                      boxShadow: "0 4px 10px rgba(0,0,0,0.3)",
+                      fontSize: "12px",
+                      lineHeight: "1.4",
                     }}
+                    onMouseEnter={() => setHoveredMenu(menuKey)}
+                    onMouseLeave={() => setHoveredMenu(null)}
                   >
-                    {menu.label}
-                  </div>
-                  <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-                    {menu.sub.map((sub, idx) => (
-                      <li key={`tooltip-${menuKey}-${sub.label}-${idx}`}>
-                        <Link
-                          to={sub.path && sub.path.trim() !== "" ? sub.path : "#"}
-                          style={{
-                            display: "block",
-                            padding: "8px 12px",
-                            color: isActive(sub.path) ? "#1abcbc" : "white",
-                            textDecoration: "none",
-                          }}
-                          onMouseEnter={(e) =>
-                            (e.currentTarget.style.background = "#0092F5")
-                          }
-                          onMouseLeave={(e) =>
-                            (e.currentTarget.style.background = "transparent")
-                          }
-                          onClick={() => setHoveredMenu(null)}
-                        >
-                          {sub.label}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>,
-                document.body
-              )}
+                    <div
+                      style={{
+                        fontWeight: "bold",
+                        padding: "8px 12px",
+                        borderBottom: "1px solid rgba(255,255,255,0.2)",
+                        color: "white",
+                      }}
+                    >
+                      {menu.label}
+                    </div>
+                    <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+                      {menu.sub.map((sub, idx) => (
+                        <li key={`tooltip-${menuKey}-${sub.label}-${idx}`}>
+                          <Link
+                            to={
+                              sub.path && sub.path.trim() !== ""
+                                ? sub.path
+                                : "#"
+                            }
+                            style={{
+                              display: "block",
+                              padding: "8px 12px",
+                              color: isActive(sub.path) ? "#1abcbc" : "white",
+                              textDecoration: "none",
+                            }}
+                            onMouseEnter={(e) =>
+                              (e.currentTarget.style.background = "#0092F5")
+                            }
+                            onMouseLeave={(e) =>
+                              (e.currentTarget.style.background = "transparent")
+                            }
+                            onClick={() => setHoveredMenu(null)}
+                          >
+                            {sub.label}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>,
+                  document.body,
+                )}
 
               {/* Submenu Expanded */}
               {!isCollapsed && openMenu === menuKey && menu.sub.length > 0 && (

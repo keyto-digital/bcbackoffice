@@ -12,99 +12,67 @@ import {
 } from "lucide-react";
 import { hasAccess } from "@/lib/hasAccess";
 import { useApInvoices } from "./hooks/useApInvoices";
-import type { ApInvoice, ApPaymentRequest, ApPaymentRequestFormData } from "./types";
+import type {
+  ApInvoice,
+  ApPaymentRequest,
+  ApPaymentRequestFormData,
+} from "./types";
 import type { PaymentRequestDetailItem } from "./hooks/useApInvoices";
 
-type PageTab =
-  | "BELUM_DIAJUKAN"
-  | "PROSES_BAYAR";
+type PageTab = "BELUM_DIAJUKAN" | "PROSES_BAYAR";
 
-type DetailTarget =
-  | ApInvoice
-  | ApPaymentRequest
-  | null;
+type DetailTarget = ApInvoice | ApPaymentRequest | null;
 
 function todayInputValue(): string {
   const now = new Date();
-  const offset =
-    now.getTimezoneOffset() * 60000;
+  const offset = now.getTimezoneOffset() * 60000;
 
-  return new Date(
-    now.getTime() - offset
-  )
-    .toISOString()
-    .slice(0, 10);
+  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
 }
 
-function formatCurrency(
-  value: number
-): string {
-  return new Intl.NumberFormat(
-    "id-ID",
-    {
-      style: "currency",
-      currency: "IDR",
-      maximumFractionDigits: 0,
-    }
-  ).format(Number(value || 0));
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
 }
 
-function formatDate(
-  value: string | null | undefined
-): string {
+function formatDate(value: string | null | undefined): string {
   if (!value) {
     return "-";
   }
 
-  const date = new Date(
-    `${value}T00:00:00`
-  );
+  const date = new Date(`${value}T00:00:00`);
 
   if (Number.isNaN(date.getTime())) {
     return value;
   }
 
-  return new Intl.DateTimeFormat(
-    "id-ID",
-    {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }
-  ).format(date);
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
 }
 
-function getDueDays(
-  dueDate: string | null
-): number | null {
+function getDueDays(dueDate: string | null): number | null {
   if (!dueDate) {
     return null;
   }
 
-  const today = new Date(
-    `${todayInputValue()}T00:00:00`
-  );
+  const today = new Date(`${todayInputValue()}T00:00:00`);
 
-  const due = new Date(
-    `${dueDate}T00:00:00`
-  );
+  const due = new Date(`${dueDate}T00:00:00`);
 
-  if (
-    Number.isNaN(today.getTime()) ||
-    Number.isNaN(due.getTime())
-  ) {
+  if (Number.isNaN(today.getTime()) || Number.isNaN(due.getTime())) {
     return null;
   }
 
-  return Math.round(
-    (due.getTime() - today.getTime()) /
-      86400000
-  );
+  return Math.round((due.getTime() - today.getTime()) / 86400000);
 }
 
-function dueLabel(
-  dueDate: string | null
-): string {
+function dueLabel(dueDate: string | null): string {
   const days = getDueDays(dueDate);
 
   if (days === null) {
@@ -137,7 +105,6 @@ export function SupplierInvoicePage() {
     fetchPaymentRequests,
   } = useApInvoices();
 
-
   const [access, setAccess] = useState({
     export: false,
 
@@ -148,13 +115,9 @@ export function SupplierInvoicePage() {
     paymentRequestExport: false,
   });
 
-  const [tab, setTab] =
-    useState<PageTab>(
-      "BELUM_DIAJUKAN"
-    );
+  const [tab, setTab] = useState<PageTab>("BELUM_DIAJUKAN");
 
-  const [search, setSearch] =
-    useState("");
+  const [search, setSearch] = useState("");
 
   const [paymentSearch, setPaymentSearch] = useState("");
 
@@ -164,51 +127,38 @@ export function SupplierInvoicePage() {
   const [invoicePage, setInvoicePage] = useState(1);
   const [paymentRequestPage, setPaymentRequestPage] = useState(1);
 
-  const [selectedInvoiceIds, setSelectedInvoiceIds] =
-    useState<Set<string>>(
-      () => new Set<string>()
-    );
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<string>>(
+    () => new Set<string>(),
+  );
 
-  const [selectedInvoiceMap, setSelectedInvoiceMap] =
-    useState<Map<string, ApInvoice>>(
-      () => new Map<string, ApInvoice>()
-    );
+  const [selectedInvoiceMap, setSelectedInvoiceMap] = useState<
+    Map<string, ApInvoice>
+  >(() => new Map<string, ApInvoice>());
 
-  const [invoiceTotal, setInvoiceTotal] =
-    useState(0);
+  const [invoiceTotal, setInvoiceTotal] = useState(0);
 
-  const [paymentRequestTotal, setPaymentRequestTotal] =
-    useState(0);
+  const [paymentRequestTotal, setPaymentRequestTotal] = useState(0);
 
-  const [showRequestForm, setShowRequestForm] =
-    useState(false);
+  const [showRequestForm, setShowRequestForm] = useState(false);
 
-  const [requestDate, setRequestDate] =
-    useState(todayInputValue());
+  const [requestDate, setRequestDate] = useState(todayInputValue());
 
-  const [requestNotes, setRequestNotes] =
-    useState("");
+  const [requestNotes, setRequestNotes] = useState("");
 
-  const [detailTarget, setDetailTarget] =
-    useState<DetailTarget>(null);
+  const [detailTarget, setDetailTarget] = useState<DetailTarget>(null);
 
-  const [
-    paymentRequestDetailItems,
-    setPaymentRequestDetailItems,
-  ] = useState<
+  const [paymentRequestDetailItems, setPaymentRequestDetailItems] = useState<
     PaymentRequestDetailItem[]
   >([]);
 
-  const [
-    paymentRequestDetailLoading,
-    setPaymentRequestDetailLoading,
-  ] = useState(false);
+  const [paymentRequestDetailLoading, setPaymentRequestDetailLoading] =
+    useState(false);
 
-  const [cancelTarget, setCancelTarget] =
-    useState<ApPaymentRequest | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<ApPaymentRequest | null>(
+    null,
+  );
 
-  const [cancelReason, setCancelReason] =
-    useState("");
+  const [cancelReason, setCancelReason] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -274,11 +224,7 @@ export function SupplierInvoicePage() {
     let cancelled = false;
 
     const timer = window.setTimeout(async () => {
-      const result = await fetchInvoices(
-        search,
-        invoicePage,
-        PAGE_SIZE
-      );
+      const result = await fetchInvoices(search, invoicePage, PAGE_SIZE);
 
       if (cancelled || !result) {
         return;
@@ -291,11 +237,7 @@ export function SupplierInvoicePage() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [
-    search,
-    invoicePage,
-    fetchInvoices,
-  ]);
+  }, [search, invoicePage, fetchInvoices]);
 
   useEffect(() => {
     let cancelled = false;
@@ -304,27 +246,21 @@ export function SupplierInvoicePage() {
       const result = await fetchPaymentRequests(
         paymentSearch,
         paymentRequestPage,
-        PAGE_SIZE
+        PAGE_SIZE,
       );
 
       if (cancelled || !result) {
         return;
       }
 
-      setPaymentRequestTotal(
-        result.total
-      );
+      setPaymentRequestTotal(result.total);
     }, 250);
 
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [
-    paymentSearch,
-    paymentRequestPage,
-    fetchPaymentRequests,
-  ]);
+  }, [paymentSearch, paymentRequestPage, fetchPaymentRequests]);
 
   /*
    * Data dari hook sudah merupakan PAGE dari server.
@@ -332,67 +268,35 @@ export function SupplierInvoicePage() {
    * tidak berubah struktur/fungsinya.
    */
   const filteredInvoices = invoices;
-  const filteredPaymentRequests =
-    paymentRequests;
+  const filteredPaymentRequests = paymentRequests;
 
-  const invoiceTotalPages =
-    Math.max(
-      1,
-      Math.ceil(
-        invoiceTotal / PAGE_SIZE
-      )
-    );
+  const invoiceTotalPages = Math.max(1, Math.ceil(invoiceTotal / PAGE_SIZE));
 
-  const paymentRequestTotalPages =
-    Math.max(
-      1,
-      Math.ceil(
-        paymentRequestTotal /
-          PAGE_SIZE
-      )
-    );
+  const paymentRequestTotalPages = Math.max(
+    1,
+    Math.ceil(paymentRequestTotal / PAGE_SIZE),
+  );
 
-  const paginatedInvoices =
-    invoices;
+  const paginatedInvoices = invoices;
 
-  const paginatedPaymentRequests =
-    paymentRequests;
+  const paginatedPaymentRequests = paymentRequests;
 
-  const selectedInvoices =
-    useMemo(
-      () =>
-        Array.from(
-          selectedInvoiceIds
-        )
-          .map((id) =>
-            selectedInvoiceMap.get(id)
-          )
-          .filter(
-            (
-              invoice
-            ): invoice is ApInvoice =>
-              Boolean(invoice)
-          ),
-      [
-        selectedInvoiceIds,
-        selectedInvoiceMap,
-      ]
-    );
+  const selectedInvoices = useMemo(
+    () =>
+      Array.from(selectedInvoiceIds)
+        .map((id) => selectedInvoiceMap.get(id))
+        .filter((invoice): invoice is ApInvoice => Boolean(invoice)),
+    [selectedInvoiceIds, selectedInvoiceMap],
+  );
 
-  const selectedTotal =
-    useMemo(
-      () =>
-        selectedInvoices.reduce(
-          (total, invoice) =>
-            total +
-            Number(
-              invoice.remaining_amount ||
-                0
-            ),
-          0
-        ),
-      [selectedInvoices]
-    );
+  const selectedTotal = useMemo(
+    () =>
+      selectedInvoices.reduce(
+        (total, invoice) => total + Number(invoice.remaining_amount || 0),
+        0,
+      ),
+    [selectedInvoices],
+  );
 
   /*
    * "Pilih semua" berlaku untuk data yang sedang
@@ -400,120 +304,72 @@ export function SupplierInvoicePage() {
    */
   const allFilteredSelected =
     paginatedInvoices.length > 0 &&
-    paginatedInvoices.every(
-      (invoice) =>
-        selectedInvoiceIds.has(
-          invoice.id
-        )
-    );
+    paginatedInvoices.every((invoice) => selectedInvoiceIds.has(invoice.id));
 
-  const toggleInvoice = (
-    invoice: ApInvoice
-  ) => {
-    setSelectedInvoiceIds(
-      (current) => {
-        const next =
-          new Set(current);
+  const toggleInvoice = (invoice: ApInvoice) => {
+    setSelectedInvoiceIds((current) => {
+      const next = new Set(current);
 
-        if (next.has(invoice.id)) {
-          next.delete(invoice.id);
+      if (next.has(invoice.id)) {
+        next.delete(invoice.id);
 
-          setSelectedInvoiceMap(
-            (map) => {
-              const nextMap =
-                new Map(map);
+        setSelectedInvoiceMap((map) => {
+          const nextMap = new Map(map);
 
-              nextMap.delete(
-                invoice.id
-              );
+          nextMap.delete(invoice.id);
 
-              return nextMap;
-            }
-          );
-        } else {
-          next.add(invoice.id);
+          return nextMap;
+        });
+      } else {
+        next.add(invoice.id);
 
-          setSelectedInvoiceMap(
-            (map) => {
-              const nextMap =
-                new Map(map);
+        setSelectedInvoiceMap((map) => {
+          const nextMap = new Map(map);
 
-              nextMap.set(
-                invoice.id,
-                invoice
-              );
+          nextMap.set(invoice.id, invoice);
 
-              return nextMap;
-            }
-          );
-        }
-
-        return next;
+          return nextMap;
+        });
       }
-    );
+
+      return next;
+    });
   };
 
   const toggleAllFiltered = () => {
-    setSelectedInvoiceIds(
-      (current) => {
-        const next =
-          new Set(current);
+    setSelectedInvoiceIds((current) => {
+      const next = new Set(current);
 
-        if (allFilteredSelected) {
-          for (
-            const invoice of
-            paginatedInvoices
-          ) {
-            next.delete(
-              invoice.id
-            );
-          }
-
-          setSelectedInvoiceMap(
-            (map) => {
-              const nextMap =
-                new Map(map);
-
-              for (
-                const invoice of
-                paginatedInvoices
-              ) {
-                nextMap.delete(
-                  invoice.id
-                );
-              }
-
-              return nextMap;
-            }
-          );
-        } else {
-          setSelectedInvoiceMap(
-            (map) => {
-              const nextMap =
-                new Map(map);
-
-              for (
-                const invoice of
-                paginatedInvoices
-              ) {
-                next.add(
-                  invoice.id
-                );
-
-                nextMap.set(
-                  invoice.id,
-                  invoice
-                );
-              }
-
-              return nextMap;
-            }
-          );
+      if (allFilteredSelected) {
+        for (const invoice of paginatedInvoices) {
+          next.delete(invoice.id);
         }
 
-        return next;
+        setSelectedInvoiceMap((map) => {
+          const nextMap = new Map(map);
+
+          for (const invoice of paginatedInvoices) {
+            nextMap.delete(invoice.id);
+          }
+
+          return nextMap;
+        });
+      } else {
+        setSelectedInvoiceMap((map) => {
+          const nextMap = new Map(map);
+
+          for (const invoice of paginatedInvoices) {
+            next.add(invoice.id);
+
+            nextMap.set(invoice.id, invoice);
+          }
+
+          return nextMap;
+        });
       }
-    );
+
+      return next;
+    });
   };
 
   /**
@@ -523,111 +379,79 @@ export function SupplierInvoicePage() {
    */
 
   const openRequestForm = () => {
-    if (
-      selectedInvoices.length === 0
-    ) {
+    if (selectedInvoices.length === 0) {
       return;
     }
 
-    setRequestDate(
-      todayInputValue()
-    );
+    setRequestDate(todayInputValue());
 
     setRequestNotes("");
 
     setShowRequestForm(true);
   };
 
-  const savePaymentRequest =
-    async () => {
-      if (
-        selectedInvoices.length === 0
-      ) {
-        return;
-      }
+  const savePaymentRequest = async () => {
+    if (selectedInvoices.length === 0) {
+      return;
+    }
 
-      const payload: ApPaymentRequestFormData = {
-        request_date: requestDate,
-        supplier_id: null,
-        notes: requestNotes,
-        items: selectedInvoices.map(
-          (invoice) => ({
-            ap_invoice_id: invoice.id,
-            receiving_record_id: null,
-            requested_amount: Number(
-              invoice.remaining_amount
-            ),
-            notes: "",
-          })
-        ),
-      };
-
-      const result =
-        await createPaymentRequest(
-          payload
-        );
-
-      if (!result) {
-        return;
-      }
-
-      setSelectedInvoiceIds(
-        new Set<string>()
-      );
-
-      setSelectedInvoiceMap(
-        new Map<string, ApInvoice>()
-      );
-
-      setShowRequestForm(false);
-
-      setTab(
-        "PROSES_BAYAR"
-      );
-
-      window.alert(
-        `Payment Voucher ${result.payment_request_number} berhasil dibuat.`
-      );
+    const payload: ApPaymentRequestFormData = {
+      request_date: requestDate,
+      supplier_id: null,
+      notes: requestNotes,
+      items: selectedInvoices.map((invoice) => ({
+        ap_invoice_id: invoice.id,
+        receiving_record_id: null,
+        requested_amount: Number(invoice.remaining_amount),
+        notes: "",
+      })),
     };
 
-  const openPaymentRequestDetail =
-    async (
-      request: ApPaymentRequest
-    ) => {
-      if (
-        !access.paymentRequestDetail
-      ) {
-        return;
-      }
+    const result = await createPaymentRequest(payload);
 
-      setDetailTarget(request);
-      setPaymentRequestDetailItems([]);
-      setPaymentRequestDetailLoading(true);
+    if (!result) {
+      return;
+    }
 
-      try {
-        const items =
-          await fetchPaymentRequestItems(
-            request.id
-          );
+    setSelectedInvoiceIds(new Set<string>());
 
-        setPaymentRequestDetailItems(
-          items
-        );
-      } catch (err) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : "Gagal mengambil detail Payment Request.";
+    setSelectedInvoiceMap(new Map<string, ApInvoice>());
 
-        window.alert(message);
+    setShowRequestForm(false);
 
-        setDetailTarget(null);
-      } finally {
-        setPaymentRequestDetailLoading(
-          false
-        );
-      }
-    };
+    setTab("PROSES_BAYAR");
+
+    window.alert(
+      `Payment Voucher ${result.payment_request_number} berhasil dibuat.`,
+    );
+  };
+
+  const openPaymentRequestDetail = async (request: ApPaymentRequest) => {
+    if (!access.paymentRequestDetail) {
+      return;
+    }
+
+    setDetailTarget(request);
+    setPaymentRequestDetailItems([]);
+    setPaymentRequestDetailLoading(true);
+
+    try {
+      const items = await fetchPaymentRequestItems(request.id);
+
+      setPaymentRequestDetailItems(items);
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Gagal mengambil detail Payment Request.";
+
+      window.alert(message);
+
+      setDetailTarget(null);
+    } finally {
+      setPaymentRequestDetailLoading(false);
+    }
+  };
 
   /**
    * ==========================================================
@@ -635,29 +459,23 @@ export function SupplierInvoicePage() {
    * ==========================================================
    */
 
-  const handleApprove = async (
-    request: ApPaymentRequest
-  ) => {
-    const confirmed =
-      window.confirm(
-        `Setujui Payment Voucher ${request.payment_request_number}?`
-      );
+  const handleApprove = async (request: ApPaymentRequest) => {
+    const confirmed = window.confirm(
+      `Setujui Payment Voucher ${request.payment_request_number}?`,
+    );
 
     if (!confirmed) {
       return;
     }
 
-    const result =
-      await approvePaymentRequest(
-        request.id
-      );
+    const result = await approvePaymentRequest(request.id);
 
     if (!result) {
       return;
     }
 
     window.alert(
-      `Payment Voucher ${result.payment_request_number} berhasil disetujui.`
+      `Payment Voucher ${result.payment_request_number} berhasil disetujui.`,
     );
   };
 
@@ -672,21 +490,16 @@ export function SupplierInvoicePage() {
       return;
     }
 
-    if (
-      !cancelReason.trim()
-    ) {
-      window.alert(
-        "Alasan pembatalan wajib diisi."
-      );
+    if (!cancelReason.trim()) {
+      window.alert("Alasan pembatalan wajib diisi.");
 
       return;
     }
 
-    const result =
-      await cancelPaymentRequest(
-        cancelTarget.id,
-        cancelReason.trim()
-      );
+    const result = await cancelPaymentRequest(
+      cancelTarget.id,
+      cancelReason.trim(),
+    );
 
     if (!result) {
       return;
@@ -702,23 +515,14 @@ export function SupplierInvoicePage() {
    * ==========================================================
    */
 
-  const printPaymentRequest = async (
-    request: ApPaymentRequest
-  ) => {
-    const printWindow =
-      window.open(
-        "",
-        "_blank",
-        "width=1000,height=800"
-      );
+  const printPaymentRequest = async (request: ApPaymentRequest) => {
+    const printWindow = window.open("", "_blank", "width=1000,height=800");
 
     if (!printWindow) {
       return;
     }
 
-    const escapeHtml = (
-      value: string
-    ): string => {
+    const escapeHtml = (value: string): string => {
       return value
         .replaceAll("&", "&amp;")
         .replaceAll("<", "&lt;")
@@ -729,10 +533,10 @@ export function SupplierInvoicePage() {
 
     try {
       /*
-      * =====================================================
-      * AMBIL DETAIL ITEM PAYMENT REQUEST
-      * =====================================================
-      */
+       * =====================================================
+       * AMBIL DETAIL ITEM PAYMENT REQUEST
+       * =====================================================
+       */
 
       type PrintPaymentRequestItem = {
         id: string;
@@ -761,64 +565,42 @@ export function SupplierInvoicePage() {
         receiving_number: string | null;
       };
 
-
       /* =====================================================
         1. AMBIL ITEM PAYMENT REQUEST
         ===================================================== */
 
-      const {
-        data: itemData,
-        error: itemError,
-      } = await supabase
+      const { data: itemData, error: itemError } = await supabase
         .from("ap_payment_request_items")
-        .select(`
+        .select(
+          `
           id,
           requested_amount,
           ap_invoice_id,
           receiving_record_id
-        `)
-        .eq(
-          "payment_request_id",
-          request.id
+        `,
         )
-        .order(
-          "created_at",
-          {
-            ascending: true,
-          }
-        );
+        .eq("payment_request_id", request.id)
+        .order("created_at", {
+          ascending: true,
+        });
 
       if (itemError) {
         throw itemError;
       }
 
-
-      const items =
-        (itemData ??
-          []) as unknown as PrintPaymentRequestItem[];
-
+      const items = (itemData ?? []) as unknown as PrintPaymentRequestItem[];
 
       /* =====================================================
         2. AMBIL ID AP INVOICE
         ===================================================== */
 
-      const invoiceIds =
-        Array.from(
-          new Set(
-            items
-              .map(
-                (item) =>
-                  item.ap_invoice_id
-              )
-              .filter(
-                (
-                  id
-                ): id is string =>
-                  Boolean(id)
-              )
-          )
-        );
-
+      const invoiceIds = Array.from(
+        new Set(
+          items
+            .map((item) => item.ap_invoice_id)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      );
 
       /* =====================================================
         3. AMBIL AP INVOICE
@@ -826,275 +608,163 @@ export function SupplierInvoicePage() {
 
       const invoices: PrintApInvoice[] =
         invoiceIds.length > 0
-          ? (
-              (
-                await supabase
-                  .from("ap_invoices")
-                  .select(`
+          ? (((
+              await supabase
+                .from("ap_invoices")
+                .select(
+                  `
                     id,
                     invoice_number,
                     invoice_date,
                     due_date,
                     supplier_id,
                     receiving_record_id
-                  `)
-                  .in(
-                    "id",
-                    invoiceIds
-                  )
-              ).data ?? []
-            ) as unknown as PrintApInvoice[]
+                  `,
+                )
+                .in("id", invoiceIds)
+            ).data ?? []) as unknown as PrintApInvoice[])
           : [];
-
 
       /* =====================================================
         4. MAP INVOICE
         ===================================================== */
 
-      const invoiceMap =
-        new Map<
-          string,
-          PrintApInvoice
-        >(
-          invoices.map(
-            (invoice) => [
-              invoice.id,
-              invoice,
-            ]
-          )
-        );
-
+      const invoiceMap = new Map<string, PrintApInvoice>(
+        invoices.map((invoice) => [invoice.id, invoice]),
+      );
 
       /* =====================================================
         5. AMBIL SUPPLIER
         ===================================================== */
 
-      const supplierIds =
-        Array.from(
-          new Set(
-            invoices
-              .map(
-                (invoice) =>
-                  invoice.supplier_id
-              )
-              .filter(
-                (
-                  id
-                ): id is string =>
-                  Boolean(id)
-              )
-          )
-        );
-
+      const supplierIds = Array.from(
+        new Set(
+          invoices
+            .map((invoice) => invoice.supplier_id)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      );
 
       const suppliers: PrintSupplier[] =
         supplierIds.length > 0
-          ? (
-              (
-                await supabase
-                  .from("suppliers")
-                  .select(`
+          ? (((
+              await supabase
+                .from("suppliers")
+                .select(
+                  `
                     id,
                     code,
                     name
-                  `)
-                  .in(
-                    "id",
-                    supplierIds
-                  )
-              ).data ?? []
-            ) as unknown as PrintSupplier[]
+                  `,
+                )
+                .in("id", supplierIds)
+            ).data ?? []) as unknown as PrintSupplier[])
           : [];
-
 
       /* =====================================================
         6. MAP SUPPLIER
         ===================================================== */
 
-      const supplierMap =
-        new Map<
-          string,
-          PrintSupplier
-        >(
-          suppliers.map(
-            (supplier) => [
-              supplier.id,
-              supplier,
-            ]
-          )
-        );
-
+      const supplierMap = new Map<string, PrintSupplier>(
+        suppliers.map((supplier) => [supplier.id, supplier]),
+      );
 
       /* =====================================================
         7. AMBIL RECEIVING RECORD
         ===================================================== */
 
-      const receivingIds =
-        Array.from(
-          new Set(
-            items
-              .map(
-                (item) =>
-                  item.receiving_record_id
-              )
-              .filter(
-                (
-                  id
-                ): id is string =>
-                  Boolean(id)
-              )
-              .concat(
-                invoices
-                  .map(
-                    (invoice) =>
-                      invoice.receiving_record_id
-                  )
-                  .filter(
-                    (
-                      id
-                    ): id is string =>
-                      Boolean(id)
-                  )
-              )
-          )
-        );
+      const receivingIds = Array.from(
+        new Set(
+          items
+            .map((item) => item.receiving_record_id)
+            .filter((id): id is string => Boolean(id))
+            .concat(
+              invoices
+                .map((invoice) => invoice.receiving_record_id)
+                .filter((id): id is string => Boolean(id)),
+            ),
+        ),
+      );
 
-
-      const receivingRecords:
-        PrintReceivingRecord[] =
+      const receivingRecords: PrintReceivingRecord[] =
         receivingIds.length > 0
-          ? (
-              (
-                await supabase
-                  .from(
-                    "receiving_records"
-                  )
-                  .select(`
+          ? (((
+              await supabase
+                .from("receiving_records")
+                .select(
+                  `
                     id,
                     receiving_number
-                  `)
-                  .in(
-                    "id",
-                    receivingIds
-                  )
-              ).data ?? []
-            ) as unknown as PrintReceivingRecord[]
+                  `,
+                )
+                .in("id", receivingIds)
+            ).data ?? []) as unknown as PrintReceivingRecord[])
           : [];
-
 
       /* =====================================================
         8. MAP RECEIVING
         ===================================================== */
 
-      const receivingMap =
-        new Map<
-          string,
-          PrintReceivingRecord
-        >(
-          receivingRecords.map(
-            (receiving) => [
-              receiving.id,
-              receiving,
-            ]
-          )
-        );
+      const receivingMap = new Map<string, PrintReceivingRecord>(
+        receivingRecords.map((receiving) => [receiving.id, receiving]),
+      );
 
       /*
-      * =====================================================
-      * BARIS DETAIL
-      * =====================================================
-      */
+       * =====================================================
+       * BARIS DETAIL
+       * =====================================================
+       */
 
-      const detailRows =
-        items
-          .map(
-            (
-              item,
-              index
-            ) => {
-              const invoice =
-                item.ap_invoice_id
-                  ? invoiceMap.get(
-                      item.ap_invoice_id
-                    )
-                  : undefined;
+      const detailRows = items
+        .map((item, index) => {
+          const invoice = item.ap_invoice_id
+            ? invoiceMap.get(item.ap_invoice_id)
+            : undefined;
 
-              const supplier =
-                invoice?.supplier_id
-                  ? supplierMap.get(
-                      invoice.supplier_id
-                    )
-                  : undefined;
+          const supplier = invoice?.supplier_id
+            ? supplierMap.get(invoice.supplier_id)
+            : undefined;
 
-              const receivingId =
-                item.receiving_record_id ??
-                invoice?.receiving_record_id ??
-                null;
+          const receivingId =
+            item.receiving_record_id ?? invoice?.receiving_record_id ?? null;
 
-              const receiving =
-                receivingId
-                  ? receivingMap.get(
-                      receivingId
-                    )
-                  : undefined;
+          const receiving = receivingId
+            ? receivingMap.get(receivingId)
+            : undefined;
 
-              const supplierName =
-                supplier?.name ?? "-";
+          const supplierName = supplier?.name ?? "-";
 
-              const invoiceNumber =
-                invoice?.invoice_number ??
-                "-";
+          const invoiceNumber = invoice?.invoice_number ?? "-";
 
-              const receivingNumber =
-                receiving?.receiving_number ??
-                "-";
+          const receivingNumber = receiving?.receiving_number ?? "-";
 
-              const invoiceDate =
-                invoice?.invoice_date
-                  ? formatDate(
-                      invoice.invoice_date
-                    )
-                  : "-";
+          const invoiceDate = invoice?.invoice_date
+            ? formatDate(invoice.invoice_date)
+            : "-";
 
-              const dueDate =
-                invoice?.due_date
-                  ? formatDate(
-                      invoice.due_date
-                    )
-                  : "-";
+          const dueDate = invoice?.due_date
+            ? formatDate(invoice.due_date)
+            : "-";
 
-              const dueDays =
-                invoice?.due_date
-                  ? getDueDays(
-                      invoice.due_date
-                    )
-                  : null;
+          const dueDays = invoice?.due_date
+            ? getDueDays(invoice.due_date)
+            : null;
 
-              let dueDaysLabel = "-";
+          let dueDaysLabel = "-";
 
-              if (dueDays !== null) {
-                if (dueDays < 0) {
-                  dueDaysLabel =
-                    `Terlambat ${Math.abs(
-                      dueDays
-                    )} hari`;
-                } else if (
-                  dueDays === 0
-                ) {
-                  dueDaysLabel =
-                    "Hari ini";
-                } else {
-                  dueDaysLabel =
-                    `${dueDays} hari`;
-                }
-              }
+          if (dueDays !== null) {
+            if (dueDays < 0) {
+              dueDaysLabel = `Terlambat ${Math.abs(dueDays)} hari`;
+            } else if (dueDays === 0) {
+              dueDaysLabel = "Hari ini";
+            } else {
+              dueDaysLabel = `${dueDays} hari`;
+            }
+          }
 
-              const requestedAmount =
-                Number(
-                  item.requested_amount
-                );
+          const requestedAmount = Number(item.requested_amount);
 
-              return `
+          return `
                 <tr>
                   <td class="center">
                     ${index + 1}
@@ -1102,24 +772,18 @@ export function SupplierInvoicePage() {
 
                   <td>
                     <div class="supplier-name">
-                      ${escapeHtml(
-                        supplierName
-                      )}
+                      ${escapeHtml(supplierName)}
                     </div>
                   </td>
 
                   <td>
                     <strong>
-                      ${escapeHtml(
-                        invoiceNumber
-                      )}
+                      ${escapeHtml(invoiceNumber)}
                     </strong>
                   </td>
 
                   <td>
-                    ${escapeHtml(
-                      receivingNumber
-                    )}
+                    ${escapeHtml(receivingNumber)}
                   </td>
 
                   <td class="center">
@@ -1135,25 +799,21 @@ export function SupplierInvoicePage() {
                   </td>
 
                   <td class="amount">
-                    ${formatCurrency(
-                      requestedAmount
-                    )}
+                    ${formatCurrency(requestedAmount)}
                   </td>
                 </tr>
               `;
-            }
-          )
-          .join("");
+        })
+        .join("");
 
       /*
-      * =====================================================
-      * HEADER INFORMATION
-      * =====================================================
-      */
+       * =====================================================
+       * HEADER INFORMATION
+       * =====================================================
+       */
 
       const notesHtml =
-        request.notes &&
-        request.notes.trim()
+        request.notes && request.notes.trim()
           ? `
             <div class="notes">
               <div class="notes-title">
@@ -1161,24 +821,19 @@ export function SupplierInvoicePage() {
               </div>
 
               <div class="notes-content">
-                ${escapeHtml(
-                  request.notes
-                ).replaceAll(
-                  "\n",
-                  "<br>"
-                )}
+                ${escapeHtml(request.notes).replaceAll("\n", "<br>")}
               </div>
             </div>
           `
           : "";
 
       /*
-      * =====================================================
-      * PRINT DOCUMENT
-      * =====================================================
-      */
+       * =====================================================
+       * PRINT DOCUMENT
+       * =====================================================
+       */
 
-        printWindow.document.write(`
+      printWindow.document.write(`
           <!DOCTYPE html>
 
           <html>
@@ -1189,9 +844,7 @@ export function SupplierInvoicePage() {
               />
 
               <title>
-                ${escapeHtml(
-                  request.payment_request_number
-                )}
+                ${escapeHtml(request.payment_request_number)}
               </title>
 
               <style>
@@ -1526,9 +1179,7 @@ export function SupplierInvoicePage() {
                     </div>
 
                     <div class="document-number-value">
-                      ${escapeHtml(
-                        request.payment_request_number
-                      )}
+                      ${escapeHtml(request.payment_request_number)}
                     </div>
 
                   </div>
@@ -1545,9 +1196,7 @@ export function SupplierInvoicePage() {
                     </div>
 
                     <div class="info-value">
-                      ${formatDate(
-                        request.request_date
-                      )}
+                      ${formatDate(request.request_date)}
                     </div>
 
                   </div>
@@ -1561,9 +1210,7 @@ export function SupplierInvoicePage() {
 
                     <div class="info-value">
                       <span class="status">
-                        ${escapeHtml(
-                          request.status
-                        )}
+                        ${escapeHtml(request.status)}
                       </span>
                     </div>
 
@@ -1665,11 +1312,7 @@ export function SupplierInvoicePage() {
                       </td>
 
                       <td class="amount">
-                        ${formatCurrency(
-                          Number(
-                            request.total_amount
-                          )
-                        )}
+                        ${formatCurrency(Number(request.total_amount))}
                       </td>
 
                     </tr>
@@ -1721,9 +1364,7 @@ export function SupplierInvoicePage() {
                 <div class="footer">
                   Dokumen Payment Voucher
                   &nbsp;•&nbsp;
-                  ${escapeHtml(
-                    request.payment_request_number
-                  )}
+                  ${escapeHtml(request.payment_request_number)}
                 </div>
 
               </div>
@@ -1747,19 +1388,17 @@ export function SupplierInvoicePage() {
           </html>
         `);
 
-        printWindow.document.close();
+      printWindow.document.close();
+    } catch (err) {
+      printWindow.close();
 
-      } catch (err) {
-
-        printWindow.close();
-
-        window.alert(
-          err instanceof Error
-            ? err.message
-            : "Gagal mengambil detail Payment Voucher."
-        );
-      }
-    };
+      window.alert(
+        err instanceof Error
+          ? err.message
+          : "Gagal mengambil detail Payment Voucher.",
+      );
+    }
+  };
 
   /**
    * ==========================================================
@@ -1768,40 +1407,19 @@ export function SupplierInvoicePage() {
    */
 
   const exportExcel = () => {
-    const rows =
-      filteredInvoices.map(
-        (row: ApInvoice) => ({
-          Supplier:
-            row.supplier_name ?? "",
-          Invoice:
-            row.invoice_number,
-          "No RR":
-            row.receiving_number ?? "",
-          "Tanggal Invoice":
-            row.invoice_date,
-          "Jatuh Tempo":
-            row.due_date ?? "",
-          "Hari":
-            dueLabel(row.due_date),
-          Total:
-            Number(
-              row.grand_total
-            ),
-          Terbayar:
-            Number(
-              row.paid_amount
-            ),
-          Sisa:
-            Number(
-              row.remaining_amount
-            ),
-        })
-      );
+    const rows = filteredInvoices.map((row: ApInvoice) => ({
+      Supplier: row.supplier_name ?? "",
+      Invoice: row.invoice_number,
+      "No RR": row.receiving_number ?? "",
+      "Tanggal Invoice": row.invoice_date,
+      "Jatuh Tempo": row.due_date ?? "",
+      Hari: dueLabel(row.due_date),
+      Total: Number(row.grand_total),
+      Terbayar: Number(row.paid_amount),
+      Sisa: Number(row.remaining_amount),
+    }));
 
-    const ws =
-      XLSX.utils.json_to_sheet(
-        rows
-      );
+    const ws = XLSX.utils.json_to_sheet(rows);
 
     ws["!cols"] = [
       { wch: 25 },
@@ -1815,71 +1433,53 @@ export function SupplierInvoicePage() {
       { wch: 18 },
     ];
 
-    const wb =
-      XLSX.utils.book_new();
+    const wb = XLSX.utils.book_new();
 
-    XLSX.utils.book_append_sheet(
-      wb,
-      ws,
-      "Supplier Invoice"
-    );
+    XLSX.utils.book_append_sheet(wb, ws, "Supplier Invoice");
 
-    const file =
-      XLSX.write(wb, {
-        bookType: "xlsx",
-        type: "array",
-      });
+    const file = XLSX.write(wb, {
+      bookType: "xlsx",
+      type: "array",
+    });
 
     saveAs(
       new Blob([file], {
-        type:
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       }),
-      `Supplier-Invoice-${todayInputValue()}.xlsx`
+      `Supplier-Invoice-${todayInputValue()}.xlsx`,
     );
   };
 
   return (
     <div className="w-full pr-2 mb-6 space-y-5">
-
       {/* HEADER */}
 
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-
         <div>
-          <h1 className="text-2xl font-bold">
-            Supplier Invoice
-          </h1>
+          <h1 className="text-2xl font-bold">Supplier Invoice</h1>
 
           <p className="text-sm text-gray-500">
-            Kelola hutang supplier dan
-            pengajuan pembayaran.
+            Kelola hutang supplier dan pengajuan pembayaran.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-
           {access.export && (
             <button
               type="button"
               onClick={exportExcel}
-              disabled={
-                filteredInvoices.length ===
-                0
-              }
+              disabled={filteredInvoices.length === 0}
               className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
               Export Excel
             </button>
           )}
-
         </div>
       </div>
 
       {/* TAB */}
 
       <div className="flex border-b border-gray-200">
-
         <button
           type="button"
           onClick={() => {
@@ -1887,8 +1487,7 @@ export function SupplierInvoicePage() {
             setInvoicePage(1);
           }}
           className={`border-b-2 px-5 py-3 text-sm font-medium ${
-            tab ===
-            "BELUM_DIAJUKAN"
+            tab === "BELUM_DIAJUKAN"
               ? "border-blue-600 text-blue-600"
               : "border-transparent text-gray-500"
           }`}
@@ -1903,15 +1502,13 @@ export function SupplierInvoicePage() {
             setPaymentRequestPage(1);
           }}
           className={`border-b-2 px-5 py-3 text-sm font-medium ${
-            tab ===
-            "PROSES_BAYAR"
+            tab === "PROSES_BAYAR"
               ? "border-blue-600 text-blue-600"
               : "border-transparent text-gray-500"
           }`}
         >
           Proses Bayar
         </button>
-
       </div>
 
       {error && (
@@ -1924,11 +1521,9 @@ export function SupplierInvoicePage() {
           TAB BELUM DIAJUKAN
           ====================================================== */}
 
-      {tab ===
-        "BELUM_DIAJUKAN" && (
+      {tab === "BELUM_DIAJUKAN" && (
         <>
           <div className="flex flex-col gap-3 rounded-lg border bg-white p-4 md:flex-row md:items-end">
-
             <div className="flex-1">
               <label className="mb-1 block text-xs font-medium text-gray-600">
                 Cari
@@ -1937,11 +1532,7 @@ export function SupplierInvoicePage() {
               <input
                 type="text"
                 value={search}
-                onChange={(event) =>
-                  setSearch(
-                    event.target.value
-                  )
-                }
+                onChange={(event) => setSearch(event.target.value)}
                 placeholder="Invoice / Supplier / RR..."
                 className="w-full rounded border px-3 py-2 text-sm"
               />
@@ -1953,40 +1544,27 @@ export function SupplierInvoicePage() {
               </label>
 
               <div className="rounded-md border bg-gray-50 px-3 py-2 text-sm">
-                {new Date().toLocaleDateString(
-                  "id-ID",
-                  {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                  }
-                )}
+                {new Date().toLocaleDateString("id-ID", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                })}
               </div>
             </div>
-
           </div>
 
           <div className="flex items-center justify-between rounded-lg border bg-white px-4 py-3">
-
             <div className="text-sm text-gray-600">
-              {selectedInvoices.length}
-              {" "}transaksi dipilih
+              {selectedInvoices.length} transaksi dipilih
               {" · "}
-              <strong>
-                {formatCurrency(
-                  selectedTotal
-                )}
-              </strong>
+              <strong>{formatCurrency(selectedTotal)}</strong>
             </div>
 
             {access.paymentRequestCreate && (
               <button
                 type="button"
                 onClick={openRequestForm}
-                disabled={
-                  selectedInvoices.length === 0 ||
-                  saving
-                }
+                disabled={selectedInvoices.length === 0 || saving}
                 className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 + Ajukan Pembayaran
@@ -1999,57 +1577,33 @@ export function SupplierInvoicePage() {
               <table className="min-w-full divide-y divide-gray-200 text-sm">
                 <thead className="bg-gray-50">
                   <tr>
-
                     <th className="w-12 px-4 py-3 text-center">
                       <input
                         type="checkbox"
-                        checked={
-                          allFilteredSelected
-                        }
-                        onChange={
-                          toggleAllFiltered
-                        }
+                        checked={allFilteredSelected}
+                        onChange={toggleAllFiltered}
                       />
                     </th>
 
-                    <th className="px-4 py-3 font-medium">
-                      Supplier
-                    </th>
+                    <th className="px-4 py-3 font-medium">Supplier</th>
 
-                    <th className="px-4 py-3 font-medium">
-                      No Invoice
-                    </th>
+                    <th className="px-4 py-3 font-medium">No Invoice</th>
 
-                    <th className="px-4 py-3 font-medium">
-                      No RR
-                    </th>
+                    <th className="px-4 py-3 font-medium">No RR</th>
 
-                    <th className="px-4 py-3 font-medium">
-                      Tgl Invoice
-                    </th>
+                    <th className="px-4 py-3 font-medium">Tgl Invoice</th>
 
-                    <th className="px-4 py-3 font-medium">
-                      Jatuh Tempo
-                    </th>
+                    <th className="px-4 py-3 font-medium">Jatuh Tempo</th>
 
-                    <th className="px-4 py-3 font-medium">
-                      Hari
-                    </th>
+                    <th className="px-4 py-3 font-medium">Hari</th>
 
-                    <th className="px-4 py-3 font-medium">
-                      Sisa
-                    </th>
+                    <th className="px-4 py-3 font-medium">Sisa</th>
 
-                    <th className="px-4 py-3 font-medium">
-                      Aksi
-                    </th>
-
+                    <th className="px-4 py-3 font-medium">Aksi</th>
                   </tr>
-
                 </thead>
 
                 <tbody className="divide-y">
-
                   {loading ? (
                     <tr>
                       <td
@@ -2059,142 +1613,103 @@ export function SupplierInvoicePage() {
                         Memuat data...
                       </td>
                     </tr>
-                  ) : filteredInvoices.length ===
-                    0 ? (
+                  ) : filteredInvoices.length === 0 ? (
                     <tr>
                       <td
                         colSpan={9}
                         className="py-8 text-center text-gray-500"
                       >
-                        Tidak ada invoice
-                        outstanding.
+                        Tidak ada invoice outstanding.
                       </td>
                     </tr>
                   ) : (
-                    paginatedInvoices.map(
-                      (
-                        invoice: ApInvoice
-                      ) => (
-                        <tr
-                          key={
-                            invoice.id
-                          }
-                          className="hover:bg-gray-50"
-                        >
+                    paginatedInvoices.map((invoice: ApInvoice) => (
+                      <tr key={invoice.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedInvoiceIds.has(invoice.id)}
+                            onChange={() => toggleInvoice(invoice)}
+                          />
+                        </td>
 
-                          <td className="px-4 py-3 text-center">
-                            <input
-                              type="checkbox"
-                              checked={selectedInvoiceIds.has(
-                                invoice.id
-                              )}
-                              onChange={() =>
-                                toggleInvoice(
-                                  invoice
-                                )
-                              }
-                            />
-                          </td>
+                        <td className="px-4 py-3">
+                          <div className="font-medium">
+                            {invoice.supplier_name ?? "-"}
+                          </div>
 
-                          <td className="px-4 py-3">
-                            <div className="font-medium">
-                              {invoice.supplier_name ??
-                                "-"}
-                            </div>
+                          <div className="text-xs text-gray-500">
+                            {invoice.supplier_code ?? ""}
+                          </div>
+                        </td>
 
-                            <div className="text-xs text-gray-500">
-                              {invoice.supplier_code ??
-                                ""}
-                            </div>
-                          </td>
+                        <td className="px-4 py-3 font-medium">
+                          {invoice.invoice_number}
+                        </td>
 
-                          <td className="px-4 py-3 font-medium">
-                            {invoice.invoice_number}
-                          </td>
+                        <td className="px-4 py-3">
+                          {invoice.receiving_number ?? "-"}
+                        </td>
 
-                          <td className="px-4 py-3">
-                            {invoice.receiving_number ??
-                              "-"}
-                          </td>
+                        <td className="px-4 py-3">
+                          {formatDate(invoice.invoice_date)}
+                        </td>
 
-                          <td className="px-4 py-3">
-                            {formatDate(
-                              invoice.invoice_date
-                            )}
-                          </td>
+                        <td className="px-4 py-3">
+                          {formatDate(invoice.due_date)}
+                        </td>
 
-                          <td className="px-4 py-3">
-                            {formatDate(
-                              invoice.due_date
-                            )}
-                          </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={
+                              getDueDays(invoice.due_date) !== null &&
+                              getDueDays(invoice.due_date)! < 0
+                                ? "font-medium text-red-600"
+                                : "text-gray-700"
+                            }
+                          >
+                            {dueLabel(invoice.due_date)}
+                          </span>
+                        </td>
 
-                          <td className="px-4 py-3">
-                            <span
-                              className={
-                                getDueDays(
-                                  invoice.due_date
-                                ) !==
-                                  null &&
-                                getDueDays(
-                                  invoice.due_date
-                                )! < 0
-                                  ? "font-medium text-red-600"
-                                  : "text-gray-700"
-                              }
+                        <td className="px-4 py-3 text-right font-medium">
+                          {formatCurrency(Number(invoice.remaining_amount))}
+                        </td>
+
+                        <td className="px-4 py-3 text-center">
+                          {access.paymentRequestDetail && (
+                            <button
+                              type="button"
+                              title="Detail"
+                              onClick={() => setDetailTarget(invoice)}
+                              className="rounded p-2 hover:bg-gray-100"
                             >
-                              {dueLabel(
-                                invoice.due_date
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="px-4 py-3 text-right font-medium">
-                            {formatCurrency(
-                              Number(
-                                invoice.remaining_amount
-                              )
-                            )}
-                          </td>
-
-                          <td className="px-4 py-3 text-center">
-                            {access.paymentRequestDetail && (
-                              <button
-                                type="button"
-                                title="Detail"
-                                onClick={() =>
-                                  setDetailTarget(invoice)
-                                }
-                                className="rounded p-2 hover:bg-gray-100"
-                              >
-                                <Eye size={17} />
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    )
+                              <Eye size={17} />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
                   )}
-
                 </tbody>
-
               </table>
-
             </div>
-
           </div>
 
           {invoiceTotal > 0 && (
             <div className="flex items-center justify-between rounded-lg border bg-white px-4 py-3">
               <div className="text-sm text-gray-500">
-                Menampilkan {(invoicePage - 1) * PAGE_SIZE + 1}
-                –{Math.min(invoicePage * PAGE_SIZE, invoiceTotal)} dari {invoiceTotal} data
+                Menampilkan {(invoicePage - 1) * PAGE_SIZE + 1}–
+                {Math.min(invoicePage * PAGE_SIZE, invoiceTotal)} dari{" "}
+                {invoiceTotal} data
               </div>
 
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setInvoicePage((page) => Math.max(1, page - 1))}
+                  onClick={() =>
+                    setInvoicePage((page) => Math.max(1, page - 1))
+                  }
                   disabled={invoicePage === 1}
                   className="rounded border p-2 text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
                   title="Halaman sebelumnya"
@@ -2208,7 +1723,11 @@ export function SupplierInvoicePage() {
 
                 <button
                   type="button"
-                  onClick={() => setInvoicePage((page) => Math.min(invoiceTotalPages, page + 1))}
+                  onClick={() =>
+                    setInvoicePage((page) =>
+                      Math.min(invoiceTotalPages, page + 1),
+                    )
+                  }
                   disabled={invoicePage === invoiceTotalPages}
                   className="rounded border p-2 text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
                   title="Halaman berikutnya"
@@ -2225,8 +1744,7 @@ export function SupplierInvoicePage() {
           TAB PROSES BAYAR
           ====================================================== */}
 
-      {tab ===
-        "PROSES_BAYAR" && (
+      {tab === "PROSES_BAYAR" && (
         <>
           <div className="mb-4 rounded-lg border bg-white p-4">
             <label className="mb-1 block text-xs font-medium text-gray-600">
@@ -2236,237 +1754,196 @@ export function SupplierInvoicePage() {
             <input
               type="text"
               value={paymentSearch}
-              onChange={(event) =>
-                setPaymentSearch(
-                  event.target.value
-                )
-              }
+              onChange={(event) => setPaymentSearch(event.target.value)}
               placeholder="Cari No. Invoice Supplier / No. RR / No. PV..."
               className="w-full max-w-xl rounded-md border px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
           </div>
 
           <div className="overflow-hidden rounded-lg border bg-white">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 font-medium">
-                    No PV
-                  </th>
-
-                  <th className="px-4 py-3 font-medium">
-                    Tanggal
-                  </th>
-
-                  <th className="px-4 py-3 font-medium">
-                    Supplier
-                  </th>
-
-                  <th className="px-4 py-3 font-medium text-right">
-                    Total
-                  </th>
-
-                  <th className="px-4 py-3 font-medium">
-                    Status
-                  </th>
-
-                  <th className="px-4 py-3 font-medium">
-                    Aksi
-                  </th>
-
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {loading ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="bg-gray-50">
                   <tr>
-                    <td
-                      colSpan={6}
-                      className="py-8 text-center text-gray-500"
-                    >
-                      Memuat data...
-                    </td>
+                    <th className="px-4 py-3 font-medium">No PV</th>
+
+                    <th className="px-4 py-3 font-medium">Tanggal</th>
+
+                    <th className="px-4 py-3 font-medium">Supplier</th>
+
+                    <th className="px-4 py-3 font-medium text-right">Total</th>
+
+                    <th className="px-4 py-3 font-medium">Status</th>
+
+                    <th className="px-4 py-3 font-medium">Aksi</th>
                   </tr>
-                ) : filteredPaymentRequests.length ===
-                0 ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="py-8 text-center text-gray-500"
-                    >
-                      {paymentSearch.trim()
-                        ? "Tidak ada Payment Voucher yang sesuai dengan pencarian."
-                        : "Belum ada pengajuan pembayaran."}
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedPaymentRequests.map(
-                    (
-                      request: ApPaymentRequest
-                    ) => (
-                      <tr
-                        key={
-                          request.id
-                        }
-                        className="hover:bg-gray-50"
+                </thead>
+                <tbody className="divide-y">
+                  {loading ? (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="py-8 text-center text-gray-500"
                       >
+                        Memuat data...
+                      </td>
+                    </tr>
+                  ) : filteredPaymentRequests.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="py-8 text-center text-gray-500"
+                      >
+                        {paymentSearch.trim()
+                          ? "Tidak ada Payment Voucher yang sesuai dengan pencarian."
+                          : "Belum ada pengajuan pembayaran."}
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedPaymentRequests.map(
+                      (request: ApPaymentRequest) => (
+                        <tr key={request.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 font-medium">
+                            {request.payment_request_number}
+                          </td>
 
-                        <td className="px-4 py-3 font-medium">
-                          {
-                            request.payment_request_number
-                          }
-                        </td>
+                          <td className="px-4 py-3">
+                            {formatDate(request.request_date)}
+                          </td>
 
-                        <td className="px-4 py-3">
-                          {formatDate(
-                            request.request_date
-                          )}
-                        </td>
+                          <td className="px-4 py-3">{request.supplier_id}</td>
 
-                        <td className="px-4 py-3">
-                          {request.supplier_id}
-                        </td>
+                          <td className="px-4 py-3 text-right font-medium">
+                            {formatCurrency(Number(request.total_amount))}
+                          </td>
 
-                        <td className="px-4 py-3 text-right font-medium">
-                          {formatCurrency(
-                            Number(
-                              request.total_amount
-                            )
-                          )}
-                        </td>
+                          <td className="px-4 py-3 text-center">
+                            <span
+                              className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
+                                request.status === "PAID"
+                                  ? "bg-blue-100 text-blue-700"
+                                  : request.status === "APPROVED"
+                                    ? "bg-green-100 text-green-700"
+                                    : request.status === "CANCELLED"
+                                      ? "bg-red-100 text-red-700"
+                                      : "bg-yellow-100 text-yellow-700"
+                              }`}
+                            >
+                              {request.status}
+                            </span>
+                          </td>
 
-                        <td className="px-4 py-3 text-center">
-                          <span
-                            className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                              request.status === "PAID"
-                                ? "bg-blue-100 text-blue-700"
-                                : request.status === "APPROVED"
-                                  ? "bg-green-100 text-green-700"
-                                  : request.status === "CANCELLED"
-                                    ? "bg-red-100 text-red-700"
-                                    : "bg-yellow-100 text-yellow-700"
-                            }`}
-                          >
-                            {request.status}
-                          </span>
-                        </td>
-
-                        <td className="px-4 py-3">
-
-                          <div className="flex justify-center gap-1">
-                            {access.paymentRequestDetail && (
-                              <button
-                                type="button"
-                                title="Detail"
-                                onClick={() =>
-                                  void openPaymentRequestDetail(request)
-                                }
-                                disabled={paymentRequestDetailLoading}
-                                className="rounded p-2 hover:bg-gray-100 disabled:opacity-50"
-                              >
-                                <Eye size={17} />
-                              </button>
-                            )}
-
-                            {request.status === "DRAFT" &&
-                              access.paymentRequestApprove && (
+                          <td className="px-4 py-3">
+                            <div className="flex justify-center gap-1">
+                              {access.paymentRequestDetail && (
                                 <button
                                   type="button"
-                                  title="Approve"
+                                  title="Detail"
                                   onClick={() =>
-                                    void handleApprove(
-                                      request
-                                    )
+                                    void openPaymentRequestDetail(request)
                                   }
-                                  disabled={saving}
-                                  className="rounded p-2 text-green-600 hover:bg-green-50 disabled:opacity-50"
+                                  disabled={paymentRequestDetailLoading}
+                                  className="rounded p-2 hover:bg-gray-100 disabled:opacity-50"
                                 >
-                                  <Check size={17} />
+                                  <Eye size={17} />
                                 </button>
-                            )}
+                              )}
 
-                            {request.status === "DRAFT" &&
-                              access.paymentRequestCancel && (
+                              {request.status === "DRAFT" &&
+                                access.paymentRequestApprove && (
+                                  <button
+                                    type="button"
+                                    title="Approve"
+                                    onClick={() => void handleApprove(request)}
+                                    disabled={saving}
+                                    className="rounded p-2 text-green-600 hover:bg-green-50 disabled:opacity-50"
+                                  >
+                                    <Check size={17} />
+                                  </button>
+                                )}
+
+                              {request.status === "DRAFT" &&
+                                access.paymentRequestCancel && (
+                                  <button
+                                    type="button"
+                                    title="Batal"
+                                    onClick={() => {
+                                      setCancelTarget(request);
+                                      setCancelReason("");
+                                    }}
+                                    disabled={saving}
+                                    className="rounded p-2 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                                  >
+                                    <X size={17} />
+                                  </button>
+                                )}
+
+                              {access.paymentRequestExport && (
                                 <button
                                   type="button"
-                                  title="Batal"
-                                  onClick={() => {
-                                    setCancelTarget(
-                                      request
-                                    );
-                                    setCancelReason("");
-                                  }}
-                                  disabled={saving}
-                                  className="rounded p-2 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                                  title="Print"
+                                  onClick={() =>
+                                    void printPaymentRequest(request)
+                                  }
+                                  className="rounded p-2 hover:bg-gray-100"
                                 >
-                                  <X size={17} />
+                                  <Printer size={17} />
                                 </button>
-                            )}
-
-                            {access.paymentRequestExport && (
-                              <button
-                                type="button"
-                                title="Print"
-                                onClick={() =>
-                                  void printPaymentRequest(
-                                    request
-                                  )
-                                }
-                                className="rounded p-2 hover:bg-gray-100"
-                              >
-                                <Printer size={17} />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ),
                     )
-                  )
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {paymentRequestTotal > 0 && (
-            <div className="flex items-center justify-between border-t bg-white px-4 py-3">
-              <div className="text-sm text-gray-500">
-                Menampilkan{" "}
-                {(paymentRequestPage - 1) * PAGE_SIZE + 1}
-                –
-                {Math.min(
-                  paymentRequestPage * PAGE_SIZE,
-                  paymentRequestTotal
-                )}{" "}
-                dari {paymentRequestTotal} data
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPaymentRequestPage((page) => Math.max(1, page - 1))}
-                  disabled={paymentRequestPage === 1}
-                  className="rounded border p-2 text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-                  title="Halaman sebelumnya"
-                >
-                  <ChevronLeft size={17} />
-                </button>
-
-                <span className="min-w-[90px] text-center text-sm text-gray-600">
-                  Halaman {paymentRequestPage} / {paymentRequestTotalPages}
-                </span>
-
-                <button
-                  type="button"
-                  onClick={() => setPaymentRequestPage((page) => Math.min(paymentRequestTotalPages, page + 1))}
-                  disabled={paymentRequestPage === paymentRequestTotalPages}
-                  className="rounded border p-2 text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-                  title="Halaman berikutnya"
-                >
-                  <ChevronRight size={17} />
-                </button>
-              </div>
+                  )}
+                </tbody>
+              </table>
             </div>
-          )}
+
+            {paymentRequestTotal > 0 && (
+              <div className="flex items-center justify-between border-t bg-white px-4 py-3">
+                <div className="text-sm text-gray-500">
+                  Menampilkan {(paymentRequestPage - 1) * PAGE_SIZE + 1}–
+                  {Math.min(
+                    paymentRequestPage * PAGE_SIZE,
+                    paymentRequestTotal,
+                  )}{" "}
+                  dari {paymentRequestTotal} data
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPaymentRequestPage((page) => Math.max(1, page - 1))
+                    }
+                    disabled={paymentRequestPage === 1}
+                    className="rounded border p-2 text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    title="Halaman sebelumnya"
+                  >
+                    <ChevronLeft size={17} />
+                  </button>
+
+                  <span className="min-w-[90px] text-center text-sm text-gray-600">
+                    Halaman {paymentRequestPage} / {paymentRequestTotalPages}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPaymentRequestPage((page) =>
+                        Math.min(paymentRequestTotalPages, page + 1),
+                      )
+                    }
+                    disabled={paymentRequestPage === paymentRequestTotalPages}
+                    className="rounded border p-2 text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    title="Halaman berikutnya"
+                  >
+                    <ChevronRight size={17} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}
@@ -2477,26 +1954,17 @@ export function SupplierInvoicePage() {
 
       {showRequestForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-
           <div className="w-full max-w-4xl rounded-lg bg-white shadow-xl">
-
             <div className="border-b px-6 py-4">
-
-              <h2 className="text-lg font-semibold">
-                Ajukan Pembayaran
-              </h2>
+              <h2 className="text-lg font-semibold">Ajukan Pembayaran</h2>
 
               <p className="text-sm text-gray-500">
-                Transaksi yang dipilih akan
-                dibuat menjadi Payment Voucher.
+                Transaksi yang dipilih akan dibuat menjadi Payment Voucher.
               </p>
-
             </div>
 
             <div className="space-y-5 p-6">
-
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-
                 <div>
                   <label className="mb-1 block text-sm font-medium">
                     Tanggal Pengajuan
@@ -2505,11 +1973,7 @@ export function SupplierInvoicePage() {
                   <input
                     type="date"
                     value={requestDate}
-                    onChange={(event) =>
-                      setRequestDate(
-                        event.target.value
-                      )
-                    }
+                    onChange={(event) => setRequestDate(event.target.value)}
                     className="w-full rounded border px-3 py-2 text-sm"
                   />
                 </div>
@@ -2526,7 +1990,6 @@ export function SupplierInvoicePage() {
                     className="w-full rounded border bg-gray-100 px-3 py-2 text-sm text-gray-500"
                   />
                 </div>
-
               </div>
 
               <div className="overflow-hidden rounded border">
@@ -2534,21 +1997,13 @@ export function SupplierInvoicePage() {
                   <table className="min-w-full text-sm">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-4 py-3 font-medium">
-                          Supplier
-                        </th>
+                        <th className="px-4 py-3 font-medium">Supplier</th>
 
-                        <th className="px-4 py-3 font-medium">
-                          Invoice
-                        </th>
+                        <th className="px-4 py-3 font-medium">Invoice</th>
 
-                        <th className="px-4 py-3 font-medium">
-                          RR
-                        </th>
+                        <th className="px-4 py-3 font-medium">RR</th>
 
-                        <th className="px-4 py-3 font-medium">
-                          Jatuh Tempo
-                        </th>
+                        <th className="px-4 py-3 font-medium">Jatuh Tempo</th>
 
                         <th className="px-4 py-3 font-medium text-right">
                           Sisa
@@ -2556,59 +2011,31 @@ export function SupplierInvoicePage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {selectedInvoices.map(
-                        (
-                          invoice: ApInvoice
-                        ) => (
-                          <tr
-                            key={
-                              invoice.id
-                            }
-                          >
+                      {selectedInvoices.map((invoice: ApInvoice) => (
+                        <tr key={invoice.id}>
+                          <td className="px-3 py-2">{invoice.supplier_name}</td>
 
-                            <td className="px-3 py-2">
-                              {
-                                invoice.supplier_name
-                              }
-                            </td>
+                          <td className="px-3 py-2">
+                            {invoice.invoice_number}
+                          </td>
 
-                            <td className="px-3 py-2">
-                              {
-                                invoice.invoice_number
-                              }
-                            </td>
+                          <td className="px-3 py-2">
+                            {invoice.receiving_number ?? "-"}
+                          </td>
 
-                            <td className="px-3 py-2">
-                              {
-                                invoice.receiving_number ??
-                                "-"
-                              }
-                            </td>
+                          <td className="px-3 py-2">
+                            {formatDate(invoice.due_date)}
+                          </td>
 
-                            <td className="px-3 py-2">
-                              {formatDate(
-                                invoice.due_date
-                              )}
-                            </td>
-
-                            <td className="px-3 py-2 text-right font-medium">
-                              {formatCurrency(
-                                Number(
-                                  invoice.remaining_amount
-                                )
-                              )}
-                            </td>
-
-                          </tr>
-                        )
-                      )}
-
+                          <td className="px-3 py-2 text-right font-medium">
+                            {formatCurrency(Number(invoice.remaining_amount))}
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
 
                     <tfoot className="border-t bg-gray-50">
-
                       <tr>
-
                         <td
                           colSpan={4}
                           className="px-3 py-3 text-right font-semibold"
@@ -2617,52 +2044,33 @@ export function SupplierInvoicePage() {
                         </td>
 
                         <td className="px-3 py-3 text-right font-bold">
-                          {formatCurrency(
-                            selectedTotal
-                          )}
+                          {formatCurrency(selectedTotal)}
                         </td>
-
                       </tr>
-
                     </tfoot>
-
                   </table>
-
                 </div>
-
               </div>
 
               <div>
-
                 <label className="mb-1 block text-sm font-medium">
                   Catatan
                 </label>
 
                 <textarea
                   value={requestNotes}
-                  onChange={(event) =>
-                    setRequestNotes(
-                      event.target.value
-                    )
-                  }
+                  onChange={(event) => setRequestNotes(event.target.value)}
                   rows={3}
                   className="w-full rounded border px-3 py-2 text-sm"
                   placeholder="Catatan pengajuan..."
                 />
-
               </div>
-
             </div>
 
             <div className="flex justify-end gap-2 border-t px-6 py-4">
-
               <button
                 type="button"
-                onClick={() =>
-                  setShowRequestForm(
-                    false
-                  )
-                }
+                onClick={() => setShowRequestForm(false)}
                 className="rounded border px-4 py-2 text-sm"
               >
                 Batal
@@ -2670,21 +2078,14 @@ export function SupplierInvoicePage() {
 
               <button
                 type="button"
-                onClick={() =>
-                  void savePaymentRequest()
-                }
+                onClick={() => void savePaymentRequest()}
                 disabled={saving}
                 className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
-                {saving
-                  ? "Menyimpan..."
-                  : "Simpan Pengajuan"}
+                {saving ? "Menyimpan..." : "Simpan Pengajuan"}
               </button>
-
             </div>
-
           </div>
-
         </div>
       )}
 
@@ -2694,70 +2095,43 @@ export function SupplierInvoicePage() {
 
       {detailTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-
           <div className="w-full max-w-3xl rounded-lg bg-white shadow-xl">
-
             <div className="flex items-center justify-between border-b px-6 py-4">
-
-              <h2 className="text-lg font-semibold">
-                Detail Transaksi
-              </h2>
+              <h2 className="text-lg font-semibold">Detail Transaksi</h2>
 
               <button
                 type="button"
-                onClick={() =>
-                  setDetailTarget(
-                    null
-                  )
-                }
+                onClick={() => setDetailTarget(null)}
                 className="rounded p-2 hover:bg-gray-100"
               >
                 <X size={18} />
               </button>
-
             </div>
 
             <div className="p-6">
-
-              {"invoice_number" in
-                detailTarget ? (
+              {"invoice_number" in detailTarget ? (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-
                   <div>
-                    <div className="text-xs text-gray-500">
-                      Supplier
-                    </div>
+                    <div className="text-xs text-gray-500">Supplier</div>
 
                     <div className="font-medium">
-                      {
-                        detailTarget.supplier_name ??
-                        "-"
-                      }
+                      {detailTarget.supplier_name ?? "-"}
                     </div>
                   </div>
 
                   <div>
-                    <div className="text-xs text-gray-500">
-                      No Invoice
-                    </div>
+                    <div className="text-xs text-gray-500">No Invoice</div>
 
                     <div className="font-medium">
-                      {
-                        detailTarget.invoice_number
-                      }
+                      {detailTarget.invoice_number}
                     </div>
                   </div>
 
                   <div>
-                    <div className="text-xs text-gray-500">
-                      No Receiving
-                    </div>
+                    <div className="text-xs text-gray-500">No Receiving</div>
 
                     <div className="font-medium">
-                      {
-                        detailTarget.receiving_number ??
-                        "-"
-                      }
+                      {detailTarget.receiving_number ?? "-"}
                     </div>
                   </div>
 
@@ -2766,65 +2140,36 @@ export function SupplierInvoicePage() {
                       Tanggal Receiving
                     </div>
 
-                    <div>
-                      {formatDate(
-                        detailTarget.receiving_date
-                      )}
-                    </div>
+                    <div>{formatDate(detailTarget.receiving_date)}</div>
                   </div>
 
                   <div>
-                    <div className="text-xs text-gray-500">
-                      Tanggal Invoice
-                    </div>
+                    <div className="text-xs text-gray-500">Tanggal Invoice</div>
 
-                    <div>
-                      {formatDate(
-                        detailTarget.invoice_date
-                      )}
-                    </div>
+                    <div>{formatDate(detailTarget.invoice_date)}</div>
                   </div>
 
                   <div>
-                    <div className="text-xs text-gray-500">
-                      Jatuh Tempo
-                    </div>
+                    <div className="text-xs text-gray-500">Jatuh Tempo</div>
 
-                    <div>
-                      {formatDate(
-                        detailTarget.due_date
-                      )}
-                    </div>
+                    <div>{formatDate(detailTarget.due_date)}</div>
                   </div>
 
                   <div>
-                    <div className="text-xs text-gray-500">
-                      Total
-                    </div>
+                    <div className="text-xs text-gray-500">Total</div>
 
                     <div className="font-medium">
-                      {formatCurrency(
-                        Number(
-                          detailTarget.grand_total
-                        )
-                      )}
+                      {formatCurrency(Number(detailTarget.grand_total))}
                     </div>
                   </div>
 
                   <div>
-                    <div className="text-xs text-gray-500">
-                      Sisa Hutang
-                    </div>
+                    <div className="text-xs text-gray-500">Sisa Hutang</div>
 
                     <div className="font-semibold">
-                      {formatCurrency(
-                        Number(
-                          detailTarget.remaining_amount
-                        )
-                      )}
+                      {formatCurrency(Number(detailTarget.remaining_amount))}
                     </div>
                   </div>
-
                 </div>
               ) : (
                 <div className="space-y-5">
@@ -2835,9 +2180,7 @@ export function SupplierInvoicePage() {
                       </div>
 
                       <div className="font-medium">
-                        {formatDate(
-                          detailTarget.request_date
-                        )}
+                        {formatDate(detailTarget.request_date)}
                       </div>
                     </div>
 
@@ -2847,20 +2190,14 @@ export function SupplierInvoicePage() {
                       </div>
 
                       <div className="font-medium">
-                        {
-                          detailTarget.payment_request_number
-                        }
+                        {detailTarget.payment_request_number}
                       </div>
                     </div>
 
                     <div>
-                      <div className="text-xs text-gray-500">
-                        Status
-                      </div>
+                      <div className="text-xs text-gray-500">Status</div>
 
-                      <div className="font-medium">
-                        {detailTarget.status}
-                      </div>
+                      <div className="font-medium">{detailTarget.status}</div>
                     </div>
                   </div>
 
@@ -2869,25 +2206,15 @@ export function SupplierInvoicePage() {
                       <table className="min-w-full text-sm">
                         <thead className="bg-gray-50">
                           <tr>
-                            <th className="px-3 py-2 text-left">
-                              Supplier
-                            </th>
+                            <th className="px-3 py-2 text-left">Supplier</th>
 
-                            <th className="px-3 py-2 text-left">
-                              Invoice
-                            </th>
+                            <th className="px-3 py-2 text-left">Invoice</th>
 
-                            <th className="px-3 py-2 text-left">
-                              RR
-                            </th>
+                            <th className="px-3 py-2 text-left">RR</th>
 
-                            <th className="px-3 py-2 text-left">
-                              Jatuh Tempo
-                            </th>
+                            <th className="px-3 py-2 text-left">Jatuh Tempo</th>
 
-                            <th className="px-3 py-2 text-right">
-                              Sisa
-                            </th>
+                            <th className="px-3 py-2 text-right">Sisa</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y">
@@ -2911,42 +2238,29 @@ export function SupplierInvoicePage() {
                             </tr>
                           ) : (
                             paymentRequestDetailItems.map(
-                              (
-                                item: PaymentRequestDetailItem
-                              ) => (
-                                <tr
-                                  key={item.id}
-                                >
-
+                              (item: PaymentRequestDetailItem) => (
+                                <tr key={item.id}>
                                   <td className="px-3 py-2">
-                                    {item.supplier_name ??
-                                      "-"}
+                                    {item.supplier_name ?? "-"}
                                   </td>
 
                                   <td className="px-3 py-2 font-medium">
-                                    {item.invoice_number ??
-                                      "-"}
+                                    {item.invoice_number ?? "-"}
                                   </td>
 
                                   <td className="px-3 py-2">
-                                    {item.receiving_number ??
-                                      "-"}
+                                    {item.receiving_number ?? "-"}
                                   </td>
 
                                   <td className="px-3 py-2">
-                                    {formatDate(
-                                      item.due_date
-                                    )}
+                                    {formatDate(item.due_date)}
                                   </td>
 
                                   <td className="px-3 py-2 text-right font-medium">
-                                    {formatCurrency(
-                                      item.requested_amount
-                                    )}
+                                    {formatCurrency(item.requested_amount)}
                                   </td>
-
                                 </tr>
-                              )
+                              ),
                             )
                           )}
                         </tbody>
@@ -2962,16 +2276,10 @@ export function SupplierInvoicePage() {
                             <td className="px-3 py-3 text-right font-bold">
                               {formatCurrency(
                                 paymentRequestDetailItems.reduce(
-                                  (
-                                    total,
-                                    item
-                                  ) =>
-                                    total +
-                                    Number(
-                                      item.requested_amount
-                                    ),
-                                  0
-                                )
+                                  (total, item) =>
+                                    total + Number(item.requested_amount),
+                                  0,
+                                ),
                               )}
                             </td>
                           </tr>
@@ -2982,9 +2290,7 @@ export function SupplierInvoicePage() {
 
                   {detailTarget.notes && (
                     <div>
-                      <div className="text-xs text-gray-500">
-                        Catatan
-                      </div>
+                      <div className="text-xs text-gray-500">Catatan</div>
 
                       <div className="mt-1 whitespace-pre-wrap">
                         {detailTarget.notes}
@@ -3006,14 +2312,10 @@ export function SupplierInvoicePage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-lg bg-white shadow-xl">
             <div className="border-b px-6 py-4">
-              <h2 className="text-lg font-semibold">
-                Batalkan Pengajuan
-              </h2>
+              <h2 className="text-lg font-semibold">Batalkan Pengajuan</h2>
 
               <p className="text-sm text-gray-500">
-                {
-                  cancelTarget.payment_request_number
-                }
+                {cancelTarget.payment_request_number}
               </p>
             </div>
 
@@ -3024,11 +2326,7 @@ export function SupplierInvoicePage() {
 
               <textarea
                 value={cancelReason}
-                onChange={(event) =>
-                  setCancelReason(
-                    event.target.value
-                  )
-                }
+                onChange={(event) => setCancelReason(event.target.value)}
                 rows={4}
                 className="w-full rounded border px-3 py-2 text-sm"
               />
@@ -3037,11 +2335,7 @@ export function SupplierInvoicePage() {
             <div className="flex justify-end gap-2 border-t px-6 py-4">
               <button
                 type="button"
-                onClick={() =>
-                  setCancelTarget(
-                    null
-                  )
-                }
+                onClick={() => setCancelTarget(null)}
                 className="rounded border px-4 py-2 text-sm"
               >
                 Batal
@@ -3049,21 +2343,17 @@ export function SupplierInvoicePage() {
 
               <button
                 type="button"
-                onClick={() =>
-                  void handleCancel()
-                }
+                onClick={() => void handleCancel()}
                 disabled={saving}
                 className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
-                {saving
-                  ? "Memproses..."
-                  : "Batalkan Pengajuan"}
+                {saving ? "Memproses..." : "Batalkan Pengajuan"}
               </button>
             </div>
           </div>
         </div>
       )}
-    </div> 
+    </div>
   );
 }
 

@@ -21,7 +21,8 @@ export function useItemCategories(entityId?: string | null) {
 
     let query = supabase
       .from("accounts")
-      .select(`
+      .select(
+        `
         id,
         code,
         name,
@@ -29,7 +30,8 @@ export function useItemCategories(entityId?: string | null) {
         account_type,
         is_active,
         is_posting
-      `)
+      `,
+      )
       .eq("is_active", true)
       .eq("is_posting", true)
       .order("code", { ascending: true });
@@ -56,7 +58,8 @@ export function useItemCategories(entityId?: string | null) {
 
     let query = supabase
       .from(TABLE_NAME)
-      .select(`
+      .select(
+        `
         *,
         inventory_account:accounts!item_categories_inventory_account_id_fkey (
           id, code, name, category_code, account_type, is_active, is_posting
@@ -70,7 +73,8 @@ export function useItemCategories(entityId?: string | null) {
         stock_adjustment_account:accounts!item_categories_stock_adjustment_account_id_fkey (
           id, code, name, category_code, account_type, is_active, is_posting
         )
-      `)
+      `,
+      )
       .order("code", { ascending: true });
 
     if (entityId) {
@@ -98,22 +102,19 @@ export function useItemCategories(entityId?: string | null) {
     setSaving(true);
     setError(null);
 
-    const { error: createError } = await supabase
-      .from(TABLE_NAME)
-      .insert({
-        entity_id: payload.entity_id || null,
-        code: payload.code.trim().toUpperCase(),
-        name: payload.name.trim(),
-        description: payload.description.trim() || null,
+    const { error: createError } = await supabase.from(TABLE_NAME).insert({
+      entity_id: payload.entity_id || null,
+      code: payload.code.trim().toUpperCase(),
+      name: payload.name.trim(),
+      description: payload.description.trim() || null,
 
-        inventory_account_id: payload.inventory_account_id || null,
-        expense_account_id: payload.expense_account_id || null,
-        cogs_account_id: payload.cogs_account_id || null,
-        stock_adjustment_account_id:
-          payload.stock_adjustment_account_id || null,
+      inventory_account_id: payload.inventory_account_id || null,
+      expense_account_id: payload.expense_account_id || null,
+      cogs_account_id: payload.cogs_account_id || null,
+      stock_adjustment_account_id: payload.stock_adjustment_account_id || null,
 
-        is_active: payload.is_active,
-      });
+      is_active: payload.is_active,
+    });
 
     if (createError) {
       setError(createError.message);
@@ -126,10 +127,7 @@ export function useItemCategories(entityId?: string | null) {
     return true;
   };
 
-  const updateCategory = async (
-    id: string,
-    payload: ItemCategoryFormData
-  ) => {
+  const updateCategory = async (id: string, payload: ItemCategoryFormData) => {
     setSaving(true);
     setError(null);
 

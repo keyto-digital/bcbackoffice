@@ -1,8 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { supabase } from "@/lib/supabaseClient";
 
@@ -23,7 +19,6 @@ const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 25;
 const EXPORT_BATCH_SIZE = 1000;
 
-
 /*
  * ==========================================================
  * TYPE MASTER DENGAN ARTICLE PREFIX
@@ -37,16 +32,13 @@ const EXPORT_BATCH_SIZE = 1000;
  * ==========================================================
  */
 
-type ItemCategoryWithPrefix =
-  ItemCategoryOption & {
-    article_prefix: number | null;
-  };
+type ItemCategoryWithPrefix = ItemCategoryOption & {
+  article_prefix: number | null;
+};
 
-type ItemSubcategoryWithPrefix =
-  ItemSubcategoryOption & {
-    article_prefix: number | null;
-  };
-
+type ItemSubcategoryWithPrefix = ItemSubcategoryOption & {
+  article_prefix: number | null;
+};
 
 /*
  * ==========================================================
@@ -60,55 +52,33 @@ type FetchItemsOptions = {
   search?: string;
 };
 
-
 export function useItems(
   entityId?: string | null,
   page: number = DEFAULT_PAGE,
   pageSize: number = DEFAULT_PAGE_SIZE,
-  search: string = ""
+  search: string = "",
 ) {
+  const [items, setItems] = useState<Item[]>([]);
 
-  const [items, setItems] =
-    useState<Item[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
 
+  const [categories, setCategories] = useState<ItemCategoryOption[]>([]);
 
-  const [totalCount, setTotalCount] =
-    useState(0);
+  const [subcategories, setSubcategories] = useState<ItemSubcategoryOption[]>(
+    [],
+  );
 
+  const [units, setUnits] = useState<UnitOption[]>([]);
 
-  const [categories, setCategories] =
-    useState<ItemCategoryOption[]>([]);
+  const [accounts, setAccounts] = useState<AccountOption[]>([]);
 
+  const [loading, setLoading] = useState(false);
 
-  const [subcategories, setSubcategories] =
-    useState<ItemSubcategoryOption[]>(
-      []
-    );
+  const [loadingMasters, setLoadingMasters] = useState(false);
 
+  const [saving, setSaving] = useState(false);
 
-  const [units, setUnits] =
-    useState<UnitOption[]>([]);
-
-
-  const [accounts, setAccounts] =
-    useState<AccountOption[]>([]);
-
-
-  const [loading, setLoading] =
-    useState(false);
-
-
-  const [loadingMasters, setLoadingMasters] =
-    useState(false);
-
-
-  const [saving, setSaving] =
-    useState(false);
-
-
-  const [error, setError] =
-    useState<string | null>(null);
-
+  const [error, setError] = useState<string | null>(null);
 
   /*
    * ==========================================================
@@ -127,70 +97,48 @@ export function useItems(
    * ==========================================================
    */
 
-  const fetchMasters =
-    useCallback(async () => {
+  const fetchMasters = useCallback(async () => {
+    setLoadingMasters(true);
+    setError(null);
 
-      setLoadingMasters(true);
-      setError(null);
-
-      try {
-
-        const categoryQuery =
-          supabase
-            .from("item_categories")
-            .select(
-              `
+    try {
+      const categoryQuery = supabase
+        .from("item_categories")
+        .select(
+          `
                 id,
                 code,
                 name,
                 article_prefix,
                 is_active
-              `
-            )
-            .eq(
-              "is_active",
-              true
-            )
-            .order(
-              "article_prefix",
-              {
-                ascending: true,
-              }
-            );
+              `,
+        )
+        .eq("is_active", true)
+        .order("article_prefix", {
+          ascending: true,
+        });
 
-
-        const subcategoryQuery =
-          supabase
-            .from(
-              "item_subcategories"
-            )
-            .select(
-              `
+      const subcategoryQuery = supabase
+        .from("item_subcategories")
+        .select(
+          `
                 id,
                 category_id,
                 code,
                 name,
                 article_prefix,
                 is_active
-              `
-            )
-            .eq(
-              "is_active",
-              true
-            )
-            .order(
-              "article_prefix",
-              {
-                ascending: true,
-              }
-            );
+              `,
+        )
+        .eq("is_active", true)
+        .order("article_prefix", {
+          ascending: true,
+        });
 
-
-        let accountQuery =
-          supabase
-            .from("accounts")
-            .select(
-              `
+      let accountQuery = supabase
+        .from("accounts")
+        .select(
+          `
                 id,
                 code,
                 name,
@@ -198,204 +146,118 @@ export function useItems(
                 account_type,
                 is_active,
                 is_posting
-              `
-            )
-            .eq(
-              "is_active",
-              true
-            )
-            .eq(
-              "is_posting",
-              true
-            )
-            .order(
-              "code",
-              {
-                ascending: true,
-              }
-            );
+              `,
+        )
+        .eq("is_active", true)
+        .eq("is_posting", true)
+        .order("code", {
+          ascending: true,
+        });
 
-
-        const unitQuery =
-          supabase
-            .from("units")
-            .select(
-              `
+      const unitQuery = supabase
+        .from("units")
+        .select(
+          `
                 id,
                 code,
                 name,
                 is_active
-              `
-            )
-            .eq(
-              "is_active",
-              true
-            )
-            .order(
-              "code",
-              {
-                ascending: true,
-              }
-            );
+              `,
+        )
+        .eq("is_active", true)
+        .order("code", {
+          ascending: true,
+        });
 
+      /*
+       * ======================================================
+       * COA MENGIKUTI ENTITY
+       * ======================================================
+       */
 
-        /*
-         * ======================================================
-         * COA MENGIKUTI ENTITY
-         * ======================================================
-         */
+      if (entityId) {
+        accountQuery = accountQuery.eq("entity_id", entityId);
+      }
 
-        if (entityId) {
-
-          accountQuery =
-            accountQuery.eq(
-              "entity_id",
-              entityId
-            );
-
-        }
-
-
-        const [
-          categoryResult,
-          subcategoryResult,
-          unitResult,
-          accountResult,
-        ] = await Promise.all([
+      const [categoryResult, subcategoryResult, unitResult, accountResult] =
+        await Promise.all([
           categoryQuery,
           subcategoryQuery,
           unitQuery,
           accountQuery,
         ]);
 
+      /*
+       * ======================================================
+       * CATEGORY
+       * ======================================================
+       */
 
-        /*
-         * ======================================================
-         * CATEGORY
-         * ======================================================
-         */
-
-        if (
-          categoryResult.error
-        ) {
-
-          setError(
-            categoryResult.error.message
-          );
-
-          setCategories([]);
-
-        } else {
-
-          setCategories(
-            (categoryResult.data ??
-              []) as ItemCategoryWithPrefix[]
-          );
-
-        }
-
-
-        /*
-         * ======================================================
-         * SUBCATEGORY
-         * ======================================================
-         */
-
-        if (
-          subcategoryResult.error
-        ) {
-
-          setError(
-            subcategoryResult.error.message
-          );
-
-          setSubcategories([]);
-
-        } else {
-
-          setSubcategories(
-            (subcategoryResult.data ??
-              []) as ItemSubcategoryWithPrefix[]
-          );
-
-        }
-
-
-        /*
-         * ======================================================
-         * UNIT
-         * ======================================================
-         */
-
-        if (
-          unitResult.error
-        ) {
-
-          setError(
-            unitResult.error.message
-          );
-
-          setUnits([]);
-
-        } else {
-
-          setUnits(
-            (unitResult.data ??
-              []) as UnitOption[]
-          );
-
-        }
-
-
-        /*
-         * ======================================================
-         * ACCOUNT
-         * ======================================================
-         */
-
-        if (
-          accountResult.error
-        ) {
-
-          setError(
-            accountResult.error.message
-          );
-
-          setAccounts([]);
-
-        } else {
-
-          setAccounts(
-            (accountResult.data ??
-              []) as AccountOption[]
-          );
-
-        }
-
-      } catch (err) {
-
-        const message =
-          err instanceof Error
-            ? err.message
-            : "Gagal mengambil master artikel.";
-
-        setError(message);
+      if (categoryResult.error) {
+        setError(categoryResult.error.message);
 
         setCategories([]);
-        setSubcategories([]);
-        setUnits([]);
-        setAccounts([]);
-
-      } finally {
-
-        setLoadingMasters(false);
-
+      } else {
+        setCategories((categoryResult.data ?? []) as ItemCategoryWithPrefix[]);
       }
 
-    }, [
-      entityId,
-    ]);
+      /*
+       * ======================================================
+       * SUBCATEGORY
+       * ======================================================
+       */
 
+      if (subcategoryResult.error) {
+        setError(subcategoryResult.error.message);
+
+        setSubcategories([]);
+      } else {
+        setSubcategories(
+          (subcategoryResult.data ?? []) as ItemSubcategoryWithPrefix[],
+        );
+      }
+
+      /*
+       * ======================================================
+       * UNIT
+       * ======================================================
+       */
+
+      if (unitResult.error) {
+        setError(unitResult.error.message);
+
+        setUnits([]);
+      } else {
+        setUnits((unitResult.data ?? []) as UnitOption[]);
+      }
+
+      /*
+       * ======================================================
+       * ACCOUNT
+       * ======================================================
+       */
+
+      if (accountResult.error) {
+        setError(accountResult.error.message);
+
+        setAccounts([]);
+      } else {
+        setAccounts((accountResult.data ?? []) as AccountOption[]);
+      }
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Gagal mengambil master artikel.";
+
+      setError(message);
+
+      setCategories([]);
+      setSubcategories([]);
+      setUnits([]);
+      setAccounts([]);
+    } finally {
+      setLoadingMasters(false);
+    }
+  }, [entityId]);
 
   /*
    * ==========================================================
@@ -416,68 +278,33 @@ export function useItems(
    * ==========================================================
    */
 
-  const fetchItems =
-    useCallback(
-      async (
-        options?: FetchItemsOptions
-      ) => {
+  const fetchItems = useCallback(
+    async (options?: FetchItemsOptions) => {
+      setLoading(true);
+      setError(null);
 
-        setLoading(true);
-        setError(null);
+      try {
+        const currentPage = Math.max(1, options?.page ?? page ?? DEFAULT_PAGE);
 
+        const currentPageSize = Math.max(
+          1,
+          options?.pageSize ?? pageSize ?? DEFAULT_PAGE_SIZE,
+        );
 
-        try {
+        const currentSearch = (options?.search ?? search ?? "").trim();
 
-          const currentPage =
-            Math.max(
-              1,
-              options?.page ??
-                page ??
-                DEFAULT_PAGE
-            );
+        const from = (currentPage - 1) * currentPageSize;
 
+        const to = from + currentPageSize - 1;
 
-          const currentPageSize =
-            Math.max(
-              1,
-              options?.pageSize ??
-                pageSize ??
-                DEFAULT_PAGE_SIZE
-            );
+        /*
+         * ====================================================
+         * QUERY ITEMS
+         * ====================================================
+         */
 
-
-          const currentSearch =
-            (
-              options?.search ??
-              search ??
-              ""
-            ).trim();
-
-
-          const from =
-            (
-              currentPage - 1
-            ) *
-            currentPageSize;
-
-
-          const to =
-            from +
-            currentPageSize -
-            1;
-
-
-          /*
-           * ====================================================
-           * QUERY ITEMS
-           * ====================================================
-           */
-
-          let query =
-            supabase
-              .from(TABLE_NAME)
-              .select(
-                `
+        let query = supabase.from(TABLE_NAME).select(
+          `
                   *,
                   category:item_categories!items_category_id_fkey (
                     id,
@@ -499,145 +326,86 @@ export function useItems(
                     is_active
                   )
                 `,
-                {
-                  count: "exact",
-                }
-              );
+          {
+            count: "exact",
+          },
+        );
 
+        /*
+         * ====================================================
+         * ENTITY
+         * ====================================================
+         */
 
-          /*
-           * ====================================================
-           * ENTITY
-           * ====================================================
-           */
-
-          if (entityId) {
-
-            query =
-              query.eq(
-                "entity_id",
-                entityId
-              );
-
-          }
-
-
-          /*
-           * ====================================================
-           * SERVER-SIDE SEARCH
-           *
-           * Untuk sekarang pencarian utama:
-           *
-           * - kode
-           * - nama
-           * - deskripsi
-           *
-           * Kita tidak melakukan .filter()
-           * di React lagi.
-           * ====================================================
-           */
-
-          if (currentSearch) {
-
-            const escapedSearch =
-              currentSearch
-                .replace(
-                  /[%_]/g,
-                  "\\$&"
-                )
-                .replace(
-                  /,/g,
-                  " "
-                );
-
-
-            query =
-              query.or(
-                [
-                  `code.ilike.%${escapedSearch}%`,
-                  `name.ilike.%${escapedSearch}%`,
-                  `description.ilike.%${escapedSearch}%`,
-                ].join(",")
-              );
-
-          }
-
-
-          /*
-           * ====================================================
-           * ORDER + RANGE
-           * ====================================================
-           */
-
-          query =
-            query
-              .order(
-                "code",
-                {
-                  ascending: true,
-                }
-              )
-              .range(
-                from,
-                to
-              );
-
-
-          const {
-            data,
-            error: fetchError,
-            count,
-          } =
-            await query;
-
-
-          if (fetchError) {
-
-            throw new Error(
-              fetchError.message
-            );
-
-          }
-
-
-          setItems(
-            (data ?? []) as Item[]
-          );
-
-
-          setTotalCount(
-            count ?? 0
-          );
-
-
-        } catch (err) {
-
-          const message =
-            err instanceof Error
-              ? err.message
-              : "Gagal mengambil data artikel.";
-
-          setError(message);
-
-          setItems([]);
-
-          setTotalCount(0);
-
-        } finally {
-
-          setLoading(false);
-
+        if (entityId) {
+          query = query.eq("entity_id", entityId);
         }
 
-      },
-      [
-        entityId,
-        page,
-        pageSize,
-        search,
-      ]
-    );
+        /*
+         * ====================================================
+         * SERVER-SIDE SEARCH
+         *
+         * Untuk sekarang pencarian utama:
+         *
+         * - kode
+         * - nama
+         * - deskripsi
+         *
+         * Kita tidak melakukan .filter()
+         * di React lagi.
+         * ====================================================
+         */
 
+        if (currentSearch) {
+          const escapedSearch = currentSearch
+            .replace(/[%_]/g, "\\$&")
+            .replace(/,/g, " ");
+
+          query = query.or(
+            [
+              `code.ilike.%${escapedSearch}%`,
+              `name.ilike.%${escapedSearch}%`,
+              `description.ilike.%${escapedSearch}%`,
+            ].join(","),
+          );
+        }
+
+        /*
+         * ====================================================
+         * ORDER + RANGE
+         * ====================================================
+         */
+
+        query = query
+          .order("code", {
+            ascending: true,
+          })
+          .range(from, to);
+
+        const { data, error: fetchError, count } = await query;
+
+        if (fetchError) {
+          throw new Error(fetchError.message);
+        }
+
+        setItems((data ?? []) as Item[]);
+
+        setTotalCount(count ?? 0);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Gagal mengambil data artikel.";
+
+        setError(message);
+
+        setItems([]);
+
+        setTotalCount(0);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [entityId, page, pageSize, search],
+  );
 
   /*
    * ==========================================================
@@ -655,22 +423,12 @@ export function useItems(
    */
 
   useEffect(() => {
-
     void fetchMasters();
-
-  }, [
-    fetchMasters,
-  ]);
-
+  }, [fetchMasters]);
 
   useEffect(() => {
-
     void fetchItems();
-
-  }, [
-    fetchItems,
-  ]);
-
+  }, [fetchItems]);
 
   /*
    * ==========================================================
@@ -696,293 +454,150 @@ export function useItems(
    * ==========================================================
    */
 
-  const generateNextItemCode =
-    useCallback(
-      async (
-        categoryId: string,
-        subcategoryId: string
-      ): Promise<string> => {
-
-        if (!categoryId) {
-
-          throw new Error(
-            "Kategori artikel belum dipilih."
-          );
-
-        }
-
-
-        if (!subcategoryId) {
-
-          throw new Error(
-            "Subkategori artikel wajib dipilih."
-          );
-
-        }
-
-
-        if (!entityId) {
-
-          throw new Error(
-            "Entity user tidak ditemukan."
-          );
-
-        }
-
-
-        /*
-         * ======================================================
-         * CARI CATEGORY
-         * ======================================================
-         */
-
-        const category =
-          categories.find(
-            (item) =>
-              item.id ===
-              categoryId
-          ) as
-            | ItemCategoryWithPrefix
-            | undefined;
-
-
-        /*
-         * ======================================================
-         * CARI SUBCATEGORY
-         * ======================================================
-         */
-
-        const subcategory =
-          subcategories.find(
-            (item) =>
-              item.id ===
-              subcategoryId
-          ) as
-            | ItemSubcategoryWithPrefix
-            | undefined;
-
-
-        if (!category) {
-
-          throw new Error(
-            "Data kategori tidak ditemukan."
-          );
-
-        }
-
-
-        if (!subcategory) {
-
-          throw new Error(
-            "Data subkategori tidak ditemukan."
-          );
-
-        }
-
-
-        /*
-         * ======================================================
-         * VALIDASI RELASI
-         * ======================================================
-         */
-
-        if (
-          subcategory.category_id !==
-          category.id
-        ) {
-
-          throw new Error(
-            "Subkategori tidak sesuai dengan kategori yang dipilih."
-          );
-
-        }
-
-
-        /*
-         * ======================================================
-         * ARTICLE PREFIX
-         * ======================================================
-         */
-
-        const categoryPrefix =
-          Number(
-            category.article_prefix
-          );
-
-
-        const subcategoryPrefix =
-          Number(
-            subcategory.article_prefix
-          );
-
-
-        if (
-          !Number.isInteger(
-            categoryPrefix
-          ) ||
-          categoryPrefix < 1 ||
-          categoryPrefix > 9
-        ) {
-
-          throw new Error(
-            `Kategori "${category.name}" belum memiliki article prefix yang valid.`
-          );
-
-        }
-
-
-        if (
-          !Number.isInteger(
-            subcategoryPrefix
-          ) ||
-          subcategoryPrefix < 1 ||
-          subcategoryPrefix > 9
-        ) {
-
-          throw new Error(
-            `Subkategori "${subcategory.name}" belum memiliki article prefix yang valid.`
-          );
-
-        }
-
-
-        const prefix =
-          `${categoryPrefix}${subcategoryPrefix}`;
-
-
-        /*
-         * ======================================================
-         * CARI KODE TERAKHIR
-         *
-         * Entity sama.
-         * Prefix sama.
-         * ======================================================
-         */
-
-        const {
-          data,
-          error: codeError,
-        } =
-          await supabase
-            .from(TABLE_NAME)
-            .select(
-              "code"
-            )
-            .eq(
-              "entity_id",
-              entityId
-            )
-            .like(
-              "code",
-              `${prefix}%`
-            )
-            .order(
-              "code",
-              {
-                ascending: false,
-              }
-            )
-            .limit(
-              1000
-            );
-
-
-        if (codeError) {
-
-          throw new Error(
-            `Gagal menentukan nomor artikel: ${codeError.message}`
-          );
-
-        }
-
-
-        /*
-         * ======================================================
-         * CARI SEQUENCE TERBESAR
-         * ======================================================
-         */
-
-        let maxSequence = 0;
-
-
-        for (
-          const row of data ?? []
-        ) {
-
-          const code =
-            String(
-              row.code ?? ""
-            ).trim();
-
-
-          const match =
-            code.match(
-              new RegExp(
-                `^${prefix}(\\d{5})$`
-              )
-            );
-
-
-          if (!match) {
-            continue;
-          }
-
-
-          const sequence =
-            Number(
-              match[1]
-            );
-
-
-          if (
-            Number.isInteger(
-              sequence
-            ) &&
-            sequence >
-              maxSequence
-          ) {
-
-            maxSequence =
-              sequence;
-
-          }
-
-        }
-
-
-        const nextSequence =
-          maxSequence + 1;
-
-
-        if (
-          nextSequence >
-          99999
-        ) {
-
-          throw new Error(
-            `Nomor artikel untuk prefix ${prefix} sudah mencapai batas 99999.`
-          );
-
-        }
-
-
-        return (
-          `${prefix}${String(
-            nextSequence
-          ).padStart(
-            5,
-            "0"
-          )}`
+  const generateNextItemCode = useCallback(
+    async (categoryId: string, subcategoryId: string): Promise<string> => {
+      if (!categoryId) {
+        throw new Error("Kategori artikel belum dipilih.");
+      }
+
+      if (!subcategoryId) {
+        throw new Error("Subkategori artikel wajib dipilih.");
+      }
+
+      if (!entityId) {
+        throw new Error("Entity user tidak ditemukan.");
+      }
+
+      /*
+       * ======================================================
+       * CARI CATEGORY
+       * ======================================================
+       */
+
+      const category = categories.find((item) => item.id === categoryId) as
+        ItemCategoryWithPrefix | undefined;
+
+      /*
+       * ======================================================
+       * CARI SUBCATEGORY
+       * ======================================================
+       */
+
+      const subcategory = subcategories.find(
+        (item) => item.id === subcategoryId,
+      ) as ItemSubcategoryWithPrefix | undefined;
+
+      if (!category) {
+        throw new Error("Data kategori tidak ditemukan.");
+      }
+
+      if (!subcategory) {
+        throw new Error("Data subkategori tidak ditemukan.");
+      }
+
+      /*
+       * ======================================================
+       * VALIDASI RELASI
+       * ======================================================
+       */
+
+      if (subcategory.category_id !== category.id) {
+        throw new Error(
+          "Subkategori tidak sesuai dengan kategori yang dipilih.",
         );
+      }
 
-      },
-      [
-        categories,
-        subcategories,
-        entityId,
-      ]
-    );
+      /*
+       * ======================================================
+       * ARTICLE PREFIX
+       * ======================================================
+       */
 
+      const categoryPrefix = Number(category.article_prefix);
+
+      const subcategoryPrefix = Number(subcategory.article_prefix);
+
+      if (
+        !Number.isInteger(categoryPrefix) ||
+        categoryPrefix < 1 ||
+        categoryPrefix > 9
+      ) {
+        throw new Error(
+          `Kategori "${category.name}" belum memiliki article prefix yang valid.`,
+        );
+      }
+
+      if (
+        !Number.isInteger(subcategoryPrefix) ||
+        subcategoryPrefix < 1 ||
+        subcategoryPrefix > 9
+      ) {
+        throw new Error(
+          `Subkategori "${subcategory.name}" belum memiliki article prefix yang valid.`,
+        );
+      }
+
+      const prefix = `${categoryPrefix}${subcategoryPrefix}`;
+
+      /*
+       * ======================================================
+       * CARI KODE TERAKHIR
+       *
+       * Entity sama.
+       * Prefix sama.
+       * ======================================================
+       */
+
+      const { data, error: codeError } = await supabase
+        .from(TABLE_NAME)
+        .select("code")
+        .eq("entity_id", entityId)
+        .like("code", `${prefix}%`)
+        .order("code", {
+          ascending: false,
+        })
+        .limit(1000);
+
+      if (codeError) {
+        throw new Error(`Gagal menentukan nomor artikel: ${codeError.message}`);
+      }
+
+      /*
+       * ======================================================
+       * CARI SEQUENCE TERBESAR
+       * ======================================================
+       */
+
+      let maxSequence = 0;
+
+      for (const row of data ?? []) {
+        const code = String(row.code ?? "").trim();
+
+        const match = code.match(new RegExp(`^${prefix}(\\d{5})$`));
+
+        if (!match) {
+          continue;
+        }
+
+        const sequence = Number(match[1]);
+
+        if (Number.isInteger(sequence) && sequence > maxSequence) {
+          maxSequence = sequence;
+        }
+      }
+
+      const nextSequence = maxSequence + 1;
+
+      if (nextSequence > 99999) {
+        throw new Error(
+          `Nomor artikel untuk prefix ${prefix} sudah mencapai batas 99999.`,
+        );
+      }
+
+      return `${prefix}${String(nextSequence).padStart(5, "0")}`;
+    },
+    [categories, subcategories, entityId],
+  );
 
   /*
    * ==========================================================
@@ -999,40 +614,20 @@ export function useItems(
    * ==========================================================
    */
 
-  const formatItemName =
-    useCallback(
-      (
-        rawName: string,
-        subcategoryName: string
-      ) => {
+  const formatItemName = useCallback(
+    (rawName: string, subcategoryName: string) => {
+      const name = rawName.trim();
 
-        const name =
-          rawName.trim();
+      const prefix = `${subcategoryName.trim()} -`;
 
+      if (name.toUpperCase().startsWith(prefix.toUpperCase())) {
+        return name;
+      }
 
-        const prefix =
-          `${subcategoryName.trim()} -`;
-
-
-        if (
-          name
-            .toUpperCase()
-            .startsWith(
-              prefix.toUpperCase()
-            )
-        ) {
-
-          return name;
-
-        }
-
-
-        return `${subcategoryName.trim()} - ${name}`;
-
-      },
-      []
-    );
-
+      return `${subcategoryName.trim()} - ${name}`;
+    },
+    [],
+  );
 
   /*
    * ==========================================================
@@ -1040,221 +635,119 @@ export function useItems(
    * ==========================================================
    */
 
-  const createItem =
-    async (
-      payload: ItemFormData
-    ) => {
+  const createItem = async (payload: ItemFormData) => {
+    const currentUser = getCustomUser();
 
-      const currentUser =
-        getCustomUser();
+    if (!currentUser?.entity_id) {
+      throw new Error("Entity user tidak ditemukan.");
+    }
 
+    setSaving(true);
+    setError(null);
 
-      if (
-        !currentUser?.entity_id
-      ) {
-
-        throw new Error(
-          "Entity user tidak ditemukan."
-        );
-
+    try {
+      if (!payload.category_id) {
+        throw new Error("Kategori artikel wajib dipilih.");
       }
 
-
-      setSaving(true);
-      setError(null);
-
-
-      try {
-
-        if (
-          !payload.category_id
-        ) {
-
-          throw new Error(
-            "Kategori artikel wajib dipilih."
-          );
-
-        }
-
-
-        if (
-          !payload.subcategory_id
-        ) {
-
-          throw new Error(
-            "Subkategori artikel wajib dipilih."
-          );
-
-        }
-
-
-        if (
-          !payload.name.trim()
-        ) {
-
-          throw new Error(
-            "Nama artikel wajib diisi."
-          );
-
-        }
-
-
-        /*
-         * Generate kode otomatis.
-         */
-
-        const generatedCode =
-          await generateNextItemCode(
-            payload.category_id,
-            payload.subcategory_id
-          );
-
-
-        /*
-         * Subcategory.
-         */
-
-        const subcategory =
-          subcategories.find(
-            (item) =>
-              item.id ===
-              payload.subcategory_id
-          );
-
-
-        if (!subcategory) {
-
-          throw new Error(
-            "Subkategori artikel tidak ditemukan."
-          );
-
-        }
-
-
-        /*
-         * Format nama.
-         */
-
-        const formattedName =
-          formatItemName(
-            payload.name,
-            subcategory.name
-          );
-
-
-        /*
-         * Insert.
-         */
-
-        const {
-          error: createError,
-        } =
-          await supabase
-            .from(TABLE_NAME)
-            .insert({
-              entity_id:
-                currentUser.entity_id,
-
-              code:
-                generatedCode,
-
-              name:
-                formattedName,
-
-              description:
-                payload.description
-                  .trim() ||
-                null,
-
-              item_type:
-                payload.item_type,
-
-              category_id:
-                payload.category_id,
-
-              subcategory_id:
-                payload.subcategory_id,
-
-              unit_id:
-                payload.unit_id,
-
-              inventory_account_id:
-                payload.inventory_account_id ||
-                null,
-
-              expense_account_id:
-                payload.expense_account_id ||
-                null,
-
-              cogs_account_id:
-                payload.cogs_account_id ||
-                null,
-
-              stock_adjustment_account_id:
-                payload.stock_adjustment_account_id ||
-                null,
-
-              valuation_method:
-                "MOVING_AVERAGE",
-
-              minimum_stock:
-                Number(
-                  payload.minimum_stock ||
-                    0
-                ),
-
-              standard_cost:
-                Number(
-                  payload.standard_cost ||
-                    0
-                ),
-
-              is_active:
-                payload.is_active,
-            });
-
-
-        if (createError) {
-
-          throw new Error(
-            createError.message
-          );
-
-        }
-
-
-        /*
-         * Refresh halaman aktif.
-         */
-
-        await fetchItems();
-
-
-        return true;
-
-      } catch (error) {
-
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Gagal menyimpan artikel.";
-
-        setError(message);
-
-        window.alert(
-          message
-        );
-
-        return false;
-
-      } finally {
-
-        setSaving(false);
-
+      if (!payload.subcategory_id) {
+        throw new Error("Subkategori artikel wajib dipilih.");
       }
 
-    };
+      if (!payload.name.trim()) {
+        throw new Error("Nama artikel wajib diisi.");
+      }
 
+      /*
+       * Generate kode otomatis.
+       */
+
+      const generatedCode = await generateNextItemCode(
+        payload.category_id,
+        payload.subcategory_id,
+      );
+
+      /*
+       * Subcategory.
+       */
+
+      const subcategory = subcategories.find(
+        (item) => item.id === payload.subcategory_id,
+      );
+
+      if (!subcategory) {
+        throw new Error("Subkategori artikel tidak ditemukan.");
+      }
+
+      /*
+       * Format nama.
+       */
+
+      const formattedName = formatItemName(payload.name, subcategory.name);
+
+      /*
+       * Insert.
+       */
+
+      const { error: createError } = await supabase.from(TABLE_NAME).insert({
+        entity_id: currentUser.entity_id,
+
+        code: generatedCode,
+
+        name: formattedName,
+
+        description: payload.description.trim() || null,
+
+        item_type: payload.item_type,
+
+        category_id: payload.category_id,
+
+        subcategory_id: payload.subcategory_id,
+
+        unit_id: payload.unit_id,
+
+        inventory_account_id: payload.inventory_account_id || null,
+
+        expense_account_id: payload.expense_account_id || null,
+
+        cogs_account_id: payload.cogs_account_id || null,
+
+        stock_adjustment_account_id:
+          payload.stock_adjustment_account_id || null,
+
+        valuation_method: "MOVING_AVERAGE",
+
+        minimum_stock: Number(payload.minimum_stock || 0),
+
+        standard_cost: Number(payload.standard_cost || 0),
+
+        is_active: payload.is_active,
+      });
+
+      if (createError) {
+        throw new Error(createError.message);
+      }
+
+      /*
+       * Refresh halaman aktif.
+       */
+
+      await fetchItems();
+
+      return true;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Gagal menyimpan artikel.";
+
+      setError(message);
+
+      window.alert(message);
+
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
 
   /*
    * ==========================================================
@@ -1264,199 +757,97 @@ export function useItems(
    * ==========================================================
    */
 
-  const updateItem =
-    async (
-      id: string,
-      payload: ItemFormData
-    ) => {
+  const updateItem = async (id: string, payload: ItemFormData) => {
+    setSaving(true);
+    setError(null);
 
-      setSaving(true);
-      setError(null);
-
-
-      try {
-
-        if (
-          !payload.category_id
-        ) {
-
-          throw new Error(
-            "Kategori artikel wajib dipilih."
-          );
-
-        }
-
-
-        if (
-          !payload.subcategory_id
-        ) {
-
-          throw new Error(
-            "Subkategori artikel wajib dipilih."
-          );
-
-        }
-
-
-        if (
-          !payload.name.trim()
-        ) {
-
-          throw new Error(
-            "Nama artikel wajib diisi."
-          );
-
-        }
-
-
-        const subcategory =
-          subcategories.find(
-            (item) =>
-              item.id ===
-              payload.subcategory_id
-          );
-
-
-        if (!subcategory) {
-
-          throw new Error(
-            "Subkategori artikel tidak ditemukan."
-          );
-
-        }
-
-
-        if (
-          subcategory.category_id !==
-          payload.category_id
-        ) {
-
-          throw new Error(
-            "Subkategori tidak sesuai dengan kategori yang dipilih."
-          );
-
-        }
-
-
-        const formattedName =
-          formatItemName(
-            payload.name,
-            subcategory.name
-          );
-
-
-        const {
-          error: updateError,
-        } =
-          await supabase
-            .from(TABLE_NAME)
-            .update({
-              entity_id:
-                payload.entity_id ||
-                null,
-
-              code:
-                payload.code
-                  .trim()
-                  .toUpperCase(),
-
-              name:
-                formattedName,
-
-              description:
-                payload.description
-                  .trim() ||
-                null,
-
-              item_type:
-                payload.item_type,
-
-              category_id:
-                payload.category_id,
-
-              subcategory_id:
-                payload.subcategory_id,
-
-              unit_id:
-                payload.unit_id,
-
-              inventory_account_id:
-                payload.inventory_account_id ||
-                null,
-
-              expense_account_id:
-                payload.expense_account_id ||
-                null,
-
-              cogs_account_id:
-                payload.cogs_account_id ||
-                null,
-
-              stock_adjustment_account_id:
-                payload.stock_adjustment_account_id ||
-                null,
-
-              minimum_stock:
-                Number(
-                  payload.minimum_stock ||
-                    0
-                ),
-
-              standard_cost:
-                Number(
-                  payload.standard_cost ||
-                    0
-                ),
-
-              is_active:
-                payload.is_active,
-
-              updated_at:
-                new Date().toISOString(),
-            })
-            .eq(
-              "id",
-              id
-            );
-
-
-        if (updateError) {
-
-          throw new Error(
-            updateError.message
-          );
-
-        }
-
-
-        await fetchItems();
-
-
-        return true;
-
-      } catch (error) {
-
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Gagal memperbarui artikel.";
-
-        setError(message);
-
-        window.alert(
-          message
-        );
-
-        return false;
-
-      } finally {
-
-        setSaving(false);
-
+    try {
+      if (!payload.category_id) {
+        throw new Error("Kategori artikel wajib dipilih.");
       }
 
-    };
+      if (!payload.subcategory_id) {
+        throw new Error("Subkategori artikel wajib dipilih.");
+      }
 
+      if (!payload.name.trim()) {
+        throw new Error("Nama artikel wajib diisi.");
+      }
+
+      const subcategory = subcategories.find(
+        (item) => item.id === payload.subcategory_id,
+      );
+
+      if (!subcategory) {
+        throw new Error("Subkategori artikel tidak ditemukan.");
+      }
+
+      if (subcategory.category_id !== payload.category_id) {
+        throw new Error(
+          "Subkategori tidak sesuai dengan kategori yang dipilih.",
+        );
+      }
+
+      const formattedName = formatItemName(payload.name, subcategory.name);
+
+      const { error: updateError } = await supabase
+        .from(TABLE_NAME)
+        .update({
+          entity_id: payload.entity_id || null,
+
+          code: payload.code.trim().toUpperCase(),
+
+          name: formattedName,
+
+          description: payload.description.trim() || null,
+
+          item_type: payload.item_type,
+
+          category_id: payload.category_id,
+
+          subcategory_id: payload.subcategory_id,
+
+          unit_id: payload.unit_id,
+
+          inventory_account_id: payload.inventory_account_id || null,
+
+          expense_account_id: payload.expense_account_id || null,
+
+          cogs_account_id: payload.cogs_account_id || null,
+
+          stock_adjustment_account_id:
+            payload.stock_adjustment_account_id || null,
+
+          minimum_stock: Number(payload.minimum_stock || 0),
+
+          standard_cost: Number(payload.standard_cost || 0),
+
+          is_active: payload.is_active,
+
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+
+      if (updateError) {
+        throw new Error(updateError.message);
+      }
+
+      await fetchItems();
+
+      return true;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Gagal memperbarui artikel.";
+
+      setError(message);
+
+      window.alert(message);
+
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
 
   /*
    * ==========================================================
@@ -1464,105 +855,63 @@ export function useItems(
    * ==========================================================
    */
 
-  const deleteItem =
-    async (
-      id: string
-    ) => {
+  const deleteItem = async (id: string) => {
+    setSaving(true);
+    setError(null);
 
-      setSaving(true);
-      setError(null);
+    try {
+      const { error: deleteError } = await supabase
+        .from(TABLE_NAME)
+        .delete()
+        .eq("id", id);
 
+      if (deleteError) {
+        /*
+         * ==================================================
+         * PURCHASE ORDER FK
+         * ==================================================
+         */
 
-      try {
-
-        const {
-          error: deleteError,
-        } =
-          await supabase
-            .from(TABLE_NAME)
-            .delete()
-            .eq(
-              "id",
-              id
-            );
-
-
-        if (deleteError) {
-
-          /*
-           * ==================================================
-           * PURCHASE ORDER FK
-           * ==================================================
-           */
-
-          if (
-            deleteError.code ===
-              "23503" ||
-            deleteError.message.includes(
-              "purchase_order_details_item_id_fkey"
-            )
-          ) {
-
-            throw new Error(
-              "Artikel tidak dapat dihapus karena sudah digunakan pada Purchase Order. Silakan nonaktifkan artikel tersebut agar riwayat transaksi tetap aman."
-            );
-
-          }
-
-
-          /*
-           * ==================================================
-           * FOREIGN KEY LAIN
-           * ==================================================
-           */
-
-          if (
-            deleteError.code ===
-            "23503"
-          ) {
-
-            throw new Error(
-              "Artikel tidak dapat dihapus karena masih digunakan oleh transaksi atau data lain. Nonaktifkan artikel tersebut agar riwayat transaksi tetap aman."
-            );
-
-          }
-
-
+        if (
+          deleteError.code === "23503" ||
+          deleteError.message.includes("purchase_order_details_item_id_fkey")
+        ) {
           throw new Error(
-            deleteError.message
+            "Artikel tidak dapat dihapus karena sudah digunakan pada Purchase Order. Silakan nonaktifkan artikel tersebut agar riwayat transaksi tetap aman.",
           );
-
         }
 
+        /*
+         * ==================================================
+         * FOREIGN KEY LAIN
+         * ==================================================
+         */
 
-        await fetchItems();
+        if (deleteError.code === "23503") {
+          throw new Error(
+            "Artikel tidak dapat dihapus karena masih digunakan oleh transaksi atau data lain. Nonaktifkan artikel tersebut agar riwayat transaksi tetap aman.",
+          );
+        }
 
-
-        return true;
-
-      } catch (error) {
-
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Artikel gagal dihapus.";
-
-        setError(message);
-
-        window.alert(
-          message
-        );
-
-        return false;
-
-      } finally {
-
-        setSaving(false);
-
+        throw new Error(deleteError.message);
       }
 
-    };
+      await fetchItems();
 
+      return true;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Artikel gagal dihapus.";
+
+      setError(message);
+
+      window.alert(message);
+
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
 
   /*
    * ==========================================================
@@ -1581,39 +930,23 @@ export function useItems(
    * ==========================================================
    */
 
-  const exportItems =
-    useCallback(
-      async (
-        exportSearch: string = ""
-      ): Promise<Item[]> => {
+  const exportItems = useCallback(
+    async (exportSearch: string = ""): Promise<Item[]> => {
+      if (!entityId) {
+        throw new Error("Entity user tidak ditemukan.");
+      }
 
-        if (!entityId) {
+      const currentSearch = exportSearch.trim();
 
-          throw new Error(
-            "Entity user tidak ditemukan."
-          );
+      let allItems: Item[] = [];
 
-        }
+      let offset = 0;
 
-
-        const currentSearch =
-          exportSearch.trim();
-
-
-        let allItems: Item[] =
-          [];
-
-
-        let offset = 0;
-
-
-        while (true) {
-
-          let query =
-            supabase
-              .from(TABLE_NAME)
-              .select(
-                `
+      while (true) {
+        let query = supabase
+          .from(TABLE_NAME)
+          .select(
+            `
                   *,
                   category:item_categories!items_category_id_fkey (
                     id,
@@ -1634,107 +967,56 @@ export function useItems(
                     name,
                     is_active
                   )
-                `
-              )
-              .eq(
-                "entity_id",
-                entityId
-              );
+                `,
+          )
+          .eq("entity_id", entityId);
 
+        /*
+         * Server-side search yang sama
+         * dengan tabel.
+         */
 
-          /*
-           * Server-side search yang sama
-           * dengan tabel.
-           */
+        if (currentSearch) {
+          const escapedSearch = currentSearch
+            .replace(/[%_]/g, "\\$&")
+            .replace(/,/g, " ");
 
-          if (currentSearch) {
-
-            const escapedSearch =
-              currentSearch
-                .replace(
-                  /[%_]/g,
-                  "\\$&"
-                )
-                .replace(
-                  /,/g,
-                  " "
-                );
-
-
-            query =
-              query.or(
-                [
-                  `code.ilike.%${escapedSearch}%`,
-                  `name.ilike.%${escapedSearch}%`,
-                  `description.ilike.%${escapedSearch}%`,
-                ].join(",")
-              );
-
-          }
-
-
-          const {
-            data,
-            error: exportError,
-          } =
-            await query
-              .order(
-                "code",
-                {
-                  ascending: true,
-                }
-              )
-              .range(
-                offset,
-                offset +
-                  EXPORT_BATCH_SIZE -
-                  1
-              );
-
-
-          if (exportError) {
-
-            throw new Error(
-              `Gagal mengambil data export: ${exportError.message}`
-            );
-
-          }
-
-
-          const batch =
-            (data ?? []) as Item[];
-
-
-          allItems = [
-            ...allItems,
-            ...batch,
-          ];
-
-
-          if (
-            batch.length <
-            EXPORT_BATCH_SIZE
-          ) {
-
-            break;
-
-          }
-
-
-          offset +=
-            EXPORT_BATCH_SIZE;
-
+          query = query.or(
+            [
+              `code.ilike.%${escapedSearch}%`,
+              `name.ilike.%${escapedSearch}%`,
+              `description.ilike.%${escapedSearch}%`,
+            ].join(","),
+          );
         }
 
+        const { data, error: exportError } = await query
+          .order("code", {
+            ascending: true,
+          })
+          .range(offset, offset + EXPORT_BATCH_SIZE - 1);
 
-        return allItems;
+        if (exportError) {
+          throw new Error(
+            `Gagal mengambil data export: ${exportError.message}`,
+          );
+        }
 
-      },
-      [
-        entityId,
-      ]
-    );
+        const batch = (data ?? []) as Item[];
 
+        allItems = [...allItems, ...batch];
+
+        if (batch.length < EXPORT_BATCH_SIZE) {
+          break;
+        }
+
+        offset += EXPORT_BATCH_SIZE;
+      }
+
+      return allItems;
+    },
+    [entityId],
+  );
 
   /*
    * ==========================================================
@@ -1743,7 +1025,6 @@ export function useItems(
    */
 
   return {
-
     items,
 
     totalCount,
@@ -1767,7 +1048,5 @@ export function useItems(
     deleteItem,
 
     generateNextItemCode,
-
   };
-
 }

@@ -72,8 +72,7 @@ export function ItemSubcategoryPage({
       name: editingSubcategory.name,
       description: editingSubcategory.description ?? "",
 
-      inventory_account_id:
-        editingSubcategory.inventory_account_id ?? "",
+      inventory_account_id: editingSubcategory.inventory_account_id ?? "",
       expense_account_id: editingSubcategory.expense_account_id ?? "",
       cogs_account_id: editingSubcategory.cogs_account_id ?? "",
       stock_adjustment_account_id:
@@ -92,19 +91,15 @@ export function ItemSubcategoryPage({
       return (
         subcategory.code.toLowerCase().includes(keyword) ||
         subcategory.name.toLowerCase().includes(keyword) ||
-        (subcategory.category?.code ?? "")
-          .toLowerCase()
-          .includes(keyword) ||
-        (subcategory.category?.name ?? "")
-          .toLowerCase()
-          .includes(keyword)
+        (subcategory.category?.code ?? "").toLowerCase().includes(keyword) ||
+        (subcategory.category?.name ?? "").toLowerCase().includes(keyword)
       );
     });
   }, [subcategories, search]);
 
   const updateField = (
     field: keyof ItemSubcategoryFormData,
-    value: string | boolean
+    value: string | boolean,
   ) => {
     setFormData((previous) => ({
       ...previous,
@@ -145,7 +140,7 @@ export function ItemSubcategoryPage({
 
   const handleDelete = async (subcategory: ItemSubcategory) => {
     const confirmed = window.confirm(
-      `Hapus subkategori ${subcategory.code} - ${subcategory.name}?`
+      `Hapus subkategori ${subcategory.code} - ${subcategory.name}?`,
     );
 
     if (!confirmed) return;
@@ -161,8 +156,7 @@ export function ItemSubcategoryPage({
             Master Subkategori Barang
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            Rincikan kelompok item seperti Milk, Snack, Soft Drink, dan
-            lainnya.
+            Rincikan kelompok item seperti Milk, Snack, Soft Drink, dan lainnya.
           </p>
         </div>
 
@@ -360,10 +354,7 @@ export function ItemSubcategoryPage({
             <select
               value={formData.stock_adjustment_account_id}
               onChange={(event) =>
-                updateField(
-                  "stock_adjustment_account_id",
-                  event.target.value
-                )
+                updateField("stock_adjustment_account_id", event.target.value)
               }
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             >
@@ -403,24 +394,12 @@ export function ItemSubcategoryPage({
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 font-medium">
-                  Kategori
-                </th>
-                <th className="px-4 py-3 font-medium">
-                  Kode
-                </th>
-                <th className="px-4 py-3 font-medium">
-                  Nama Subkategori
-                </th>
-                <th className="px-4 py-3 font-medium">
-                  Override Persediaan
-                </th>
-                <th className="px-4 py-3 font-medium">
-                  Status
-                </th>
-                <th className="px-4 py-3 font-medium">
-                  Aksi
-                </th>
+                <th className="px-4 py-3 font-medium">Kategori</th>
+                <th className="px-4 py-3 font-medium">Kode</th>
+                <th className="px-4 py-3 font-medium">Nama Subkategori</th>
+                <th className="px-4 py-3 font-medium">Override Persediaan</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Aksi</th>
               </tr>
             </thead>
 

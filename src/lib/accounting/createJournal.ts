@@ -58,24 +58,26 @@ function validateJournalRows(rows: JournalRow[]) {
     }
 
     if (debit < 0 || credit < 0) {
-      throw new Error(`Nominal jurnal pada baris ke-${index + 1} tidak boleh negatif.`);
+      throw new Error(
+        `Nominal jurnal pada baris ke-${index + 1} tidak boleh negatif.`,
+      );
     }
 
     if ((debit === 0 && credit === 0) || (debit > 0 && credit > 0)) {
       throw new Error(
-        `Baris jurnal ke-${index + 1} harus berisi debit atau kredit saja.`
+        `Baris jurnal ke-${index + 1} harus berisi debit atau kredit saja.`,
       );
     }
   }
 
   const totalDebit = rows.reduce(
     (total, row) => total + Number(row.debit || 0),
-    0
+    0,
   );
 
   const totalCredit = rows.reduce(
     (total, row) => total + Number(row.credit || 0),
-    0
+    0,
   );
 
   if (totalDebit <= 0 || totalCredit <= 0) {
@@ -84,13 +86,13 @@ function validateJournalRows(rows: JournalRow[]) {
 
   if (Math.abs(totalDebit - totalCredit) > 0.01) {
     throw new Error(
-      `Jurnal tidak balance. Debit: ${totalDebit}, Kredit: ${totalCredit}.`
+      `Jurnal tidak balance. Debit: ${totalDebit}, Kredit: ${totalCredit}.`,
     );
   }
 }
 
 export async function createJournal(
-  payload: CreateJournalPayload
+  payload: CreateJournalPayload,
 ): Promise<{ success: true; journal_id: string }> {
   const {
     tanggal,
@@ -145,7 +147,7 @@ export async function createJournal(
     await supabase.from("journals").delete().eq("id", journal.id);
 
     throw new Error(
-      `Gagal membuat detail jurnal. Header jurnal dibatalkan: ${detailError.message}`
+      `Gagal membuat detail jurnal. Header jurnal dibatalkan: ${detailError.message}`,
     );
   }
 
@@ -164,7 +166,7 @@ export async function createJournal(
   2. Global (entity_id null)
 */
 export async function createMappedJournal(
-  payload: CreateMappedJournalPayload
+  payload: CreateMappedJournalPayload,
 ): Promise<{ success: true; journal_id: string }> {
   const {
     moduleCode,
@@ -189,7 +191,7 @@ export async function createMappedJournal(
 
       if (!Number.isFinite(amount) || amount <= 0) {
         throw new Error(
-          `Nominal untuk mapping ${row.mappingKey} harus lebih dari nol.`
+          `Nominal untuk mapping ${row.mappingKey} harus lebih dari nol.`,
         );
       }
 
@@ -206,7 +208,7 @@ export async function createMappedJournal(
         credit: row.side === "CREDIT" ? amount : 0,
         description: row.description ?? mapping.mappingName,
       };
-    })
+    }),
   );
 
   return createJournal({

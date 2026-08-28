@@ -7,13 +7,13 @@ export async function authenticateUser(username, password) {
   // Buat JWT dengan claim id sesuai custom_users.id
   const token = jwt.sign(
     {
-      sub: user.id,   // identifier utama
-      id: user.id,    // claim tambahan
+      sub: user.id, // identifier utama
+      id: user.id, // claim tambahan
       role: user.role,
-      access: user.access
+      access: user.access,
     },
     process.env.JWT_SECRET,
-    { expiresIn: "1h" }
+    { expiresIn: "1h" },
   );
 
   return { ...user, token };

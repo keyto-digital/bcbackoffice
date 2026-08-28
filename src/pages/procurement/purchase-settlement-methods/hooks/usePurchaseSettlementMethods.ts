@@ -22,7 +22,8 @@ export function usePurchaseSettlementMethods(entityId?: string | null) {
 
     let query = supabase
       .from("accounts")
-      .select(`
+      .select(
+        `
         id,
         code,
         name,
@@ -30,7 +31,8 @@ export function usePurchaseSettlementMethods(entityId?: string | null) {
         account_type,
         is_active,
         is_posting
-      `)
+      `,
+      )
       .eq("is_active", true)
       .eq("is_posting", true)
       .order("code", { ascending: true });
@@ -57,7 +59,8 @@ export function usePurchaseSettlementMethods(entityId?: string | null) {
 
     let query = supabase
       .from(TABLE_NAME)
-      .select(`
+      .select(
+        `
         *,
         account:accounts (
           id,
@@ -68,7 +71,8 @@ export function usePurchaseSettlementMethods(entityId?: string | null) {
           is_active,
           is_posting
         )
-      `)
+      `,
+      )
       .order("is_system", { ascending: false })
       .order("code", { ascending: true });
 
@@ -93,27 +97,23 @@ export function usePurchaseSettlementMethods(entityId?: string | null) {
     fetchMethods();
   }, [fetchAccounts, fetchMethods]);
 
-  const createMethod = async (
-    payload: PurchaseSettlementMethodFormData
-  ) => {
+  const createMethod = async (payload: PurchaseSettlementMethodFormData) => {
     setSaving(true);
     setError(null);
 
-    const { error: createError } = await supabase
-      .from(TABLE_NAME)
-      .insert({
-        entity_id: payload.entity_id || null,
+    const { error: createError } = await supabase.from(TABLE_NAME).insert({
+      entity_id: payload.entity_id || null,
 
-        code: payload.code.trim().toUpperCase(),
-        name: payload.name.trim(),
-        settlement_type: payload.settlement_type,
+      code: payload.code.trim().toUpperCase(),
+      name: payload.name.trim(),
+      settlement_type: payload.settlement_type,
 
-        account_id: payload.account_id || null,
-        requires_amount: payload.requires_amount,
+      account_id: payload.account_id || null,
+      requires_amount: payload.requires_amount,
 
-        is_system: false,
-        is_active: payload.is_active,
-      });
+      is_system: false,
+      is_active: payload.is_active,
+    });
 
     if (createError) {
       setError(createError.message);
@@ -128,7 +128,7 @@ export function usePurchaseSettlementMethods(entityId?: string | null) {
 
   const updateMethod = async (
     method: PurchaseSettlementMethod,
-    payload: PurchaseSettlementMethodFormData
+    payload: PurchaseSettlementMethodFormData,
   ) => {
     setSaving(true);
     setError(null);

@@ -8,7 +8,7 @@ import { SupabaseQueryBuilder } from "@supabase/supabase-js";
 export function applyEntityFilter<T>(
   query: SupabaseQueryBuilder<T>,
   userEntityId: string,
-  pusatEntityId: string
+  pusatEntityId: string,
 ) {
   if (userEntityId !== pusatEntityId) {
     return query.eq("entity_id", userEntityId);

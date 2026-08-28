@@ -7,7 +7,6 @@ export const getUserAccess = async (role: string): Promise<string[]> => {
     .eq("name", role)
     .single();
 
-
   if (error || !data?.access || !Array.isArray(data.access)) {
     console.warn("Fallback to empty access");
     return [];

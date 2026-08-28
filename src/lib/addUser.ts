@@ -4,7 +4,10 @@ import { supabase } from "./supabaseClient";
 export const addUserIfNotExists = async () => {
   try {
     // Ambil user yang sedang login
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
     if (authError) {
       console.error("Gagal ambil user dari auth:", authError.message);
@@ -32,7 +35,7 @@ export const addUserIfNotExists = async () => {
       // Insert user baru dengan id = auth.uid()
       const { error: insertError } = await supabase.from("users").insert([
         {
-          id: user.id,       // wajib sama dengan auth.uid()
+          id: user.id, // wajib sama dengan auth.uid()
           email: user.email, // simpan juga email
           name: user.email?.split("@")[0] || "Guest", // default name
         },

@@ -8,7 +8,9 @@ export interface RouteItem {
   component: ComponentType;
 }
 
-export async function generateRoutes(userAccess: string[]): Promise<RouteItem[]> {
+export async function generateRoutes(
+  userAccess: string[],
+): Promise<RouteItem[]> {
   const normalize = (s?: string) => s?.toLowerCase().trim();
   const accessSet = new Set(userAccess.map(normalize));
   const menus = await getMenus();
@@ -27,7 +29,6 @@ export async function generateRoutes(userAccess: string[]): Promise<RouteItem[]>
           access: [menuAccess ?? "default"], // ✅ fix
           component: Component,
         });
-       
       } catch (err) {
         console.warn(`❌ Gagal load komponen menu: ${menu.component}`, err);
       }
@@ -50,9 +51,11 @@ export async function generateRoutes(userAccess: string[]): Promise<RouteItem[]>
             access: [menuAccess ?? "default"], // ✅ fix
             component: Component,
           });
-          
         } catch (err) {
-          console.warn(`❌ Gagal load komponen sub-menu: ${sub.component}`, err);
+          console.warn(
+            `❌ Gagal load komponen sub-menu: ${sub.component}`,
+            err,
+          );
         }
       }
     }

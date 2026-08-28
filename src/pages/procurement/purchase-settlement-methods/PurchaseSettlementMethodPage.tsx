@@ -88,7 +88,7 @@ export function PurchaseSettlementMethodPage({
 
   const updateField = (
     field: keyof PurchaseSettlementMethodFormData,
-    value: string | boolean
+    value: string | boolean,
   ) => {
     setFormData((previous) => ({
       ...previous,
@@ -148,7 +148,7 @@ export function PurchaseSettlementMethodPage({
     }
 
     const confirmed = window.confirm(
-      `Hapus metode ${method.code} - ${method.name}?`
+      `Hapus metode ${method.code} - ${method.name}?`,
     );
 
     if (!confirmed) return;
@@ -256,13 +256,11 @@ export function PurchaseSettlementMethodPage({
               }
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
             >
-              {Object.entries(settlementTypeLabels).map(
-                ([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                )
-              )}
+              {Object.entries(settlementTypeLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -308,9 +306,7 @@ export function PurchaseSettlementMethodPage({
             <label className="flex h-[42px] cursor-pointer items-center gap-2 rounded-md border border-gray-300 px-3 text-sm text-gray-700">
               <input
                 type="checkbox"
-                checked={
-                  editingMethod?.is_system ? true : formData.is_active
-                }
+                checked={editingMethod?.is_system ? true : formData.is_active}
                 disabled={editingMethod?.is_system}
                 onChange={(event) =>
                   updateField("is_active", event.target.checked)
@@ -348,27 +344,15 @@ export function PurchaseSettlementMethodPage({
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 font-medium text-gray-600">
-                  Kode
-                </th>
-                <th className="px-4 py-3 font-medium text-gray-600">
-                  Metode
-                </th>
-                <th className="px-4 py-3 font-medium text-gray-600">
-                  Jenis
-                </th>
+                <th className="px-4 py-3 font-medium text-gray-600">Kode</th>
+                <th className="px-4 py-3 font-medium text-gray-600">Metode</th>
+                <th className="px-4 py-3 font-medium text-gray-600">Jenis</th>
                 <th className="px-4 py-3 font-medium text-gray-600">
                   Akun COA
                 </th>
-                <th className="px-4 py-3 font-medium text-gray-600">
-                  Nominal
-                </th>
-                <th className="px-4 py-3 font-medium text-gray-600">
-                  Status
-                </th>
-                <th className="px-4 py-3 font-medium text-gray-600">
-                  Aksi
-                </th>
+                <th className="px-4 py-3 font-medium text-gray-600">Nominal</th>
+                <th className="px-4 py-3 font-medium text-gray-600">Status</th>
+                <th className="px-4 py-3 font-medium text-gray-600">Aksi</th>
               </tr>
             </thead>
 

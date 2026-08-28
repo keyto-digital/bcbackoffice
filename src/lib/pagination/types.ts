@@ -27,25 +27,13 @@ export interface FetchAllPagesOptions {
 export function createPaginationMeta(
   page: number,
   pageSize: number,
-  total: number
+  total: number,
 ): PaginationMeta {
-  const totalPages =
-    total > 0
-      ? Math.ceil(total / pageSize)
-      : 0;
+  const totalPages = total > 0 ? Math.ceil(total / pageSize) : 0;
 
-  const from =
-    total > 0
-      ? (page - 1) * pageSize
-      : 0;
+  const from = total > 0 ? (page - 1) * pageSize : 0;
 
-  const to =
-    total > 0
-      ? Math.min(
-          from + pageSize - 1,
-          total - 1
-        )
-      : -1;
+  const to = total > 0 ? Math.min(from + pageSize - 1, total - 1) : -1;
 
   return {
     page,

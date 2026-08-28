@@ -12,7 +12,7 @@ type CreateKasHarianJournalParams = {
 };
 
 export async function createKasHarianJournal(
-  params: CreateKasHarianJournalParams
+  params: CreateKasHarianJournalParams,
 ) {
   const {
     tanggal,

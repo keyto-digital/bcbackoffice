@@ -9,15 +9,8 @@ const initialForm: UnitFormData = {
 };
 
 export function UnitPage() {
-  const {
-    units,
-    loading,
-    saving,
-    error,
-    createUnit,
-    updateUnit,
-    deleteUnit,
-  } = useUnits();
+  const { units, loading, saving, error, createUnit, updateUnit, deleteUnit } =
+    useUnits();
 
   const [formData, setFormData] = useState<UnitFormData>(initialForm);
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
@@ -74,7 +67,7 @@ export function UnitPage() {
 
   const handleDelete = async (unit: Unit) => {
     const confirmed = window.confirm(
-      `Hapus satuan ${unit.code} - ${unit.name}?`
+      `Hapus satuan ${unit.code} - ${unit.name}?`,
     );
 
     if (!confirmed) return;
@@ -86,9 +79,7 @@ export function UnitPage() {
     <div className="w-full pr-2 space-y-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">
-            Master Satuan
-          </h1>
+          <h1 className="text-xl font-semibold text-gray-900">Master Satuan</h1>
           <p className="mt-1 text-sm text-gray-500">
             Kelola satuan yang digunakan oleh artikel barang dan transaksi
             procurement.
@@ -213,18 +204,10 @@ export function UnitPage() {
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 font-medium">
-                  Kode
-                </th>
-                <th className="px-4 py-3 font-medium">
-                  Nama Satuan
-                </th>
-                <th className="px-4 py-3 font-medium">
-                  Status
-                </th>
-                <th className="px-4 py-3 font-medium">
-                  Aksi
-                </th>
+                <th className="px-4 py-3 font-medium">Kode</th>
+                <th className="px-4 py-3 font-medium">Nama Satuan</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Aksi</th>
               </tr>
             </thead>
 

@@ -1,16 +1,8 @@
-import {
-  useState,
-  useEffect,
-  useRef,
-} from "react";
+import { useState, useEffect, useRef } from "react";
 
 import { supabase } from "../lib/supabaseClient";
 
-import {
-  Link,
-  useLocation,
-  useNavigate,
-} from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import {
   FaBars,
@@ -30,7 +22,6 @@ import {
 
 import { createPortal } from "react-dom";
 
-
 /* ============================================================
    CONSTANT
 ============================================================ */
@@ -43,7 +34,6 @@ const SIDEBAR_EXPANDED = 230;
  * sedang berpindah dari sidebar menuju tooltip.
  */
 const TOOLTIP_CLOSE_DELAY = 250;
-
 
 /* ============================================================
    TYPE
@@ -70,7 +60,6 @@ interface Menu {
   sub: SubMenu[];
 }
 
-
 /* ============================================================
    ICON MAPPING
 ============================================================ */
@@ -94,9 +83,8 @@ const ICONS: Record<
   FaMoneyBillWave,
 };
 
-
 const getIcon = (
-  name?: string
+  name?: string,
 ): React.ComponentType<{
   style?: React.CSSProperties;
 }> => {
@@ -104,14 +92,10 @@ const getIcon = (
     return FaCogs;
   }
 
-  const Icon =
-    ICONS[
-      name as keyof typeof ICONS
-    ];
+  const Icon = ICONS[name as keyof typeof ICONS];
 
   return Icon || FaCogs;
 };
-
 
 /* ============================================================
    SIDEBAR
@@ -123,47 +107,31 @@ export default function Sidebar({
   userAccess = [],
 }: {
   isCollapsed: boolean;
-  setIsCollapsed: (
-    value: boolean
-  ) => void;
+  setIsCollapsed: (value: boolean) => void;
   userAccess?: string[];
 }) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const [menus, setMenus] =
-    useState<Menu[]>([]);
+  const [menus, setMenus] = useState<Menu[]>([]);
 
-  const [openMenu, setOpenMenu] =
-    useState<string | null>(null);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
 
-  const [hoveredMenu, setHoveredMenu] =
-    useState<string | null>(null);
+  const [hoveredMenu, setHoveredMenu] = useState<string | null>(null);
 
-  const [tooltipPos, setTooltipPos] =
-    useState({
-      top: 0,
-      left: 0,
-    });
+  const [tooltipPos, setTooltipPos] = useState({
+    top: 0,
+    left: 0,
+  });
 
-  const menuRefs =
-    useRef<
-      Record<
-        string,
-        HTMLDivElement | null
-      >
-    >({});
+  const menuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   /*
    * Timeout tooltip disimpan menggunakan ref.
    * Jangan menggunakan state untuk timeout karena akan
    * menyebabkan render tambahan.
    */
-  const tooltipCloseTimer =
-    useRef<
-      ReturnType<typeof setTimeout> | null
-    >(null);
-
+  const tooltipCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /* ==========================================================
      COLORS
@@ -204,267 +172,159 @@ export default function Sidebar({
     white: "#FFFFFF",
   };
 
-
   /* ==========================================================
      SIDEBAR WIDTH
   ========================================================== */
 
-  const sidebarWidth = isCollapsed
-    ? SIDEBAR_COLLAPSED
-    : SIDEBAR_EXPANDED;
-
+  const sidebarWidth = isCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED;
 
   /* ==========================================================
      TOOLTIP TIMER
   ========================================================== */
 
   const clearTooltipTimer = () => {
-    if (
-      tooltipCloseTimer.current
-    ) {
-      clearTimeout(
-        tooltipCloseTimer.current
-      );
+    if (tooltipCloseTimer.current) {
+      clearTimeout(tooltipCloseTimer.current);
 
-      tooltipCloseTimer.current =
-        null;
+      tooltipCloseTimer.current = null;
     }
   };
-
 
   const closeTooltipWithDelay = () => {
     clearTooltipTimer();
 
-    tooltipCloseTimer.current =
-      setTimeout(() => {
-        setHoveredMenu(null);
+    tooltipCloseTimer.current = setTimeout(() => {
+      setHoveredMenu(null);
 
-        tooltipCloseTimer.current =
-          null;
-      }, TOOLTIP_CLOSE_DELAY);
+      tooltipCloseTimer.current = null;
+    }, TOOLTIP_CLOSE_DELAY);
   };
-
 
   /* ==========================================================
      MENU TOGGLE
   ========================================================== */
 
-  const toggleMenu = (
-    key: string
-  ) => {
-    setOpenMenu(
-      openMenu === key
-        ? null
-        : key
-    );
+  const toggleMenu = (key: string) => {
+    setOpenMenu(openMenu === key ? null : key);
   };
-
 
   /* ==========================================================
      ACTIVE
   ========================================================== */
 
-  const isActive = (
-    path?: string
-  ) =>
-    Boolean(
-      path &&
-        location.pathname === path
-    );
+  const isActive = (path?: string) =>
+    Boolean(path && location.pathname === path);
 
+  const normalize = (value?: string) =>
+    value ? value.toLowerCase().trim() : "";
 
-  const normalize = (
-    value?: string
-  ) =>
-    value
-      ? value
-          .toLowerCase()
-          .trim()
-      : "";
-
-
-  const accessSet = new Set(
-    userAccess.map(normalize)
-  );
-
+  const accessSet = new Set(userAccess.map(normalize));
 
   /* ==========================================================
      FILTER SUBMENU
   ========================================================== */
 
-  const filterSubmenu = (
-    menu: Menu
-  ): SubMenu[] =>
-    (menu.sub ?? []).filter(
-      (sub) =>
-        accessSet.has(
-          normalize(sub.access)
-        )
-    );
-
+  const filterSubmenu = (menu: Menu): SubMenu[] =>
+    (menu.sub ?? []).filter((sub) => accessSet.has(normalize(sub.access)));
 
   /* ==========================================================
      FILTER MENU
   ========================================================== */
 
-  const filteredMenus: Menu[] =
-    menus
-      .map((menu) => {
-        const sub =
-          filterSubmenu(menu);
+  const filteredMenus: Menu[] = menus
+    .map((menu) => {
+      const sub = filterSubmenu(menu);
 
-        const menuHasAccess =
-          accessSet.has(
-            normalize(
-              menu.access ??
-                menu.label
-            )
-          );
+      const menuHasAccess = accessSet.has(normalize(menu.access ?? menu.label));
 
-        return {
-          ...menu,
-          sub,
-          show:
-            sub.length > 0 ||
-            menuHasAccess,
-        };
-      })
-      .filter(
-        (menu) =>
-          (
-            menu as Menu & {
-              show?: boolean;
-            }
-          ).show
-      );
-
+      return {
+        ...menu,
+        sub,
+        show: sub.length > 0 || menuHasAccess,
+      };
+    })
+    .filter(
+      (menu) =>
+        (
+          menu as Menu & {
+            show?: boolean;
+          }
+        ).show,
+    );
 
   /* ==========================================================
      FETCH MENU
   ========================================================== */
 
   useEffect(() => {
-    const fetchMenus =
-      async () => {
-        try {
-          const {
-            data,
-            error,
-          } = await supabase
-            .from("menus")
-            .select("*")
-            .order("order", {
-              ascending: true,
-            });
+    const fetchMenus = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("menus")
+          .select("*")
+          .order("order", {
+            ascending: true,
+          });
 
-          if (error) {
-            console.error(
-              "Gagal ambil menu:",
-              error.message
-            );
+        if (error) {
+          console.error("Gagal ambil menu:", error.message);
 
-            return;
-          }
-
-          if (!data) {
-            return;
-          }
-
-          const typedData =
-            data as unknown as Menu[];
-
-          const rootMenus =
-            typedData.filter(
-              (menu) =>
-                !menu.parent
-            );
-
-          const subMenus =
-            typedData.filter(
-              (menu) =>
-                menu.parent
-            );
-
-          const menusTree: Menu[] =
-            rootMenus.map(
-              (menu) => ({
-                ...menu,
-
-                sub: subMenus
-                  .filter(
-                    (sub) =>
-                      sub.parent ===
-                      menu.id
-                  )
-                  .map(
-                    (sub) => ({
-                      id: sub.id,
-                      label: sub.label,
-                      path: sub.path,
-                      access: sub.access,
-                      parent:
-                        sub.parent ??
-                        "",
-                      order:
-                        sub.order,
-                    })
-                  ),
-              })
-            );
-
-          setMenus(
-            menusTree
-          );
-        } catch (err) {
-          console.error(
-            "Error ambil menu:",
-            err
-          );
+          return;
         }
-      };
 
+        if (!data) {
+          return;
+        }
+
+        const typedData = data as unknown as Menu[];
+
+        const rootMenus = typedData.filter((menu) => !menu.parent);
+
+        const subMenus = typedData.filter((menu) => menu.parent);
+
+        const menusTree: Menu[] = rootMenus.map((menu) => ({
+          ...menu,
+
+          sub: subMenus
+            .filter((sub) => sub.parent === menu.id)
+            .map((sub) => ({
+              id: sub.id,
+              label: sub.label,
+              path: sub.path,
+              access: sub.access,
+              parent: sub.parent ?? "",
+              order: sub.order,
+            })),
+        }));
+
+        setMenus(menusTree);
+      } catch (err) {
+        console.error("Error ambil menu:", err);
+      }
+    };
 
     fetchMenus();
 
+    const handleRefreshSidebar = () => {
+      fetchMenus();
+    };
 
-    const handleRefreshSidebar =
-      () => {
-        fetchMenus();
-      };
-
-
-    window.addEventListener(
-      "refreshSidebar",
-      handleRefreshSidebar
-    );
-
+    window.addEventListener("refreshSidebar", handleRefreshSidebar);
 
     return () => {
-      window.removeEventListener(
-        "refreshSidebar",
-        handleRefreshSidebar
-      );
+      window.removeEventListener("refreshSidebar", handleRefreshSidebar);
 
       clearTooltipTimer();
     };
   }, []);
-
 
   /* ==========================================================
      TOOLTIP POSITION
   ========================================================== */
 
   useEffect(() => {
-    if (
-      hoveredMenu &&
-      menuRefs.current[
-        hoveredMenu
-      ]
-    ) {
-      const rect =
-        menuRefs.current[
-          hoveredMenu
-        ]!.getBoundingClientRect();
+    if (hoveredMenu && menuRefs.current[hoveredMenu]) {
+      const rect = menuRefs.current[hoveredMenu]!.getBoundingClientRect();
 
       /*
        * Tooltip ditempel langsung ke ujung sidebar.
@@ -483,11 +343,7 @@ export default function Sidebar({
         left: rect.right,
       });
     }
-  }, [
-    hoveredMenu,
-    isCollapsed,
-  ]);
-
+  }, [hoveredMenu, isCollapsed]);
 
   /* ==========================================================
      RESET TOOLTIP KETIKA EXPAND
@@ -498,10 +354,7 @@ export default function Sidebar({
       clearTooltipTimer();
       setHoveredMenu(null);
     }
-  }, [
-    isCollapsed,
-  ]);
-
+  }, [isCollapsed]);
 
   /* ==========================================================
      RENDER
@@ -510,160 +363,117 @@ export default function Sidebar({
   return (
     <div
       style={{
-        width:
-          `${sidebarWidth}px`,
+        width: `${sidebarWidth}px`,
 
-        background:
-          COLORS.white,
+        background: COLORS.white,
 
-        color:
-          COLORS.text,
+        color: COLORS.text,
 
-        height:
-          "100vh",
+        height: "100vh",
 
-        transition:
-          "width 0.3s ease",
+        transition: "width 0.3s ease",
 
-        position:
-          "fixed",
+        position: "fixed",
 
         left: 0,
         top: 0,
 
-        overflowY:
-          "auto",
+        overflowY: "auto",
 
-        overflowX:
-          "hidden",
+        overflowX: "hidden",
 
         zIndex: 1200,
 
-        borderRight:
-          `1px solid ${COLORS.border}`,
+        borderRight: `1px solid ${COLORS.border}`,
 
-        borderTop:
-          `4px solid ${COLORS.red}`,
+        borderTop: `4px solid ${COLORS.red}`,
 
-        boxShadow:
-          "2px 0 14px rgba(23, 74, 126, 0.07)",
+        boxShadow: "2px 0 14px rgba(23, 74, 126, 0.07)",
       }}
     >
-
       {/* ======================================================
           BRAND
       ====================================================== */}
 
       <div
         style={{
-          height:
-            isCollapsed
-              ? "64px"
-              : "132px",
+          height: isCollapsed ? "64px" : "132px",
 
-          display:
-            "flex",
+          display: "flex",
 
-          flexDirection:
-            "column",
+          flexDirection: "column",
 
-          alignItems:
-            "center",
+          alignItems: "center",
 
-          justifyContent:
-            "center",
+          justifyContent: "center",
 
-          position:
-            "relative",
+          position: "relative",
 
-          borderBottom:
-            `1px solid ${COLORS.border}`,
+          borderBottom: `1px solid ${COLORS.border}`,
 
-          padding:
-            isCollapsed
-              ? "0"
-              : "10px 12px",
+          padding: isCollapsed ? "0" : "10px 12px",
         }}
       >
-
         {!isCollapsed ? (
           <>
             <img
               src="/logo.png"
               alt="Butter Club Bakery"
               style={{
-                width:
-                  "175px",
+                width: "175px",
 
-                maxWidth:
-                  "100%",
+                maxWidth: "100%",
 
-                height:
-                  "auto",
+                height: "auto",
 
-                maxHeight:
-                  "82px",
+                maxHeight: "82px",
 
-                objectFit:
-                  "contain",
+                objectFit: "contain",
               }}
             />
 
             <div
               style={{
-                display:
-                  "flex",
+                display: "flex",
 
-                alignItems:
-                  "center",
+                alignItems: "center",
 
-                gap:
-                  "7px",
+                gap: "7px",
 
-                marginTop:
-                  "5px",
+                marginTop: "5px",
 
-                width:
-                  "100%",
+                width: "100%",
               }}
             >
               <span
                 style={{
-                  height:
-                    "1px",
+                  height: "1px",
 
                   flex: 1,
 
-                  background:
-                    "#8AB9E0",
+                  background: "#8AB9E0",
                 }}
               />
 
               <span
                 style={{
-                  width:
-                    "6px",
+                  width: "6px",
 
-                  height:
-                    "6px",
+                  height: "6px",
 
-                  borderRadius:
-                    "50%",
+                  borderRadius: "50%",
 
-                  background:
-                    COLORS.red,
+                  background: COLORS.red,
                 }}
               />
 
               <span
                 style={{
-                  height:
-                    "1px",
+                  height: "1px",
 
                   flex: 1,
 
-                  background:
-                    "#8AB9E0",
+                  background: "#8AB9E0",
                 }}
               />
             </div>
@@ -671,41 +481,29 @@ export default function Sidebar({
         ) : (
           <div
             style={{
-              width:
-                "36px",
+              width: "36px",
 
-              height:
-                "36px",
+              height: "36px",
 
-              borderRadius:
-                "50%",
+              borderRadius: "50%",
 
-              display:
-                "flex",
+              display: "flex",
 
-              alignItems:
-                "center",
+              alignItems: "center",
 
-              justifyContent:
-                "center",
+              justifyContent: "center",
 
-              background:
-                COLORS.redSoft,
+              background: COLORS.redSoft,
 
-              color:
-                COLORS.red,
+              color: COLORS.red,
 
-              fontSize:
-                "12px",
+              fontSize: "12px",
 
-              fontWeight:
-                800,
+              fontWeight: 800,
 
-              letterSpacing:
-                "0.5px",
+              letterSpacing: "0.5px",
 
-              border:
-                `1px solid #F2C2C2`,
+              border: `1px solid #F2C2C2`,
             }}
           >
             BC
@@ -713,59 +511,39 @@ export default function Sidebar({
         )}
       </div>
 
-
       {/* ======================================================
           TOGGLE
       ====================================================== */}
 
       <div
         style={{
-          height:
-            "42px",
+          height: "42px",
 
-          display:
-            "flex",
+          display: "flex",
 
-          alignItems:
-            "center",
+          alignItems: "center",
 
-          justifyContent:
-            isCollapsed
-              ? "center"
-              : "flex-end",
+          justifyContent: isCollapsed ? "center" : "flex-end",
 
-          padding:
-            isCollapsed
-              ? "0"
-              : "0 14px",
+          padding: isCollapsed ? "0" : "0 14px",
 
-          borderBottom:
-            `1px solid ${COLORS.borderSoft}`,
+          borderBottom: `1px solid ${COLORS.borderSoft}`,
         }}
       >
         <FaBars
           style={{
-            cursor:
-              "pointer",
+            cursor: "pointer",
 
-            fontSize:
-              "17px",
+            fontSize: "17px",
 
-            color:
-              COLORS.blue,
+            color: COLORS.blue,
 
-            transition:
-              "transform 0.2s",
+            transition: "transform 0.2s",
           }}
 
-          onClick={() =>
-            setIsCollapsed(
-              !isCollapsed
-            )
-          }
+          onClick={() => setIsCollapsed(!isCollapsed)}
         />
       </div>
-
 
       {/* ======================================================
           MENU LIST
@@ -773,618 +551,387 @@ export default function Sidebar({
 
       <div
         style={{
-          padding:
-            "8px 7px 20px",
+          padding: "8px 7px 20px",
         }}
       >
+        {filteredMenus.map((menu, menuIdx) => {
+          const menuKey = menu.key || menu.label || `menu-${menuIdx}`;
 
-        {filteredMenus.map(
-          (
-            menu,
-            menuIdx
-          ) => {
-            const menuKey =
-              menu.key ||
-              menu.label ||
-              `menu-${menuIdx}`;
+          const Icon = getIcon(menu.icon);
 
-            const Icon =
-              getIcon(
-                menu.icon
-              );
+          const isMenuActive =
+            menu.sub.some((sub) => isActive(sub.path)) || isActive(menu.path);
 
-            const isMenuActive =
-              menu.sub.some(
-                (sub) =>
-                  isActive(
-                    sub.path
-                  )
-              ) ||
-              isActive(
-                menu.path
-              );
+          const isOpen = openMenu === menuKey;
 
-            const isOpen =
-              openMenu ===
-              menuKey;
-
-            return (
-              <div
-                key={`menu-${menuKey}`}
-                style={{
-                  marginBottom:
-                    "3px",
-                }}
-              >
-
-                {/* =================================================
+          return (
+            <div
+              key={`menu-${menuKey}`}
+              style={{
+                marginBottom: "3px",
+              }}
+            >
+              {/* =================================================
                     MAIN MENU
                 ================================================= */}
 
+              <div
+                ref={(el) => {
+                  menuRefs.current[menuKey] = el;
+                }}
+
+                onClick={() => {
+                  if (menu.sub && menu.sub.length > 0) {
+                    toggleMenu(menuKey);
+
+                    return;
+                  }
+
+                  if (menu.path && menu.path.trim() !== "") {
+                    navigate(menu.path);
+                  } else {
+                    console.warn(`Menu "${menu.label}" tidak punya path.`);
+                  }
+                }}
+
+                onMouseEnter={() => {
+                  clearTooltipTimer();
+
+                  if (isCollapsed && menu.sub.length > 0) {
+                    setHoveredMenu(menuKey);
+                  }
+                }}
+
+                onMouseLeave={() => {
+                  if (isCollapsed && menu.sub.length > 0) {
+                    closeTooltipWithDelay();
+                  }
+                }}
+
+                style={{
+                  display: "flex",
+
+                  alignItems: "center",
+
+                  justifyContent: isCollapsed ? "center" : "space-between",
+
+                  minHeight: "44px",
+
+                  padding: isCollapsed ? "8px 0" : "8px 13px",
+
+                  cursor: "pointer",
+
+                  color: isMenuActive ? COLORS.blueDark : "#315B82",
+
+                  background: isMenuActive ? COLORS.blueActive : "transparent",
+
+                  borderRadius: "9px",
+
+                  borderLeft: isMenuActive
+                    ? `3px solid ${COLORS.red}`
+                    : "3px solid transparent",
+
+                  transition: "all 0.2s ease",
+                }}
+              >
                 <div
-                  ref={(el) => {
-                    menuRefs.current[
-                      menuKey
-                    ] = el;
-                  }}
-
-                  onClick={() => {
-                    if (
-                      menu.sub &&
-                      menu.sub.length >
-                        0
-                    ) {
-                      toggleMenu(
-                        menuKey
-                      );
-
-                      return;
-                    }
-
-                    if (
-                      menu.path &&
-                      menu.path.trim() !==
-                        ""
-                    ) {
-                      navigate(
-                        menu.path
-                      );
-                    } else {
-                      console.warn(
-                        `Menu "${menu.label}" tidak punya path.`
-                      );
-                    }
-                  }}
-
-                  onMouseEnter={() => {
-                    clearTooltipTimer();
-
-                    if (
-                      isCollapsed &&
-                      menu.sub.length >
-                        0
-                    ) {
-                      setHoveredMenu(
-                        menuKey
-                      );
-                    }
-                  }}
-
-                  onMouseLeave={() => {
-                    if (
-                      isCollapsed &&
-                      menu.sub.length >
-                        0
-                    ) {
-                      closeTooltipWithDelay();
-                    }
-                  }}
-
                   style={{
-                    display:
-                      "flex",
+                    display: "flex",
 
-                    alignItems:
-                      "center",
+                    alignItems: "center",
 
-                    justifyContent:
-                      isCollapsed
-                        ? "center"
-                        : "space-between",
+                    gap: isCollapsed ? "0" : "12px",
 
-                    minHeight:
-                      "44px",
+                    justifyContent: isCollapsed ? "center" : "flex-start",
 
-                    padding:
-                      isCollapsed
-                        ? "8px 0"
-                        : "8px 13px",
-
-                    cursor:
-                      "pointer",
-
-                    color:
-                      isMenuActive
-                        ? COLORS.blueDark
-                        : "#315B82",
-
-                    background:
-                      isMenuActive
-                        ? COLORS.blueActive
-                        : "transparent",
-
-                    borderRadius:
-                      "9px",
-
-                    borderLeft:
-                      isMenuActive
-                        ? `3px solid ${COLORS.red}`
-                        : "3px solid transparent",
-
-                    transition:
-                      "all 0.2s ease",
+                    width: "100%",
                   }}
                 >
-
-                  <div
+                  <Icon
                     style={{
-                      display:
-                        "flex",
+                      fontSize: "18px",
 
-                      alignItems:
-                        "center",
+                      color: isMenuActive ? COLORS.blue : "#467CA8",
 
-                      gap:
-                        isCollapsed
-                          ? "0"
-                          : "12px",
-
-                      justifyContent:
-                        isCollapsed
-                          ? "center"
-                          : "flex-start",
-
-                      width:
-                        "100%",
+                      flexShrink: 0,
                     }}
-                  >
-                    <Icon
+                  />
+
+                  {!isCollapsed && (
+                    <span
                       style={{
-                        fontSize:
-                          "18px",
+                        fontSize: "13px",
 
-                        color:
-                          isMenuActive
-                            ? COLORS.blue
-                            : "#467CA8",
+                        fontWeight: isMenuActive ? 700 : 500,
 
-                        flexShrink:
-                          0,
+                        whiteSpace: "nowrap",
                       }}
-                    />
-
-                    {!isCollapsed && (
-                      <span
-                        style={{
-                          fontSize:
-                            "13px",
-
-                          fontWeight:
-                            isMenuActive
-                              ? 700
-                              : 500,
-
-                          whiteSpace:
-                            "nowrap",
-                        }}
-                      >
-                        {
-                          menu.label
-                        }
-                      </span>
-                    )}
-                  </div>
-
-
-                  {!isCollapsed &&
-                    menu.sub.length >
-                      0 && (
-                      <FaChevronDown
-                        style={{
-                          fontSize:
-                            "11px",
-
-                          color:
-                            COLORS.blue,
-
-                          transition:
-                            "transform 0.25s",
-
-                          transform:
-                            isOpen
-                              ? "rotate(180deg)"
-                              : "rotate(0deg)",
-                        }}
-                      />
-                    )}
+                    >
+                      {menu.label}
+                    </span>
+                  )}
                 </div>
 
+                {!isCollapsed && menu.sub.length > 0 && (
+                  <FaChevronDown
+                    style={{
+                      fontSize: "11px",
 
-                {/* =================================================
+                      color: COLORS.blue,
+
+                      transition: "transform 0.25s",
+
+                      transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+                    }}
+                  />
+                )}
+              </div>
+
+              {/* =================================================
                     COLLAPSED TOOLTIP
                 ================================================= */}
 
-                {isCollapsed &&
-                  hoveredMenu ===
-                    menuKey &&
-                  menu.sub.length >
-                    0 &&
-                  createPortal(
+              {isCollapsed &&
+                hoveredMenu === menuKey &&
+                menu.sub.length > 0 &&
+                createPortal(
+                  <div
+                    style={{
+                      position: "fixed",
+
+                      /*
+                       * TEPAT di ujung sidebar.
+                       * Tidak ada gap.
+                       */
+                      top: tooltipPos.top,
+
+                      left: tooltipPos.left,
+
+                      minWidth: "205px",
+
+                      background: COLORS.white,
+
+                      border: `1px solid ${COLORS.border}`,
+
+                      borderRadius: "0 10px 10px 0",
+
+                      boxShadow: "0 10px 28px rgba(23, 74, 126, 0.18)",
+
+                      zIndex: 99999,
+
+                      padding: "5px",
+
+                      /*
+                       * Pastikan seluruh area tooltip
+                       * bisa menerima mouse.
+                       */
+                      pointerEvents: "auto",
+                    }}
+
+                    onMouseEnter={() => {
+                      clearTooltipTimer();
+
+                      setHoveredMenu(menuKey);
+                    }}
+
+                    onMouseLeave={() => {
+                      closeTooltipWithDelay();
+                    }}
+                  >
+                    {/* HEADER TOOLTIP */}
+
                     <div
                       style={{
-                        position:
-                          "fixed",
+                        fontWeight: 700,
 
-                        /*
-                         * TEPAT di ujung sidebar.
-                         * Tidak ada gap.
-                         */
-                        top:
-                          tooltipPos.top,
+                        padding: "10px 12px",
 
-                        left:
-                          tooltipPos.left,
+                        borderBottom: `1px solid ${COLORS.border}`,
 
-                        minWidth:
-                          "205px",
+                        color: COLORS.blueDark,
 
-                        background:
-                          COLORS.white,
+                        background: COLORS.blueActive,
 
-                        border:
-                          `1px solid ${COLORS.border}`,
+                        borderRadius: "6px",
 
-                        borderRadius:
-                          "0 10px 10px 0",
-
-                        boxShadow:
-                          "0 10px 28px rgba(23, 74, 126, 0.18)",
-
-                        zIndex:
-                          99999,
-
-                        padding:
-                          "5px",
-
-                        /*
-                         * Pastikan seluruh area tooltip
-                         * bisa menerima mouse.
-                         */
-                        pointerEvents:
-                          "auto",
-                      }}
-
-                      onMouseEnter={() => {
-                        clearTooltipTimer();
-
-                        setHoveredMenu(
-                          menuKey
-                        );
-                      }}
-
-                      onMouseLeave={() => {
-                        closeTooltipWithDelay();
+                        fontSize: "12px",
                       }}
                     >
+                      {menu.label}
+                    </div>
 
-                      {/* HEADER TOOLTIP */}
+                    {/* SUBMENU */}
 
-                      <div
-                        style={{
-                          fontWeight:
-                            700,
+                    <ul
+                      style={{
+                        listStyle: "none",
 
-                          padding:
-                            "10px 12px",
+                        margin: 0,
 
-                          borderBottom:
-                            `1px solid ${COLORS.border}`,
+                        padding: "4px 0",
+                      }}
+                    >
+                      {menu.sub.map((sub, idx) => (
+                        <li key={`tooltip-${menuKey}-${sub.label}-${idx}`}>
+                          <Link
+                            to={
+                              sub.path && sub.path.trim() !== ""
+                                ? sub.path
+                                : "#"
+                            }
 
-                          color:
-                            COLORS.blueDark,
+                            style={{
+                              display: "block",
 
-                          background:
-                            COLORS.blueActive,
+                              padding: "9px 12px",
 
-                          borderRadius:
-                            "6px",
+                              color: isActive(sub.path)
+                                ? COLORS.red
+                                : COLORS.text,
 
-                          fontSize:
-                            "12px",
-                        }}
-                      >
-                        {
-                          menu.label
-                        }
-                      </div>
+                              fontWeight: isActive(sub.path) ? 700 : 500,
 
+                              textDecoration: "none",
 
-                      {/* SUBMENU */}
+                              borderRadius: "7px",
 
-                      <ul
-                        style={{
-                          listStyle:
-                            "none",
+                              fontSize: "12px",
 
-                          margin:
-                            0,
+                              transition: "all 0.15s ease",
+                            }}
 
-                          padding:
-                            "4px 0",
-                        }}
-                      >
-                        {menu.sub.map(
-                          (
-                            sub,
-                            idx
-                          ) => (
-                            <li
-                              key={`tooltip-${menuKey}-${sub.label}-${idx}`}
-                            >
-                              <Link
-                                to={
-                                  sub.path &&
-                                  sub.path.trim() !==
-                                    ""
-                                    ? sub.path
-                                    : "#"
-                                }
+                            onMouseEnter={(e) => {
+                              clearTooltipTimer();
 
-                                style={{
-                                  display:
-                                    "block",
+                              setHoveredMenu(menuKey);
 
-                                  padding:
-                                    "9px 12px",
+                              if (!isActive(sub.path)) {
+                                e.currentTarget.style.background =
+                                  COLORS.blueHover;
 
-                                  color:
-                                    isActive(
-                                      sub.path
-                                    )
-                                      ? COLORS.red
-                                      : COLORS.text,
+                                e.currentTarget.style.color = COLORS.blueDark;
+                              }
+                            }}
 
-                                  fontWeight:
-                                    isActive(
-                                      sub.path
-                                    )
-                                      ? 700
-                                      : 500,
+                            onMouseLeave={(e) => {
+                              if (!isActive(sub.path)) {
+                                e.currentTarget.style.background =
+                                  "transparent";
 
-                                  textDecoration:
-                                    "none",
+                                e.currentTarget.style.color = COLORS.text;
+                              }
+                            }}
 
-                                  borderRadius:
-                                    "7px",
+                            onClick={() => {
+                              clearTooltipTimer();
 
-                                  fontSize:
-                                    "12px",
+                              setHoveredMenu(null);
+                            }}
+                          >
+                            {sub.label}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>,
 
-                                  transition:
-                                    "all 0.15s ease",
-                                }}
+                  document.body,
+                )}
 
-                                onMouseEnter={(
-                                  e
-                                ) => {
-                                  clearTooltipTimer();
-
-                                  setHoveredMenu(
-                                    menuKey
-                                  );
-
-                                  if (
-                                    !isActive(
-                                      sub.path
-                                    )
-                                  ) {
-                                    e.currentTarget.style.background =
-                                      COLORS.blueHover;
-
-                                    e.currentTarget.style.color =
-                                      COLORS.blueDark;
-                                  }
-                                }}
-
-                                onMouseLeave={(
-                                  e
-                                ) => {
-                                  if (
-                                    !isActive(
-                                      sub.path
-                                    )
-                                  ) {
-                                    e.currentTarget.style.background =
-                                      "transparent";
-
-                                    e.currentTarget.style.color =
-                                      COLORS.text;
-                                  }
-                                }}
-
-                                onClick={() => {
-                                  clearTooltipTimer();
-
-                                  setHoveredMenu(
-                                    null
-                                  );
-                                }}
-                              >
-                                {
-                                  sub.label
-                                }
-                              </Link>
-                            </li>
-                          )
-                        )}
-                      </ul>
-                    </div>,
-
-                    document.body
-                  )}
-
-
-                {/* =================================================
+              {/* =================================================
                     EXPANDED SUBMENU
                 ================================================= */}
 
-                {!isCollapsed &&
-                  isOpen &&
-                  menu.sub.length >
-                    0 && (
-                    <ul
+              {!isCollapsed && isOpen && menu.sub.length > 0 && (
+                <ul
+                  style={{
+                    listStyle: "none",
+
+                    margin: "3px 0 5px",
+
+                    padding: "3px 8px 3px 38px",
+
+                    borderLeft: `1px solid ${COLORS.border}`,
+                  }}
+                >
+                  {menu.sub.map((sub, idx) => (
+                    <li
+                      key={`sidebar-${menuKey}-${sub.label}-${idx}`}
                       style={{
-                        listStyle:
-                          "none",
-
-                        margin:
-                          "3px 0 5px",
-
-                        padding:
-                          "3px 8px 3px 38px",
-
-                        borderLeft:
-                          `1px solid ${COLORS.border}`,
+                        marginBottom: "2px",
                       }}
                     >
-                      {menu.sub.map(
-                        (
-                          sub,
-                          idx
-                        ) => (
-                          <li
-                            key={`sidebar-${menuKey}-${sub.label}-${idx}`}
-                            style={{
-                              marginBottom:
-                                "2px",
-                            }}
-                          >
-                            {sub.path ? (
-                              <Link
-                                to={
-                                  sub.path
-                                }
+                      {sub.path ? (
+                        <Link
+                          to={sub.path}
 
-                                style={{
-                                  display:
-                                    "block",
+                          style={{
+                            display: "block",
 
-                                  padding:
-                                    "7px 10px",
+                            padding: "7px 10px",
 
-                                  borderRadius:
-                                    "7px",
+                            borderRadius: "7px",
 
-                                  color:
-                                    isActive(
-                                      sub.path
-                                    )
-                                      ? COLORS.blueDark
-                                      : "#60788F",
+                            color: isActive(sub.path)
+                              ? COLORS.blueDark
+                              : "#60788F",
 
-                                  background:
-                                    isActive(
-                                      sub.path
-                                    )
-                                      ? COLORS.blueActive
-                                      : "transparent",
+                            background: isActive(sub.path)
+                              ? COLORS.blueActive
+                              : "transparent",
 
-                                  fontSize:
-                                    "12px",
+                            fontSize: "12px",
 
-                                  fontWeight:
-                                    isActive(
-                                      sub.path
-                                    )
-                                      ? 700
-                                      : 500,
+                            fontWeight: isActive(sub.path) ? 700 : 500,
 
-                                  textDecoration:
-                                    "none",
+                            textDecoration: "none",
 
-                                  transition:
-                                    "all 0.2s",
-                                }}
+                            transition: "all 0.2s",
+                          }}
 
-                                onMouseEnter={(
-                                  e
-                                ) => {
-                                  if (
-                                    !isActive(
-                                      sub.path
-                                    )
-                                  ) {
-                                    e.currentTarget.style.background =
-                                      COLORS.blueHover;
+                          onMouseEnter={(e) => {
+                            if (!isActive(sub.path)) {
+                              e.currentTarget.style.background =
+                                COLORS.blueHover;
 
-                                    e.currentTarget.style.color =
-                                      COLORS.blueDark;
-                                  }
-                                }}
+                              e.currentTarget.style.color = COLORS.blueDark;
+                            }
+                          }}
 
-                                onMouseLeave={(
-                                  e
-                                ) => {
-                                  if (
-                                    !isActive(
-                                      sub.path
-                                    )
-                                  ) {
-                                    e.currentTarget.style.background =
-                                      "transparent";
+                          onMouseLeave={(e) => {
+                            if (!isActive(sub.path)) {
+                              e.currentTarget.style.background = "transparent";
 
-                                    e.currentTarget.style.color =
-                                      "#60788F";
-                                  }
-                                }}
-                              >
-                                {
-                                  sub.label
-                                }
-                              </Link>
-                            ) : (
-                              <div
-                                style={{
-                                  display:
-                                    "block",
+                              e.currentTarget.style.color = "#60788F";
+                            }
+                          }}
+                        >
+                          {sub.label}
+                        </Link>
+                      ) : (
+                        <div
+                          style={{
+                            display: "block",
 
-                                  padding:
-                                    "7px 10px",
+                            padding: "7px 10px",
 
-                                  color:
-                                    "#9AAABA",
+                            color: "#9AAABA",
 
-                                  cursor:
-                                    "default",
+                            cursor: "default",
 
-                                  fontSize:
-                                    "12px",
-                                }}
-                              >
-                                {
-                                  sub.label
-                                }
-                              </div>
-                            )}
-                          </li>
-                        )
+                            fontSize: "12px",
+                          }}
+                        >
+                          {sub.label}
+                        </div>
                       )}
-                    </ul>
-                  )}
-              </div>
-            );
-          }
-        )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

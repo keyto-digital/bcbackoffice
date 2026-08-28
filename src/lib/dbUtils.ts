@@ -10,9 +10,9 @@ interface InsertWithAutoNomorParams {
   tanggal?: string; // opsional
   excludeFields?: string[];
   monthlyReset?: boolean; // ✅ reset per bulan
-  digitCount?: number;    // jumlah digit urutan
+  digitCount?: number; // jumlah digit urutan
   resetAfterMax?: boolean; // ✅ reset otomatis setelah max tercapai
-  maxSeq?: number;        // ✅ batas maksimal urutan sebelum reset
+  maxSeq?: number; // ✅ batas maksimal urutan sebelum reset
 }
 
 export async function insertWithAutoNomor({
@@ -65,7 +65,9 @@ export async function insertWithAutoNomor({
       const lastNomor = String(firstRow[nomorField] ?? "");
       console.log("DEBUG lastNomor:", lastNomor);
 
-      const match = lastNomor.match(new RegExp(`^${prefix}(\\d+)-${periodPart}$`));
+      const match = lastNomor.match(
+        new RegExp(`^${prefix}(\\d+)-${periodPart}$`),
+      );
       if (match?.[1]) {
         nextSeq = parseInt(match[1], 10) + 1; // ✅ jadi 275
         if (resetAfterMax && nextSeq > maxSeq) nextSeq = 1;
@@ -80,7 +82,9 @@ export async function insertWithAutoNomor({
     // 🧹 Bersihkan payload sebelum insert
     const rawData = { ...data, [nomorField]: nomorBaru };
     excludeFields.forEach((f) => delete rawData[f]);
-    const safeData = Object.fromEntries(Object.entries(rawData).filter(([, v]) => v !== undefined));
+    const safeData = Object.fromEntries(
+      Object.entries(rawData).filter(([, v]) => v !== undefined),
+    );
 
     const { data: inserted, error: insertError } = await supabase
       .from(table)
