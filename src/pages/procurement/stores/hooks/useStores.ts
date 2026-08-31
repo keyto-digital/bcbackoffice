@@ -43,14 +43,16 @@ export function useStores(entityId?: string | null) {
     setSaving(true);
     setError(null);
 
-    const { error: createError } = await supabase.from(TABLE_NAME).insert({
-      entity_id: payload.entity_id || null,
-      code: payload.code.trim().toUpperCase(),
-      name: payload.name.trim(),
-      store_type: payload.store_type,
-      address: payload.address.trim() || null,
-      is_active: payload.is_active,
-    });
+    const { error: createError } = await supabase
+      .from(TABLE_NAME)
+      .insert({
+        entity_id: entityId ?? payload.entity_id ?? null,
+        code: payload.code.trim().toUpperCase(),
+        name: payload.name.trim(),
+        store_type: payload.store_type,
+        address: payload.address.trim() || null,
+        is_active: payload.is_active,
+      });
 
     if (createError) {
       setError(createError.message);
@@ -63,14 +65,17 @@ export function useStores(entityId?: string | null) {
     return true;
   };
 
-  const updateStore = async (id: string, payload: StoreFormData) => {
+  const updateStore = async (
+    id: string,
+    payload: StoreFormData,
+  ) => {
     setSaving(true);
     setError(null);
 
     const { error: updateError } = await supabase
       .from(TABLE_NAME)
       .update({
-        entity_id: payload.entity_id || null,
+        entity_id: entityId ?? payload.entity_id ?? null,
         code: payload.code.trim().toUpperCase(),
         name: payload.name.trim(),
         store_type: payload.store_type,

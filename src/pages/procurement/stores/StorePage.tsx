@@ -24,6 +24,15 @@ const initialForm: StoreFormData = {
 };
 
 export function StorePage({ entityId = null }: StorePageProps) {
+  const currentUser = JSON.parse(
+    localStorage.getItem("custom_user") || "{}",
+  );
+
+  const currentEntityId =
+    entityId ??
+    currentUser?.entity_id ??
+    null;
+
   const {
     stores,
     loading,
@@ -32,7 +41,7 @@ export function StorePage({ entityId = null }: StorePageProps) {
     createStore,
     updateStore,
     deleteStore,
-  } = useStores(entityId);
+  } = useStores(currentEntityId);
 
   const [formData, setFormData] = useState<StoreFormData>(initialForm);
   const [editingStore, setEditingStore] = useState<Store | null>(null);
@@ -42,8 +51,9 @@ export function StorePage({ entityId = null }: StorePageProps) {
     if (!editingStore) {
       setFormData({
         ...initialForm,
-        entity_id: entityId,
+        entity_id: currentEntityId,
       });
+
       return;
     }
 
@@ -55,7 +65,7 @@ export function StorePage({ entityId = null }: StorePageProps) {
       address: editingStore.address ?? "",
       is_active: editingStore.is_active,
     });
-  }, [editingStore, entityId]);
+  }, [editingStore, currentEntityId]);
 
   const filteredStores = useMemo(() => {
     const keyword = search.trim().toLowerCase();
@@ -79,27 +89,43 @@ export function StorePage({ entityId = null }: StorePageProps) {
     }));
   };
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const handleSubmit = async (
+    event: React.FormEvent,
+  ) => {
     event.preventDefault();
 
-    if (!formData.code.trim() || !formData.name.trim()) {
-      if (!formData.entity_id) {
-        window.alert("Entity belum dipilih.");
-        return;
-      }
-      window.alert("Kode dan nama store wajib diisi.");
+    if (!currentEntityId) {
+      window.alert(
+        "Entity transaksi tidak ditemukan. Silakan login kembali.",
+      );
       return;
     }
 
+    if (!formData.code.trim() || !formData.name.trim()) {
+      window.alert(
+        "Kode dan nama store wajib diisi.",
+      );
+      return;
+    }
+
+    const payload: StoreFormData = {
+      ...formData,
+      entity_id: currentEntityId,
+    };
+
     const success = editingStore
-      ? await updateStore(editingStore.id, formData)
-      : await createStore(formData);
+      ? await updateStore(
+          editingStore.id,
+          payload,
+        )
+      : await createStore(payload);
 
     if (success) {
       setEditingStore(null);
+
       setFormData({
         ...initialForm,
-        entity_id: entityId,
+        entity_id: currentEntityId,
       });
     }
   };

@@ -322,6 +322,18 @@
         "component": "InventoryRequestPage"
       },
       {
+        "label": "inventory_request.edit",
+        "access": "inventory_request.edit",
+        "path": "/store-request/edit",
+        "component": "InventoryRequestPage"
+      },
+      {
+        "label": "inventory_request.delete",
+        "access": "inventory_request.delete",
+        "path": "/store-request/delete",
+        "component": "InventoryRequestPage"
+      },
+      {
         "label": "inventory_request.submit",
         "access": "inventory_request.submit",
         "path": "/store-request/submit",
@@ -356,6 +368,12 @@
         "access": "Storekeeper -> General Store",
         "path": "/general-store",
         "component": "StorekeeperPage"
+      },
+       {
+        "label": "Kartu Stok",
+        "access": "Storekeeper -> Kartu Stok",
+        "path": "/stock-cards",
+        "component": "StockMutationPage"
       },
       {
         "label": "Transfer List",

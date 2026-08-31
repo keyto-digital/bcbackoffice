@@ -49,6 +49,14 @@ export default function StorekeeperPage(): JSX.Element {
     accounts,
   } = useStorekeeper();
 
+  const currentUser = JSON.parse(
+    localStorage.getItem("custom_user") || "{}",
+  ) as {
+    entity_id?: string;
+  };
+
+  const entityId = currentUser.entity_id ?? null;
+
   const summaryFrom = (summaryPage - 1) * pageSize;
 
   const summaryTo = summaryFrom + pageSize;
@@ -82,6 +90,7 @@ export default function StorekeeperPage(): JSX.Element {
     stocks,
     loadData,
     setError,
+    entityId,
   });
 
   const exportExcel = useCallback(() => {
@@ -117,7 +126,7 @@ export default function StorekeeperPage(): JSX.Element {
           }));
 
     const workbook = XLSX.utils.book_new();
-    const sheetName = tab === "SUMMARY" ? "Stok" : "Kartu Stok";
+    const sheetName = tab === "SUMMARY" ? "Stok" : "Riwayat Stok";
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
 
@@ -468,7 +477,7 @@ export default function StorekeeperPage(): JSX.Element {
               : "px-4 py-2 text-sm text-gray-600"
           }
         >
-          Kartu Stok
+          Riwayat Stok
         </button>
       </div>
 

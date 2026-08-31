@@ -125,6 +125,8 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
 
   const [access, setAccess] = useState({
     create: false,
+     edit: false,
+    delete: false,
     submit: false,
     approve: false,
     transfer: false,
@@ -180,6 +182,8 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
     async function loadAccess() {
       const [
         createAccess,
+        editAccess,
+        deleteAccess,
         submitAccess,
         approveAccess,
         transferAccess,
@@ -187,6 +191,8 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
         exportAccess,
       ] = await Promise.all([
         hasAccess("inventory_request.create"),
+        hasAccess("inventory_request.edit"),
+        hasAccess("inventory_request.delete"),
         hasAccess("inventory_request.submit"),
         hasAccess("inventory_request.approve"),
         hasAccess("inventory_request.transfer"),
@@ -196,6 +202,8 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
 
       setAccess({
         create: createAccess,
+        edit: editAccess,
+        delete: deleteAccess,
         submit: submitAccess,
         approve: approveAccess,
         transfer: transferAccess,
@@ -1113,14 +1121,14 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
                           });
                         }}
                       >
-                        {request.status === "DRAFT" ? (
+                        {access.edit && request.status === "DRAFT" ? (
                           <Pencil size={17} strokeWidth={2} />
                         ) : (
                           <Eye size={17} strokeWidth={2} />
                         )}
                       </button>
 
-                      {request.status === "DRAFT" && access.approve && (
+                      {access.delete && request.status === "DRAFT" && access.approve && (
                         <>
                           <button
                             type="button"
