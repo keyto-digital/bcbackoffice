@@ -42,6 +42,8 @@ export function resolvePageComponent(name: string): () => Promise<PageModule> {
     InventoryRequestPage:
       "/src/pages/procurement/inventory/InventoryRequestPage.tsx",
     StorekeeperPage: "/src/pages/procurement/storekeeper/StorekeeperPage.tsx",
+    StockMutationPage:
+      "/src/pages/procurement/storekeeper/stock-mutation/StockMutationPage.tsx",
     TransferPage:
       "/src/pages/procurement/storekeeper/transfer/TransferPage.tsx",
     OpnameReportPage:
