@@ -1,5 +1,8 @@
 // utils/time.ts
-export function toWIBDateString(date: Date, format: "iso" | "display" = "iso"): string {
+export function toWIBDateString(
+  date: Date,
+  format: "iso" | "display" = "iso",
+): string {
   // Konversi dari UTC ke WIB (UTC+7)
   const utc = date.getTime();
   const wibDate = new Date(utc + 7 * 60 * 60 * 1000); // tambah 7 jam dari UTC
@@ -30,18 +33,59 @@ export function getWIBTimestamp(format: "display" | "iso" = "display"): string {
 export function getWIBTimestampFromUTC(val: string) {
   if (!val) return "";
 
-  const d = new Date(val);
-  const wib = new Date(d.getTime() + 7 * 60 * 60 * 1000);
+  /*
+   * Jika timestamp tidak memiliki timezone,
+   * anggap nilainya sudah waktu lokal dan
+   * jangan ditambah +7 jam lagi.
+   */
+  const hasTimezone =
+    /Z$/i.test(val) ||
+    /[+-]\d{2}:?\d{2}$/.test(val);
 
-  const dd = String(wib.getDate()).padStart(2, "0");
-  const mm = String(wib.getMonth() + 1).padStart(2, "0");
-  const yyyy = wib.getFullYear();
+  if (!hasTimezone) {
+    const normalized = val.replace("T", " ");
 
-  const hh = String(wib.getHours()).padStart(2, "0");
-  const min = String(wib.getMinutes()).padStart(2, "0");
-  const ss = String(wib.getSeconds()).padStart(2, "0");
+    const [datePart, timePart = "00:00:00"] =
+      normalized.split(" ");
 
-  return `${dd}-${mm}-${yyyy} ${hh}:${min}:${ss}`;
+    const [yyyy, mm, dd] =
+      datePart.split("-");
+
+    return `${dd}-${mm}-${yyyy} ${timePart}`;
+  }
+
+  /*
+   * Timestamp UTC / memiliki timezone.
+   * Konversi menggunakan timezone Asia/Jakarta.
+   */
+  const date = new Date(val);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const parts = new Intl.DateTimeFormat(
+    "id-ID",
+    {
+      timeZone: "Asia/Jakarta",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    },
+  ).formatToParts(date);
+
+  const getPart = (type: string) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+
+  return `${getPart("day")}-${getPart(
+    "month",
+  )}-${getPart("year")} ${getPart(
+    "hour",
+  )}:${getPart("minute")}:${getPart("second")}`;
 }
 
 export function toWIBTimeString(val: string) {
@@ -52,7 +96,7 @@ export function toWIBTimeString(val: string) {
   // 🔥 kalau format ISO
   if (val.includes("T")) {
     date = new Date(val);
-  } 
+  }
   // 🔥 kalau format HH:mm:ss (KasHarian)
   else {
     date = new Date(`1970-01-01T${val}`);
@@ -67,9 +111,7 @@ export function toWIBTimeString(val: string) {
   return `${hh}:${mm}:${ss}`;
 }
 
-export function getWIBTimeOnly(
-  val: string | null | undefined
-) {
+export function getWIBTimeOnly(val: string | null | undefined) {
   if (!val) return "";
 
   const d = new Date(val);
@@ -78,13 +120,9 @@ export function getWIBTimeOnly(
     return "";
   }
 
-  const wib = new Date(
-    d.getTime() + 7 * 60 * 60 * 1000
-  );
+  const wib = new Date(d.getTime() + 7 * 60 * 60 * 1000);
 
   return `${String(wib.getHours()).padStart(2, "0")}:${String(
-    wib.getMinutes()
-  ).padStart(2, "0")}:${String(
-    wib.getSeconds()
-  ).padStart(2, "0")} WIB`;
+    wib.getMinutes(),
+  ).padStart(2, "0")}:${String(wib.getSeconds()).padStart(2, "0")} WIB`;
 }

@@ -971,11 +971,11 @@ export default function ReceivingPage() {
       .map(
         (detail, index) => `
           <tr>
-            <td>${index + 1}</td>
+            <td style="text-align:center">${index + 1}</td>
             <td>${detail.item_code_snapshot}</td>
             <td>${detail.item_name_snapshot}</td>
-            <td style="text-align:right">${detail.quantity_received}</td>
-            <td>${detail.unit_code_snapshot}</td>
+            <td style="text-align:center">${detail.quantity_received}</td>
+            <td style="text-align:center">${detail.unit_code_snapshot}</td>
             <td style="text-align:right">${rupiah(detail.unit_cost)}</td>
             <td style="text-align:right">${rupiah(detail.line_total)}</td>
           </tr>

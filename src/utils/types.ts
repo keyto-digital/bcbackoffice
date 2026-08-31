@@ -11,8 +11,8 @@ export interface KasRow {
   user_id: string | null;
   created_at: string | null;
   updated_at: string | null;
-  sumber_id?: string | null;      // ✅ tambahkan ini
-  sumber_tabel?: string | null; 
+  sumber_id?: string | null; // ✅ tambahkan ini
+  sumber_tabel?: string | null;
   account_lawan_id?: string | null;
   // ✅ Tambahan field dari uang_saku_driver
   bbm?: number | null;

@@ -45,7 +45,6 @@ export const saveKasFromUangSaku = async ({
 
     const { error } = await supabase.from("kas_harian").insert(payload);
     if (error) throw error;
-    
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("❌ Error saat proses kas:", message);

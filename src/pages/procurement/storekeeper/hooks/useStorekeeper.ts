@@ -90,6 +90,11 @@ export function useStorekeeper() {
   // ---------------------------------------------------------------------
 
   const [stocks, setStocks] = useState<StockRow[]>([]);
+  const currentUser = JSON.parse(localStorage.getItem("custom_user") || "{}",  );
+  const entityId =
+    typeof currentUser.entity_id === "string"
+      ? currentUser.entity_id
+      : "";
   const [movements, setMovements] = useState<MovementRow[]>([]);
   const [stores, setStores] = useState<StoreOption[]>([]);
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
@@ -437,6 +442,9 @@ export function useStorekeeper() {
     groupedMovements,
     stores,
     accounts,
+
+    // entity aktif
+    entityId,
 
     // filtered
     filteredStocks,

@@ -3,10 +3,7 @@ export interface PrintColumn {
   key: string;
   align?: "left" | "center" | "right";
   width?: string;
-  format?: (
-    value: unknown,
-    row: Record<string, unknown>
-  ) => string | number;
+  format?: (value: unknown, row: Record<string, unknown>) => string | number;
 }
 
 export interface PrintFooter {
@@ -42,11 +39,7 @@ export function printReport({
   rows,
   footer = [],
 }: PrintReportOptions) {
-  const printWindow = window.open(
-    "",
-    "_blank",
-    "width=1400,height=900"
-  );
+  const printWindow = window.open("", "_blank", "width=1400,height=900");
 
   if (!printWindow) {
     alert("Popup print diblokir browser.");
@@ -79,7 +72,7 @@ export function printReport({
         >
           ${escapeHtml(column.label)}
         </th>
-      `
+      `,
     )
     .join("");
 
@@ -125,7 +118,7 @@ export function printReport({
                     <span>${escapeHtml(item.label)}</span>
                     <strong>${escapeHtml(item.value)}</strong>
                   </div>
-                `
+                `,
               )
               .join("")}
           </div>

@@ -1,146 +1,257 @@
-import { useCallback, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import {
+  useCallback,
+  useState,
+} from "react";
+
+import {
+  supabase,
+} from "@/lib/supabaseClient";
+
+type AccountRelation = {
+  code: string | null;
+  name: string | null;
+};
+
+type UnitRelation = {
+  code: string | null;
+};
+
+type ItemRelation = {
+  code: string | null;
+  name: string | null;
+
+  unit:
+    | UnitRelation
+    | UnitRelation[]
+    | null;
+};
+
+type StoreRelation = {
+  code: string | null;
+  name: string | null;
+};
 
 type MovementDetailRawRow = {
   id: string;
+
   movement_date: string;
+
   movement_type: string;
+
   quantity_in: number | null;
+
   quantity_out: number | null;
+
   quantity_after: number | null;
+
   average_cost_after: number | null;
+
   reference: string;
+
   description: string | null;
+
   created_at: string;
+
   created_by: string | null;
 
+  offset_account_id: string | null;
+
+  offset_account:
+    | AccountRelation
+    | AccountRelation[]
+    | null;
+
   item:
-    | {
-        code: string | null;
-        name: string | null;
-        unit: { code: string | null } | { code: string | null }[] | null;
-      }
-    | {
-        code: string | null;
-        name: string | null;
-        unit: { code: string | null } | { code: string | null }[] | null;
-      }[]
+    | ItemRelation
+    | ItemRelation[]
     | null;
 
   store:
-    | {
-        code: string | null;
-        name: string | null;
-      }
-    | {
-        code: string | null;
-        name: string | null;
-      }[]
+    | StoreRelation
+    | StoreRelation[]
     | null;
 };
 
-type MovementDetailRow = Omit<MovementDetailRawRow, "item" | "store"> & {
-  item: {
-    code: string | null;
-    name: string | null;
-    unit: {
+type MovementDetailRow =
+  Omit<
+    MovementDetailRawRow,
+    "item" | "store" | "offset_account"
+  > & {
+    item: {
       code: string | null;
-    } | null;
-  } | null;
 
-  store: {
-    code: string | null;
-    name: string | null;
-  } | null;
-};
+      name: string | null;
+
+      unit: UnitRelation | null;
+    } | null;
+
+    store: StoreRelation | null;
+
+    offset_account:
+      AccountRelation | null;
+  };
 
 export function useMovementDetail() {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] =
+    useState(false);
 
-  const [rows, setRows] = useState<MovementDetailRow[]>([]);
+  const [rows, setRows] =
+    useState<MovementDetailRow[]>([]);
 
-  const loadDetail = useCallback(async (reference: string) => {
-    if (!reference) {
-      setRows([]);
-      return;
-    }
+  const loadDetail =
+    useCallback(
+      async (
+        reference: string,
+      ) => {
+        if (!reference) {
+          setRows([]);
+          return;
+        }
 
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("inventory_movements")
-      .select(
-        `
-        id,
-        movement_date,
-        movement_type,
-        quantity_in,
-        quantity_out,
-        quantity_after,
-        average_cost_after,
-        reference,
-        description,
-        created_at,
-        created_by,
+        setLoading(true);
 
-        item:items(
-          code,
-          name,
-          unit:units(
-            code
-          )
-        ),
+        try {
+          const {
+            data,
+            error,
+          } = await supabase
+            .from(
+              "inventory_movements",
+            )
+            .select(
+              `
+                id,
+                movement_date,
+                movement_type,
+                quantity_in,
+                quantity_out,
+                quantity_after,
+                average_cost_after,
+                reference,
+                description,
+                created_at,
+                created_by,
+                offset_account_id,
 
-        store:stores(
-          code,
-          name
-        )
-      `,
-      )
+                item:items(
+                  code,
+                  name,
+                  unit:units(
+                    code
+                  )
+                ),
 
-      .eq("reference", reference)
+                store:stores(
+                  code,
+                  name
+                ),
 
-      .order("movement_type");
+                offset_account:accounts!inventory_movements_offset_account_id_fkey(
+                  code,
+                  name
+                )
+              `,
+            )
+            .eq(
+              "reference",
+              reference,
+            )
+            .order(
+              "created_at",
+              {
+                ascending: true,
+              },
+            );
 
-    if (error) {
-      console.error(error);
-      setRows([]);
-    } else {
-      const movementRows = (data ?? []).map(
-        (row: MovementDetailRawRow): MovementDetailRow => ({
-          ...row,
+          if (error) {
+            throw error;
+          }
 
-          item: Array.isArray(row.item)
-            ? row.item[0]
-              ? {
-                  code: row.item[0].code,
-                  name: row.item[0].name,
-                  unit: Array.isArray(row.item[0].unit)
-                    ? (row.item[0].unit[0] ?? null)
-                    : row.item[0].unit,
-                }
-              : null
-            : row.item
-              ? {
-                  code: row.item.code,
-                  name: row.item.name,
-                  unit: Array.isArray(row.item.unit)
-                    ? (row.item.unit[0] ?? null)
-                    : row.item.unit,
-                }
-              : null,
+          const movementRows =
+            (
+              data ??
+              []
+            ).map(
+              (
+                row: MovementDetailRawRow,
+              ): MovementDetailRow => {
+                const rawItem =
+                  Array.isArray(
+                    row.item,
+                  )
+                    ? row.item[0] ??
+                      null
+                    : row.item;
 
-          store: Array.isArray(row.store) ? (row.store[0] ?? null) : row.store,
-        }),
-      );
+                const rawStore =
+                  Array.isArray(
+                    row.store,
+                  )
+                    ? row.store[0] ??
+                      null
+                    : row.store;
 
-      setRows(movementRows);
-    }
-    setLoading(false);
-  }, []);
+                const rawAccount =
+                  Array.isArray(
+                    row.offset_account,
+                  )
+                    ? row.offset_account[0] ??
+                      null
+                    : row.offset_account;
+
+                return {
+                  ...row,
+
+                  item:
+                    rawItem
+                      ? {
+                          code:
+                            rawItem.code,
+
+                          name:
+                            rawItem.name,
+
+                          unit:
+                            Array.isArray(
+                              rawItem.unit,
+                            )
+                              ? rawItem.unit[0] ??
+                                null
+                              : rawItem.unit,
+                        }
+                      : null,
+
+                  store:
+                    rawStore,
+
+                  offset_account:
+                    rawAccount,
+                };
+              },
+            );
+
+          setRows(
+            movementRows,
+          );
+        } catch (error) {
+          console.error(
+            "Load movement detail error:",
+            error,
+          );
+
+          setRows([]);
+        } finally {
+          setLoading(false);
+        }
+      },
+      [],
+    );
 
   return {
     loading,
+
     rows,
+
     loadDetail,
   };
 }

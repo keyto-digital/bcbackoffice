@@ -21,8 +21,8 @@ export default function TransferDetailModal({ open, row, onClose }: Props) {
   if (!open || !row) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="w-[1000px] max-h-[90vh] overflow-auto rounded-lg bg-white shadow-xl">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 px-4 py-10">
+     <div className="mx-auto my-4 w-full max-w-[1100px] max-h-[calc(100vh-7rem)] overflow-auto rounded-lg bg-white shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b p-4">
           <h2 className="text-lg font-semibold">Detail Transfer</h2>
@@ -79,7 +79,9 @@ export default function TransferDetailModal({ open, row, onClose }: Props) {
               line.movement_type,
               `${line.store?.code} - ${line.store?.name}`,
               quantity(
-                line.quantity_in > 0 ? line.quantity_in : line.quantity_out,
+                Number(line.quantity_in ?? 0) > 0
+                  ? Number(line.quantity_in ?? 0)
+                  : Number(line.quantity_out ?? 0),
               ),
               quantity(line.quantity_after),
               money(line.average_cost_after),

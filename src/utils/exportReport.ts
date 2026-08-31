@@ -15,9 +15,7 @@ const MONTH_NAMES = [
   "Des",
 ];
 
-export function formatReportDate(
-  date: Date
-): string {
+export function formatReportDate(date: Date): string {
   const day = String(date.getDate()).padStart(2, "0");
   const month = MONTH_NAMES[date.getMonth()];
   const year = String(date.getFullYear()).slice(-2);
@@ -25,9 +23,7 @@ export function formatReportDate(
   return `${day}${month}${year}`;
 }
 
-export function formatReportDisplayDate(
-  date: Date
-): string {
+export function formatReportDisplayDate(date: Date): string {
   const day = String(date.getDate()).padStart(2, "0");
   const month = MONTH_NAMES[date.getMonth()];
   const year = String(date.getFullYear()).slice(-2);
@@ -37,7 +33,7 @@ export function formatReportDisplayDate(
 
 export function formatReportDateRange(
   startDate: Date | null | undefined,
-  endDate: Date | null | undefined
+  endDate: Date | null | undefined,
 ): string {
   if (!startDate && !endDate) {
     return "SemuaTanggal";
@@ -58,9 +54,7 @@ export function formatReportDateRange(
     start.getMonth() === end.getMonth() &&
     start.getFullYear() === end.getFullYear()
   ) {
-    const startDay = String(
-      start.getDate()
-    ).padStart(2, "0");
+    const startDay = String(start.getDate()).padStart(2, "0");
 
     return `${startDay}-${formatReportDate(end)}`;
   }
@@ -73,7 +67,7 @@ export interface ExportColumn {
   key: string;
   format?: (
     value: unknown,
-    row: Record<string, unknown>
+    row: Record<string, unknown>,
   ) => string | number | boolean | null;
 }
 
@@ -111,9 +105,7 @@ export function exportReport({
   const columnWidths = columns.map((column) => {
     const maxLength = Math.max(
       column.label.length,
-      ...data.map((row) =>
-        String(row[column.label] ?? "").length
-      )
+      ...data.map((row) => String(row[column.label] ?? "").length),
     );
 
     return {
@@ -125,11 +117,7 @@ export function exportReport({
 
   const workbook = XLSX.utils.book_new();
 
-  XLSX.utils.book_append_sheet(
-    workbook,
-    worksheet,
-    sheetName.substring(0, 31)
-  );
+  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName.substring(0, 31));
 
   XLSX.writeFile(workbook, filename);
 }

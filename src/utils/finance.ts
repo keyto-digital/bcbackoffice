@@ -10,17 +10,21 @@ export function toDateTime(tanggal: string, waktu?: string | null): Date {
 // ======================================================================
 // SALDO AWAL DARI HISTORI  (transaksi sebelum hari ini)
 // ======================================================================
-export function getSaldoAwalDariHistori(data: KasRow[], tanggalAwal: string): number {
+export function getSaldoAwalDariHistori(
+  data: KasRow[],
+  tanggalAwal: string,
+): number {
   const batas = new Date(`${tanggalAwal} 00:00:00`);
 
   const sorted = [...data]
     .filter((r) => toDateTime(r.tanggal, r.waktu) < batas)
-    .sort((a, b) =>
-      toDateTime(a.tanggal, a.waktu).getTime() -
-      toDateTime(b.tanggal, b.waktu).getTime()
+    .sort(
+      (a, b) =>
+        toDateTime(a.tanggal, a.waktu).getTime() -
+        toDateTime(b.tanggal, b.waktu).getTime(),
     );
 
-  return sorted.length > 0 ? sorted.at(-1)?.saldo_akhir ?? 0 : 0;
+  return sorted.length > 0 ? (sorted.at(-1)?.saldo_akhir ?? 0) : 0;
 }
 
 // ======================================================================
@@ -31,9 +35,10 @@ export function getSaldoKemarin(data: KasRow[], tanggalAwal: string): number {
 
   const sebelum = [...data]
     .filter((r) => toDateTime(r.tanggal, r.waktu) < batas)
-    .sort((a, b) =>
-      toDateTime(b.tanggal, b.waktu).getTime() -
-      toDateTime(a.tanggal, a.waktu).getTime()
+    .sort(
+      (a, b) =>
+        toDateTime(b.tanggal, b.waktu).getTime() -
+        toDateTime(a.tanggal, a.waktu).getTime(),
     );
 
   return sebelum[0]?.saldo_akhir ?? 0;
@@ -49,7 +54,7 @@ export function injectSaldoKeData(data: KasRow[], saldoAwal: number): KasRow[] {
     .sort(
       (a, b) =>
         toDateTime(a.tanggal, a.waktu).getTime() -
-        toDateTime(b.tanggal, b.waktu).getTime()
+        toDateTime(b.tanggal, b.waktu).getTime(),
     )
     .map((item) => {
       const nominal = Number(item.nominal) || 0;

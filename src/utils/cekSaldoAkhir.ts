@@ -21,13 +21,11 @@ export async function getSaldoTerakhir(): Promise<number> {
  */
 export async function cekSaldoTidakMinus(
   jenis: "debet" | "kredit",
-  nominal: number
+  nominal: number,
 ): Promise<{ ok: boolean; saldoAkhir: number; saldoAwal: number }> {
   const saldoAwal = await getSaldoTerakhir();
   const saldoAkhir =
-    jenis === "debet"
-      ? saldoAwal + nominal
-      : saldoAwal - nominal;
+    jenis === "debet" ? saldoAwal + nominal : saldoAwal - nominal;
 
   if (saldoAkhir < 0) {
     return { ok: false, saldoAwal, saldoAkhir };

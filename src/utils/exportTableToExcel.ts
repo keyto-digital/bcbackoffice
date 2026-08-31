@@ -19,7 +19,7 @@ export interface ExportOptions {
 
 export function exportTableToExcel(
   data: Array<Record<string, unknown>>,
-  options: ExportOptions
+  options: ExportOptions,
 ) {
   const {
     filename = "Export.xlsx",
@@ -32,35 +32,40 @@ export function exportTableToExcel(
   const header = columns.map((col) => col.label);
 
   const normalizeRow = (row: Record<string, unknown>) =>
-  columns.map((col) => {
-    let val = row[col.key];
+    columns.map((col) => {
+      let val = row[col.key];
 
-    if (col.format) {
-      val = col.format(val, row);
-    }
+      if (col.format) {
+        val = col.format(val, row);
+      }
 
-    if (col.type === "date") {
-      const d = new Date(val as string | number | Date);
-      return isNaN(d.getTime()) ? "" : d;
-    }
+      if (col.type === "date") {
+        const d = new Date(val as string | number | Date);
+        return isNaN(d.getTime()) ? "" : d;
+      }
 
-    if (col.type === "currency") {
-      return typeof val === "number" ? val : Number(val) || "";
-    }
+      if (col.type === "currency") {
+        return typeof val === "number" ? val : Number(val) || "";
+      }
 
-    return val !== undefined && val !== null ? val : "";
-  });
+      return val !== undefined && val !== null ? val : "";
+    });
 
-  const rows = [header, ...prependRows.map(normalizeRow), ...data.map(normalizeRow), ...appendRows.map(normalizeRow)];
+  const rows = [
+    header,
+    ...prependRows.map(normalizeRow),
+    ...data.map(normalizeRow),
+    ...appendRows.map(normalizeRow),
+  ];
   const sheet = XLSX.utils.aoa_to_sheet(rows);
 
-    sheet["!cols"] = columns.map((col) => ({
+  sheet["!cols"] = columns.map((col) => ({
     wch: Math.max(
       col.label.length + 4,
       ...data.map((row) => {
         const value = row[col.key];
         return value ? String(value).length + 2 : 10;
-      })
+      }),
     ),
   }));
 
@@ -72,14 +77,19 @@ export function exportTableToExcel(
     for (let R = 1; R <= range.e.r; ++R) {
       const cellRef = colLetter + (R + 1);
       const cell = sheet[cellRef];
-      if (!cell || cell.v === "" || cell.v === null || cell.v === undefined) continue;
+      if (!cell || cell.v === "" || cell.v === null || cell.v === undefined)
+        continue;
 
       if (col?.type === "date" && cell.v instanceof Date) {
-        const isMidnight = cell.v.getHours() === 0 && cell.v.getMinutes() === 0 && cell.v.getSeconds() === 0;
+        const isMidnight =
+          cell.v.getHours() === 0 &&
+          cell.v.getMinutes() === 0 &&
+          cell.v.getSeconds() === 0;
         cell.t = "d";
-        cell.z = col.label === "Tanggal" && isMidnight
-          ? "dd/mm/yyyy"
-          : col.formatString || "dd/mm/yyyy hh:mm:ss";
+        cell.z =
+          col.label === "Tanggal" && isMidnight
+            ? "dd/mm/yyyy"
+            : col.formatString || "dd/mm/yyyy hh:mm:ss";
       }
 
       if (col?.type === "currency" && typeof cell.v === "number") {
