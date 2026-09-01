@@ -35,26 +35,23 @@ type PurchaseOrderResult = {
 
 const EXPORT_BATCH_SIZE = 1000;
 
-export function usePurchaseOrders(page = 1, pageSize = 25, search = "") {
+export function usePurchaseOrders(page = 1, pageSize = 25, search = "",
+  options?: {
+    canViewSupplier?: boolean;
+    canViewFinancial?: boolean;
+  },) {
+
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
-
   const [totalCount, setTotalCount] = useState(0);
-
   const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
-
   const [items, setItems] = useState<ItemOption[]>([]);
-
   const [loading, setLoading] = useState(false);
-
   const [loadingMasters, setLoadingMasters] = useState(false);
-
   const [saving, setSaving] = useState(false);
-
   const [error, setError] = useState<string | null>(null);
-
   const user = getCustomUser();
-
   const entityId = user?.entity_id ?? null;
+  const canViewSupplier = options?.canViewSupplier ?? false;
 
   /*
    * ==========================================================
@@ -129,15 +126,24 @@ export function usePurchaseOrders(page = 1, pageSize = 25, search = "") {
       const keyword = search.trim();
 
       if (keyword) {
-        const safeKeyword = keyword.replace(/[%_]/g, "\\$&").replace(/,/g, " ");
+        const safeKeyword = keyword
+          .replace(/[%_]/g, "\\$&")
+          .replace(/,/g, " ");
 
-        query = query.or(
-          [
-            `po_number.ilike.%${safeKeyword}%`,
+        const searchFilters = [
+          `po_number.ilike.%${safeKeyword}%`,
+          `status.ilike.%${safeKeyword}%`,
+        ];
+
+        if (canViewSupplier) {
+          searchFilters.push(
             `supplier_code_snapshot.ilike.%${safeKeyword}%`,
             `supplier_name_snapshot.ilike.%${safeKeyword}%`,
-            `status.ilike.%${safeKeyword}%`,
-          ].join(","),
+          );
+        }
+
+        query = query.or(
+          searchFilters.join(","),
         );
       }
 
@@ -316,50 +322,40 @@ export function usePurchaseOrders(page = 1, pageSize = 25, search = "") {
 
     const { data, error: detailError } = await supabase
       .from("purchase_order_details")
-      .select(
-        `
-            item_id,
-            item_code_snapshot,
-            item_name_snapshot,
-            unit_code_snapshot,
-            quantity_ordered,
-            unit_price,
-            discount_amount,
-            tax_amount,
-            notes
-          `,
-      )
+      .select(`
+        item_id,
+        item_code_snapshot,
+        item_name_snapshot,
+        unit_code_snapshot,
+        quantity_ordered,
+        unit_price,
+        discount_amount,
+        tax_amount,
+        notes
+      `)
       .eq("purchase_order_id", purchaseOrderId)
-      .order("line_number", {
-        ascending: true,
-      });
+      .order("line_number", { ascending: true });
 
     if (detailError) {
       setError(detailError.message);
-
       return null;
     }
 
-    return ((data ?? []) as PurchaseOrderDetailRow[]).map((detail) => ({
+    const detailRows = (data ?? []) as unknown as PurchaseOrderDetailRow[];
+
+    return detailRows.map((detail) => ({
       item_id: detail.item_id,
-
       item_code_snapshot: detail.item_code_snapshot,
-
       item_name_snapshot: detail.item_name_snapshot,
-
       unit_code_snapshot: detail.unit_code_snapshot,
-
       quantity_ordered: Number(detail.quantity_ordered || 0),
-
       unit_price: Number(detail.unit_price || 0),
-
       discount_amount: Number(detail.discount_amount || 0),
-
       tax_amount: Number(detail.tax_amount || 0),
-
       notes: detail.notes ?? "",
     }));
   };
+
 
   /*
    * ==========================================================
@@ -407,15 +403,24 @@ export function usePurchaseOrders(page = 1, pageSize = 25, search = "") {
         });
 
       if (keyword) {
-        const safeKeyword = keyword.replace(/[%_]/g, "\\$&").replace(/,/g, " ");
+        const safeKeyword = keyword
+          .replace(/[%_]/g, "\\$&")
+          .replace(/,/g, " ");
 
-        query = query.or(
-          [
-            `po_number.ilike.%${safeKeyword}%`,
+        const searchFilters = [
+          `po_number.ilike.%${safeKeyword}%`,
+          `status.ilike.%${safeKeyword}%`,
+        ];
+
+        if (canViewSupplier) {
+          searchFilters.push(
             `supplier_code_snapshot.ilike.%${safeKeyword}%`,
             `supplier_name_snapshot.ilike.%${safeKeyword}%`,
-            `status.ilike.%${safeKeyword}%`,
-          ].join(","),
+          );
+        }
+
+        query = query.or(
+          searchFilters.join(","),
         );
       }
 
@@ -446,7 +451,7 @@ export function usePurchaseOrders(page = 1, pageSize = 25, search = "") {
     }
 
     return allOrders;
-  }, [entityId, search]);
+  }, [entityId, search, canViewSupplier,]);
 
   /*
    * ==========================================================
@@ -456,45 +461,64 @@ export function usePurchaseOrders(page = 1, pageSize = 25, search = "") {
    * ==========================================================
    */
 
-  const createPurchaseOrder = async (payload: PurchaseOrderFormData) => {
+  const createPurchaseOrder = async (
+    payload: PurchaseOrderFormData,
+  ) => {
     setSaving(true);
     setError(null);
 
-    const { data, error: createError } = await supabase.rpc(
-      "create_purchase_order",
-      {
-        p_entity_id: entityId,
+    try {
+      const supplierId =
+        payload.supplier_id?.trim() || null;
 
-        p_order_date: payload.order_date,
+      const { data, error: createError } =
+        await supabase.rpc(
+          "create_purchase_order",
+          {
+            p_entity_id: entityId,
 
-        p_expected_delivery_date: payload.expected_delivery_date || null,
+            p_order_date:
+              payload.order_date || null,
 
-        p_supplier_id: payload.supplier_id,
+            p_expected_delivery_date:
+              payload.expected_delivery_date || null,
 
-        p_store_id: payload.store_id,
+            p_supplier_id: supplierId,
 
-        p_payment_term_days: Number(payload.payment_term_days || 0),
+            p_store_id:
+              payload.store_id || null,
 
-        p_notes: payload.notes || null,
+            p_payment_term_days:
+              Number(payload.payment_term_days || 0),
 
-        p_details: payload.details,
-      },
+            p_notes:
+              payload.notes || null,
+
+            p_details: payload.details,
+          },
+        );
+
+      if (createError) {
+        setError(createError.message);
+
+        return null;
+      }
+
+      await fetchPurchaseOrders();
+
+      return data as PurchaseOrderResult;
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Gagal membuat Purchase Order.",
     );
 
-    if (createError) {
-      setError(createError.message);
-
-      setSaving(false);
-
-      return null;
-    }
-
-    await fetchPurchaseOrders();
-
+    return null;
+  } finally {
     setSaving(false);
-
-    return data as PurchaseOrderResult;
-  };
+  }
+};
 
   /*
    * ==========================================================
@@ -509,40 +533,60 @@ export function usePurchaseOrders(page = 1, pageSize = 25, search = "") {
     setSaving(true);
     setError(null);
 
-    const { data, error: updateError } = await supabase.rpc(
-      "update_purchase_order_draft",
-      {
-        p_purchase_order_id: purchaseOrderId,
+    try {
+      const supplierId =
+        payload.supplier_id?.trim() || null;
 
-        p_order_date: payload.order_date,
+      const { data, error: updateError } =
+        await supabase.rpc(
+          "update_purchase_order_draft",
+          {
+            p_purchase_order_id:
+              purchaseOrderId,
 
-        p_expected_delivery_date: payload.expected_delivery_date || null,
+            p_order_date:
+              payload.order_date || null,
 
-        p_supplier_id: payload.supplier_id,
+            p_expected_delivery_date:
+              payload.expected_delivery_date || null,
 
-        p_store_id: payload.store_id,
+            p_supplier_id:
+              supplierId,
 
-        p_payment_term_days: Number(payload.payment_term_days || 0),
+            p_store_id:
+              payload.store_id || null,
 
-        p_notes: payload.notes || null,
+            p_payment_term_days:
+              Number(payload.payment_term_days || 0),
 
-        p_details: payload.details,
-      },
-    );
+            p_notes:
+              payload.notes || null,
 
-    if (updateError) {
-      setError(updateError.message);
+            p_details:
+              payload.details,
+          },
+        );
 
-      setSaving(false);
+      if (updateError) {
+        setError(updateError.message);
+
+        return null;
+      }
+
+      await fetchPurchaseOrders();
+
+      return data as PurchaseOrderResult;
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Gagal memperbarui Purchase Order.",
+      );
 
       return null;
+    } finally {
+      setSaving(false);
     }
-
-    await fetchPurchaseOrders();
-
-    setSaving(false);
-
-    return data as PurchaseOrderResult;
   };
 
   /*

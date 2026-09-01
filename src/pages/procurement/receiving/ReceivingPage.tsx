@@ -1095,7 +1095,9 @@ export default function ReceivingPage() {
     <div className="w-full pr-2 space-y-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Receiving</h1>
+          <h1 className="text-xl font-semibold text-gray-900">
+            
+          </h1>
           <p className="mt-1 text-sm text-gray-500">
             Terima barang berdasarkan Purchase Order dan simpan ke Store/Gudang.
           </p>

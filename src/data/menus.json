@@ -176,6 +176,24 @@
         "access": "purchase_order.export",
         "path": "/purchase-orders/export",
         "component": "PurchaseOrderPage"
+      },
+      {
+        "label": "purchase_order.view_supplier",
+        "access": "purchase_order.view_supplier",
+        "path": "/purchase-orders/view-supplier",
+        "component": "PurchaseOrderPage"
+      },
+      {
+        "label": "purchase_order.manage_supplier",
+        "access": "purchase_order.manage_supplier",
+        "path": "/purchase-orders/manage-supplier",
+        "component": "PurchaseOrderPage"
+      },
+      {
+        "label": "purchase_order.view_financial",
+        "access": "purchase_order.view_financial",
+        "path": "/purchase-orders/view-financial",
+        "component": "PurchaseOrderPage"
       }
     ]
   },

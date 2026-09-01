@@ -8,6 +8,16 @@ import { saveAs } from "file-saver";
 import { hasAccess } from "@/lib/hasAccess";
 import { usePurchaseOrders } from "./hooks/usePurchaseOrders";
 import { getCustomUser } from "@/lib/authUser";
+import PurchaseOrderDetailModal from "./components/PurchaseOrderDetailModal";
+import {
+  Eye,
+  Pencil,
+  Trash2,
+  Printer,
+  XCircle,
+  CircleCheckBig,
+  FileDown,
+} from "lucide-react";
 import type {
   PurchaseOrder,
   PurchaseOrderFormData,
@@ -37,15 +47,10 @@ const statusLabels: Record<PurchaseOrderStatus, string> = {
 
 const statusClasses: Record<PurchaseOrderStatus, string> = {
   DRAFT: "bg-gray-100 text-gray-700",
-
   APPROVED: "bg-blue-100 text-blue-700",
-
   OPEN: "bg-green-100 text-green-700",
-
   PARTIAL_RECEIVED: "bg-yellow-100 text-yellow-700",
-
   CLOSED: "bg-purple-100 text-purple-700",
-
   CANCELLED: "bg-red-100 text-red-700",
 };
 
@@ -113,57 +118,275 @@ function formatDate(value: string) {
  * Tidak diubah.
  * ==========================================================
  */
+interface PrintOptions {
+  showSupplier: boolean;
+  showFinancial: boolean;
+}
 
 function printPurchaseOrder(
   purchaseOrder: PurchaseOrder,
   details: PurchaseOrderLineForm[],
+  options: PrintOptions,
 ) {
+  const {
+    showSupplier,
+    showFinancial,
+  } = options;
+
+  /*
+   * ==========================================================
+   * DETAIL ITEM
+   * ==========================================================
+   */
+
   const rows = details
     .map((detail, index) => {
       const total =
-        Number(detail.quantity_ordered) * Number(detail.unit_price) -
-        Number(detail.discount_amount) +
-        Number(detail.tax_amount);
+        Number(detail.quantity_ordered ?? 0) *
+          Number(detail.unit_price ?? 0) -
+        Number(detail.discount_amount ?? 0) +
+        Number(detail.tax_amount ?? 0);
 
       return `
-          <tr>
-            <td>${index + 1}</td>
-            <td>${detail.item_code_snapshot ?? "-"}</td>
-            <td>${detail.item_name_snapshot ?? "-"}</td>
-            <td class="right">${Number(detail.quantity_ordered)}</td>
-            <td>${detail.unit_code_snapshot ?? "-"}</td>
-            <td class="right">${formatCurrency(Number(detail.unit_price))}</td>
-            <td class="right">${formatCurrency(total)}</td>
-          </tr>
-        `;
+        <tr>
+          <td>${index + 1}</td>
+          <td>
+            ${detail.item_code_snapshot ?? "-"}
+          </td>
+          <td>
+            ${detail.item_name_snapshot ?? "-"}
+          </td>
+          <td class="right">
+            ${Number(detail.quantity_ordered ?? 0)}
+          </td>
+          <td>
+            ${detail.unit_code_snapshot ?? "-"}
+          </td>
+          ${
+            showFinancial
+              ? `
+                <td class="right">
+                  ${formatCurrency(
+                    Number(detail.unit_price ?? 0),
+                  )}
+                </td>
+
+                <td class="right">
+                  ${formatCurrency(total)}
+                </td>
+              `
+              : ""
+          }
+        </tr>
+      `;
     })
     .join("");
 
-  const printWindow = window.open("", "_blank", "width=1000,height=800");
+  /*
+   * ==========================================================
+   * HEADER SUPPLIER
+   * ==========================================================
+   */
+
+  const supplierInformation = showSupplier
+    ? `
+      <strong>
+        Supplier
+      </strong>
+
+      <span class="colon">
+        :
+      </span>
+
+      <span>
+        ${purchaseOrder.supplier_name_snapshot ?? "-"}
+      </span>
+
+      <strong>
+        Kode Supplier
+      </strong>
+
+      <span class="colon">
+        :
+      </span>
+
+      <span>
+        ${purchaseOrder.supplier_code_snapshot ?? "-"}
+      </span>
+
+      <strong>
+        Estimasi Datang
+      </strong>
+
+      <span class="colon">
+        :
+      </span>
+
+      <span>
+        ${
+          purchaseOrder.expected_delivery_date
+            ? formatDate(
+                purchaseOrder.expected_delivery_date,
+              )
+            : "-"
+        }
+      </span>
+
+      <strong>
+        Termin
+      </strong>
+
+      <span class="colon">
+        :
+      </span>
+
+      <span>
+        ${purchaseOrder.payment_term_days ?? 0}
+        hari
+      </span>
+    `
+    : `
+      <strong>
+        Estimasi Datang
+      </strong>
+
+      <span class="colon">
+        :
+      </span>
+
+      <span>
+        ${
+          purchaseOrder.expected_delivery_date
+            ? formatDate(
+                purchaseOrder.expected_delivery_date,
+              )
+            : "-"
+        }
+      </span>
+    `;
+
+  /*
+   * ==========================================================
+   * FINANCIAL SUMMARY
+   * ==========================================================
+   */
+
+  const financialSummary = showFinancial
+    ? `
+      <table class="total">
+
+        <tr>
+          <td>
+            <strong>
+              Subtotal
+            </strong>
+          </td>
+
+          <td class="right">
+            ${formatCurrency(
+              Number(purchaseOrder.subtotal ?? 0),
+            )}
+          </td>
+        </tr>
+
+        <tr>
+          <td>
+            <strong>
+              Diskon
+            </strong>
+          </td>
+
+          <td class="right">
+            ${formatCurrency(
+              Number(
+                purchaseOrder.discount_amount ?? 0,
+              ),
+            )}
+          </td>
+        </tr>
+
+
+        <tr>
+          <td>
+            <strong>
+              Pajak
+            </strong>
+          </td>
+
+          <td class="right">
+            ${formatCurrency(
+              Number(purchaseOrder.tax_amount ?? 0),
+            )}
+          </td>
+        </tr>
+
+
+        <tr>
+          <td>
+            <strong>
+              Grand Total
+            </strong>
+          </td>
+
+          <td class="right">
+            <strong>
+              ${formatCurrency(
+                Number(
+                  purchaseOrder.grand_total ?? 0,
+                ),
+              )}
+            </strong>
+          </td>
+        </tr>
+
+      </table>
+    `
+    : "";
+
+  /*
+   * ==========================================================
+   * PRINT WINDOW
+   * ==========================================================
+   */
+
+  const printWindow = window.open(
+    "",
+    "_blank",
+    "width=1000,height=800",
+  );
 
   if (!printWindow) {
-    window.alert("Popup print diblokir browser.");
+    window.alert(
+      "Popup print diblokir browser.",
+    );
 
     return;
   }
 
   printWindow.document.write(`
     <!doctype html>
+
     <html>
+
       <head>
+
         <title>
           PO ${purchaseOrder.po_number}
         </title>
 
+
         <style>
+
           @page {
             size: A4 portrait;
             margin: 15mm;
           }
 
+
           * {
             box-sizing: border-box;
           }
+
 
           body {
             font-family: Arial, sans-serif;
@@ -171,16 +394,19 @@ function printPurchaseOrder(
             font-size: 12px;
           }
 
+
           h1 {
             margin: 0;
             font-size: 22px;
           }
+
 
           h2 {
             margin: 4px 0 20px;
             font-size: 14px;
             font-weight: normal;
           }
+
 
           .header {
             display: grid;
@@ -192,6 +418,7 @@ function printPurchaseOrder(
             column-gap: 20px;
           }
 
+
           .logo {
             width: 200px;
             height: auto;
@@ -199,10 +426,12 @@ function printPurchaseOrder(
             margin-top: 2px;
           }
 
+
           .logo-wrap {
             grid-column: 1;
             grid-row: 1;
           }
+
 
           .company {
             grid-column: 2;
@@ -210,6 +439,7 @@ function printPurchaseOrder(
             width: 100%;
             text-align: right;
           }
+
 
           .company h1 {
             margin: 0;
@@ -219,12 +449,6 @@ function printPurchaseOrder(
             line-height: 1;
           }
 
-          .company h2 {
-            margin: 6px 0 0;
-            font-size: 13px;
-            font-weight: normal;
-            color: #666;
-          }
 
           .address {
             grid-column: 2;
@@ -237,6 +461,7 @@ function printPurchaseOrder(
             margin-top: 10px;
           }
 
+
           .info-header {
             display: grid;
             grid-template-columns: 1fr 230px;
@@ -245,19 +470,23 @@ function printPurchaseOrder(
             margin-bottom: 18px;
           }
 
+
           .info {
             display: grid;
             grid-template-columns: 130px 10px 1fr;
             row-gap: 6px;
           }
 
+
           .info strong {
             font-weight: bold;
           }
 
+
           .info .colon {
             text-align: center;
           }
+
 
           .po-info {
             display: grid;
@@ -268,19 +497,23 @@ function printPurchaseOrder(
             width: 220px;
           }
 
+
           .po-info strong {
             display: block;
             text-align: left;
           }
+
 
           .po-info .colon {
             text-align: right;
             padding-right: 2px;
           }
 
+
           .po-info .value {
             text-align: right;
           }
+
 
           table {
             width: 100%;
@@ -288,15 +521,18 @@ function printPurchaseOrder(
             margin-top: 12px;
           }
 
+
           thead th {
             background: #dbeafe;
             font-weight: bold;
             text-align: center;
           }
 
+
           tbody td {
             height: 28px;
           }
+
 
           th,
           td {
@@ -305,13 +541,16 @@ function printPurchaseOrder(
             vertical-align: top;
           }
 
+
           th {
             background: #e5e7eb;
           }
 
+
           .right {
             text-align: right;
           }
+
 
           .total {
             width: 320px;
@@ -320,14 +559,17 @@ function printPurchaseOrder(
             border-collapse: collapse;
           }
 
+
           .total td {
             border: 1px solid #374151;
           }
+
 
           .total tr:last-child {
             background: #f3f4f6;
             font-size: 14px;
           }
+
 
           .notes {
             margin-top: 18px;
@@ -336,6 +578,7 @@ function printPurchaseOrder(
             padding: 8px;
           }
 
+
           .signature {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -343,101 +586,67 @@ function printPurchaseOrder(
             margin-top: 60px;
             text-align: center;
           }
+
         </style>
+
       </head>
+
 
       <body>
 
+
         <div class="header">
 
+
           <div class="logo-wrap">
+
             <img
               src="/logo.png"
               class="logo"
             />
+
           </div>
 
+
           <div class="company">
+
             <h1>
               PURCHASE ORDER
             </h1>
+
           </div>
 
+
           <div class="address">
+
             Sendangadi, Mlati, Sleman, Yogyakarta 55285
+
             &nbsp;&nbsp; | &nbsp;&nbsp;
+
             Purchasing : 0811 2656 028
+
             &nbsp;&nbsp; | &nbsp;&nbsp;
+
             E-mail : bcb.financeadmin@gmail.com
+
           </div>
+
 
         </div>
 
 
         <div class="info-header">
 
+
           <div class="info">
 
-            <strong>
-              Supplier
-            </strong>
-
-            <span class="colon">
-              :
-            </span>
-
-            <span>
-              ${purchaseOrder.supplier_name_snapshot}
-            </span>
-
-
-            <strong>
-              Kode Supplier
-            </strong>
-
-            <span class="colon">
-              :
-            </span>
-
-            <span>
-              ${purchaseOrder.supplier_code_snapshot}
-            </span>
-
-
-            <strong>
-              Estimasi Datang
-            </strong>
-
-            <span class="colon">
-              :
-            </span>
-
-            <span>
-              ${
-                purchaseOrder.expected_delivery_date
-                  ? formatDate(purchaseOrder.expected_delivery_date)
-                  : "-"
-              }
-            </span>
-
-
-            <strong>
-              Termin
-            </strong>
-
-            <span class="colon">
-              :
-            </span>
-
-            <span>
-              ${purchaseOrder.payment_term_days}
-              hari
-            </span>
+            ${supplierInformation}
 
           </div>
 
 
           <div class="po-info">
+
 
             <strong>
               No. PO
@@ -461,7 +670,9 @@ function printPurchaseOrder(
             </span>
 
             <span class="value">
-              ${formatDate(purchaseOrder.order_date)}
+              ${formatDate(
+                purchaseOrder.order_date,
+              )}
             </span>
 
 
@@ -474,7 +685,11 @@ function printPurchaseOrder(
             </span>
 
             <span class="value">
-              ${statusLabels[purchaseOrder.status]}
+              ${
+                statusLabels[
+                  purchaseOrder.status
+                ] ?? purchaseOrder.status
+              }
             </span>
 
 
@@ -490,91 +705,59 @@ function printPurchaseOrder(
               ${purchaseOrder.store_name ?? "-"}
             </span>
 
+
           </div>
+
 
         </div>
 
 
         <table>
 
+
           <thead>
+
             <tr>
+
               <th>No</th>
+
               <th>Kode</th>
+
               <th>Artikel</th>
+
               <th>Qty</th>
+
               <th>Satuan</th>
-              <th>Harga</th>
-              <th>Total</th>
+
+              ${
+                showFinancial
+                  ? `
+                    <th>Harga</th>
+                    <th>Total</th>
+                  `
+                  : ""
+              }
+
             </tr>
+
           </thead>
 
+
           <tbody>
+
             ${rows}
+
           </tbody>
 
-        </table>
-
-
-        <table class="total">
-
-          <tr>
-            <td>
-              <strong>
-                Subtotal
-              </strong>
-            </td>
-
-            <td class="right">
-              ${formatCurrency(purchaseOrder.subtotal)}
-            </td>
-          </tr>
-
-
-          <tr>
-            <td>
-              <strong>
-                Diskon
-              </strong>
-            </td>
-
-            <td class="right">
-              ${formatCurrency(purchaseOrder.discount_amount)}
-            </td>
-          </tr>
-
-
-          <tr>
-            <td>
-              <strong>
-                Pajak
-              </strong>
-            </td>
-
-            <td class="right">
-              ${formatCurrency(purchaseOrder.tax_amount)}
-            </td>
-          </tr>
-
-
-          <tr>
-            <td>
-              <strong>
-                Grand Total
-              </strong>
-            </td>
-
-            <td class="right">
-              <strong>
-                ${formatCurrency(purchaseOrder.grand_total)}
-              </strong>
-            </td>
-          </tr>
 
         </table>
+
+
+        ${financialSummary}
 
 
         <div class="notes">
+
 
           <strong>
             Catatan:
@@ -584,38 +767,54 @@ function printPurchaseOrder(
 
           ${purchaseOrder.notes || "-"}
 
+
         </div>
 
 
         <div class="signature">
 
+
           <div>
+
             Dibuat Oleh,
+
             <br /><br /><br /><br /><br /><br />
 
             ______________________
+
           </div>
+
 
           <div>
+
             Mengetahui,
+
             <br /><br /><br /><br /><br /><br />
 
             ______________________
+
           </div>
+
 
         </div>
 
 
         <script>
+
           window.onload = () => {
+
             window.print();
 
             window.onafterprint = () =>
               window.close();
+
           };
+
         </script>
 
+
       </body>
+
     </html>
   `);
 
@@ -667,37 +866,6 @@ export function PurchaseOrderPage() {
    * PURCHASE ORDER HOOK
    * ========================================================
    */
-
-  const {
-    purchaseOrders,
-    totalCount,
-
-    suppliers,
-    items,
-
-    loading,
-    loadingMasters,
-    saving,
-    error,
-
-    createPurchaseOrder,
-    updatePurchaseOrderDraft,
-    deletePurchaseOrderDraft,
-
-    fetchPurchaseOrderDetails,
-
-    openPurchaseOrder,
-    cancelPurchaseOrder,
-    closePurchaseOrderOutstanding,
-
-    exportPurchaseOrders,
-  } = usePurchaseOrders(page, pageSize, search);
-
-  const [showForm, setShowForm] = useState(false);
-
-  const [editingPurchaseOrder, setEditingPurchaseOrder] =
-    useState<PurchaseOrder | null>(null);
-
   const [access, setAccess] = useState({
     create: false,
     editDraft: false,
@@ -707,7 +875,49 @@ export function PurchaseOrderPage() {
     closeOutstanding: false,
     print: false,
     export: false,
+
+    /*
+    * Data rahasia.
+    */
+    viewSupplier: false,
+    manageSupplier: false,
+    viewFinancial: false,
   });
+
+  const {
+    purchaseOrders,
+    totalCount,
+    suppliers,
+    items,
+    loading,
+    loadingMasters,
+    saving,
+    error,
+    createPurchaseOrder,
+    updatePurchaseOrderDraft,
+    deletePurchaseOrderDraft,
+    fetchPurchaseOrderDetails,
+    openPurchaseOrder,
+    cancelPurchaseOrder,
+    closePurchaseOrderOutstanding,
+    exportPurchaseOrders,
+  } = usePurchaseOrders(
+    page,
+    pageSize,
+    search,
+    {
+      canViewSupplier:
+        access.viewSupplier,
+
+      canViewFinancial:
+        access.viewFinancial,
+    },
+  );
+
+  const [showForm, setShowForm] = useState(false);
+
+  const [editingPurchaseOrder, setEditingPurchaseOrder] =
+    useState<PurchaseOrder | null>(null);
 
   const [formData, setFormData] = useState<PurchaseOrderFormData>(() =>
     createInitialForm(),
@@ -760,23 +970,28 @@ export function PurchaseOrderPage() {
         closeOutstanding,
         print,
         exportExcel,
+
+        viewSupplier,
+        manageSupplier,
+        viewFinancial,
       ] = await Promise.all([
         hasAccess("purchase_order.create"),
-
         hasAccess("purchase_order.edit_draft"),
-
         hasAccess("purchase_order.delete_draft"),
-
         hasAccess("purchase_order.open"),
-
         hasAccess("purchase_order.cancel"),
-
         hasAccess("purchase_order.close_outstanding"),
-
         hasAccess("purchase_order.print"),
-
         hasAccess("purchase_order.export"),
+
+        /*
+        * Hak akses kerahasiaan.
+        */
+        hasAccess("purchase_order.view_supplier"),
+        hasAccess("purchase_order.manage_supplier"),
+        hasAccess("purchase_order.view_financial"),
       ]);
+      
 
       setAccess({
         create,
@@ -787,6 +1002,10 @@ export function PurchaseOrderPage() {
         closeOutstanding,
         print,
         export: exportExcel,
+
+        viewSupplier,
+        manageSupplier,
+        viewFinancial,
       });
     }
 
@@ -806,6 +1025,39 @@ export function PurchaseOrderPage() {
     [page, pageSize, totalCount],
   );
 
+  /*
+   * ========================================================
+   * TAMPILKAN DETAIL PURCHASE ORDER
+   * ========================================================
+   */
+
+  const [detailPurchaseOrder, setDetailPurchaseOrder,] = useState<PurchaseOrder | null>(null,);
+  const [detailLines, setDetailLines,] = useState<PurchaseOrderLineForm[]>([],);
+  const [showDetail, setShowDetail,] = useState(false);
+
+  const handleViewDetail = async (
+    purchaseOrder: PurchaseOrder,
+  ) => {
+    const details =
+      await fetchPurchaseOrderDetails(
+        purchaseOrder.id,
+      );
+
+    if (!details) {
+      return;
+    }
+
+    setDetailPurchaseOrder(
+      purchaseOrder,
+    );
+
+    setDetailLines(
+      details,
+    );
+
+    setShowDetail(true);
+  };
+  
   /*
    * ========================================================
    * FORM CALCULATION
@@ -945,7 +1197,12 @@ export function PurchaseOrderPage() {
 
               item_id: itemId,
 
-              unit_price: Number(item?.standard_cost || 0),
+              unit_price:
+                access.viewFinancial
+                  ? Number(
+                      item?.standard_cost || 0
+                    )
+                  : 0,
             }
           : line,
       ),
@@ -987,19 +1244,12 @@ export function PurchaseOrderPage() {
 
     setFormData({
       entity_id: purchaseOrder.entity_id,
-
       order_date: purchaseOrder.order_date,
-
       expected_delivery_date: purchaseOrder.expected_delivery_date ?? "",
-
-      supplier_id: purchaseOrder.supplier_id,
-
+      supplier_id: purchaseOrder.supplier_id ?? "",
       store_id: purchaseOrder.store_id ?? "",
-
       payment_term_days: Number(purchaseOrder.payment_term_days || 0),
-
       notes: purchaseOrder.notes ?? "",
-
       details,
     });
 
@@ -1042,8 +1292,13 @@ export function PurchaseOrderPage() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!formData.supplier_id) {
-      window.alert("Supplier wajib dipilih.");
+    if (
+      access.manageSupplier &&
+      !formData.supplier_id
+    ) {
+      window.alert(
+        "Supplier wajib dipilih."
+      );
 
       return;
     }
@@ -1076,9 +1331,12 @@ export function PurchaseOrderPage() {
       }
 
       if (
-        Number(line.unit_price) < 0 ||
-        Number(line.discount_amount) < 0 ||
-        Number(line.tax_amount) < 0
+        access.viewFinancial &&
+        (
+          Number(line.unit_price) < 0 ||
+          Number(line.discount_amount) < 0 ||
+          Number(line.tax_amount) < 0
+        )
       ) {
         window.alert(
           `Harga, diskon, dan pajak pada baris ${
@@ -1189,8 +1447,12 @@ export function PurchaseOrderPage() {
       return;
     }
 
-    printPurchaseOrder(purchaseOrder, details);
+    printPurchaseOrder(purchaseOrder, details, {
+      showSupplier: access.viewSupplier,
+      showFinancial: access.viewFinancial,
+    });
   };
+
 
   /*
    * ========================================================
@@ -1216,31 +1478,30 @@ export function PurchaseOrderPage() {
         return;
       }
 
-      const rows = data.map((purchaseOrder) => ({
-        "Nomor PO": purchaseOrder.po_number,
+      const rows = data.map((purchaseOrder) => {
+        const row: Record<string, string | number> = {
+          "Nomor PO": purchaseOrder.po_number,
+          Tanggal: purchaseOrder.order_date,
+          Status: statusLabels[purchaseOrder.status],
+          "Store Tujuan": purchaseOrder.store_name ?? "",
+          Catatan: purchaseOrder.notes ?? "",
+        };
 
-        Tanggal: purchaseOrder.order_date,
+        if (access.viewSupplier) {
+          row.Supplier = purchaseOrder.supplier_name_snapshot ?? "";
+          row["Kode Supplier"] = purchaseOrder.supplier_code_snapshot ?? "";
+          row.Termin = `${purchaseOrder.payment_term_days} hari`;
+        }
 
-        Supplier: purchaseOrder.supplier_name_snapshot,
+        if (access.viewFinancial) {
+          row.Subtotal = Number(purchaseOrder.subtotal);
+          row.Diskon = Number(purchaseOrder.discount_amount);
+          row.Pajak = Number(purchaseOrder.tax_amount);
+          row["Grand Total"] = Number(purchaseOrder.grand_total);
+        }
 
-        "Kode Supplier": purchaseOrder.supplier_code_snapshot,
-
-        Termin: `${purchaseOrder.payment_term_days} hari`,
-
-        Subtotal: Number(purchaseOrder.subtotal),
-
-        Diskon: Number(purchaseOrder.discount_amount),
-
-        Pajak: Number(purchaseOrder.tax_amount),
-
-        "Grand Total": Number(purchaseOrder.grand_total),
-
-        Status: statusLabels[purchaseOrder.status],
-
-        "Store Tujuan": purchaseOrder.store_name ?? "",
-
-        Catatan: purchaseOrder.notes ?? "",
-      }));
+        return row;
+      });
 
       const worksheet = XLSX.utils.json_to_sheet(rows);
 
@@ -1280,6 +1541,10 @@ export function PurchaseOrderPage() {
     }
   };
 
+  const purchaseOrderTableColumnCount = 5 +
+    (access.viewSupplier ? 1 : 0) +
+    (access.viewFinancial ? 1 : 0);
+
   return (
     <div className="w-full pr-2 space-y-4">
       {/* ==================================================
@@ -1289,11 +1554,11 @@ export function PurchaseOrderPage() {
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">
-            Purchase Order
+            
           </h1>
 
           <p className="mt-1 text-sm text-gray-500">
-            Buat pesanan pembelian dari supplier sebelum proses receiving.
+            Buat pesanan pembelian ke Purchasing.
           </p>
         </div>
 
@@ -1302,7 +1567,11 @@ export function PurchaseOrderPage() {
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm md:w-80"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Cari nomor PO atau supplier..."
+            placeholder={
+              access.viewSupplier
+                ? "Cari nomor PO, supplier, atau status..."
+                : "Cari nomor PO atau status..."
+            }
           />
 
           {access.export && (
@@ -1399,43 +1668,46 @@ export function PurchaseOrderPage() {
               />
             </div>
 
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Estimasi Tanggal Datang
-              </label>
+            {access.manageSupplier && (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Estimasi Barang Datang
+                </label>
 
-              <input
-                type="date"
-                value={formData.expected_delivery_date}
-                onChange={(event) =>
-                  setFormData((previous) => ({
-                    ...previous,
-                    expected_delivery_date: event.target.value,
-                  }))
-                }
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-              />
-            </div>
+                <input
+                  type="date"
+                  value={formData.expected_delivery_date}
+                  onChange={(event) =>
+                    setFormData((previous) => ({
+                      ...previous,
+                      expected_delivery_date:
+                        event.target.value,
+                    }))
+                  }
+                  className="w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </div>
+            )}
 
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Supplier
-              </label>
+            {access.manageSupplier && (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Supplier
+                </label>
 
-              <select
-                value={formData.supplier_id}
-                onChange={(event) => handleSupplierChange(event.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-              >
-                <option value="">Pilih supplier</option>
-
-                {suppliers.map((supplier) => (
-                  <option key={supplier.id} value={supplier.id}>
-                    {supplier.code} - {supplier.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+                <SearchableSelect
+                  value={formData.supplier_id}
+                  onChange={handleSupplierChange}
+                  options={suppliers.map(
+                    (supplier): SearchableSelectOption => ({
+                      value: supplier.id,
+                      label: `${supplier.code} - ${supplier.name}`,
+                    }),
+                  )}
+                  placeholder="Pilih supplier..."
+                />
+              </div>
+            )}
 
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
@@ -1515,35 +1787,39 @@ export function PurchaseOrderPage() {
             <table className="min-w-[1100px] w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-3 py-3 text-left font-medium text-gray-600">
+                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
                     Item
                   </th>
 
-                  <th className="px-3 py-3 text-right font-medium text-gray-600">
+                  <th className="w-32 px-4 py-3 text-center text-sm font-medium text-gray-700">
                     Qty
                   </th>
 
-                  <th className="px-3 py-3 text-left font-medium text-gray-600">
+                  <th className="w-28 px-4 py-3 text-center text-sm font-medium text-gray-700">
                     Satuan
                   </th>
 
-                  <th className="px-3 py-3 text-right font-medium text-gray-600">
-                    Harga
-                  </th>
+                  {access.viewFinancial && (
+                    <>
+                      <th className="w-36 px-4 py-3 text-right text-sm font-medium text-gray-700">
+                        Harga
+                      </th>
 
-                  <th className="px-3 py-3 text-right font-medium text-gray-600">
-                    Diskon
-                  </th>
+                      <th className="w-32 px-4 py-3 text-right text-sm font-medium text-gray-700">
+                        Diskon
+                      </th>
 
-                  <th className="px-3 py-3 text-right font-medium text-gray-600">
-                    Pajak
-                  </th>
+                      <th className="w-28 px-4 py-3 text-right text-sm font-medium text-gray-700">
+                        Pajak
+                      </th>
 
-                  <th className="px-3 py-3 text-right font-medium text-gray-600">
-                    Total
-                  </th>
+                      <th className="w-40 px-4 py-3 text-right text-sm font-medium text-gray-700">
+                        Total
+                      </th>
+                    </>
+                  )}
 
-                  <th className="px-3 py-3 text-center font-medium text-gray-600">
+                  <th className="w-24 px-4 py-3 text-center text-sm font-medium text-gray-700">
                     Aksi
                   </th>
                 </tr>
@@ -1599,61 +1875,65 @@ export function PurchaseOrderPage() {
                       <td className="px-3 py-3 text-gray-700">
                         {selectedItem?.unit?.code ?? "-"}
                       </td>
+                      
+                      {access.viewFinancial && (
+                        <>
+                          <td className="px-3 py-3">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={line.unit_price}
+                              onChange={(event) =>
+                                updateLine(
+                                  index,
+                                  "unit_price",
+                                  Number(event.target.value || 0),
+                                )
+                              }
+                              className="w-32 rounded-md border border-gray-300 px-2 py-2 text-right text-sm"
+                            />
+                          </td>
 
-                      <td className="px-3 py-3">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={line.unit_price}
-                          onChange={(event) =>
-                            updateLine(
-                              index,
-                              "unit_price",
-                              Number(event.target.value || 0),
-                            )
-                          }
-                          className="w-32 rounded-md border border-gray-300 px-2 py-2 text-right text-sm"
-                        />
-                      </td>
+                          <td className="px-3 py-3">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={line.discount_amount}
+                              onChange={(event) =>
+                                updateLine(
+                                  index,
+                                  "discount_amount",
+                                  Number(event.target.value || 0),
+                                )
+                              }
+                              className="w-28 rounded-md border border-gray-300 px-2 py-2 text-right text-sm"
+                            />
+                          </td>
 
-                      <td className="px-3 py-3">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={line.discount_amount}
-                          onChange={(event) =>
-                            updateLine(
-                              index,
-                              "discount_amount",
-                              Number(event.target.value || 0),
-                            )
-                          }
-                          className="w-28 rounded-md border border-gray-300 px-2 py-2 text-right text-sm"
-                        />
-                      </td>
+                          <td className="px-3 py-3">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={line.tax_amount}
+                              onChange={(event) =>
+                                updateLine(
+                                  index,
+                                  "tax_amount",
+                                  Number(event.target.value || 0),
+                                )
+                              }
+                              className="w-28 rounded-md border border-gray-300 px-2 py-2 text-right text-sm"
+                            />
+                          </td>
 
-                      <td className="px-3 py-3">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={line.tax_amount}
-                          onChange={(event) =>
-                            updateLine(
-                              index,
-                              "tax_amount",
-                              Number(event.target.value || 0),
-                            )
-                          }
-                          className="w-28 rounded-md border border-gray-300 px-2 py-2 text-right text-sm"
-                        />
-                      </td>
-
-                      <td className="px-3 py-3 text-right font-medium text-gray-900">
-                        {formatCurrency(lineTotal)}
-                      </td>
+                          <td className="px-3 py-3 text-right font-medium text-gray-900">
+                            {formatCurrency(lineTotal)}
+                          </td>
+                        </>
+                      )}
 
                       <td className="px-3 py-3 text-center">
                         <button
@@ -1680,31 +1960,33 @@ export function PurchaseOrderPage() {
             + Tambah Baris Item
           </button>
 
-          <div className="ml-auto w-full rounded-lg bg-gray-50 p-4 md:w-96">
-            <div className="flex justify-between text-sm text-gray-600">
-              <span>Subtotal</span>
+          {access.viewFinancial && (
+              <div className="ml-auto w-full rounded-lg bg-gray-50 p-4 md:w-96">
+              <div className="flex justify-between text-sm text-gray-600">
+                <span>Subtotal</span>
 
-              <span>{formatCurrency(formSubtotal)}</span>
+                <span>{formatCurrency(formSubtotal)}</span>
+              </div>
+
+              <div className="mt-2 flex justify-between text-sm text-gray-600">
+                <span>Diskon</span>
+
+                <span>{formatCurrency(formDiscount)}</span>
+              </div>
+
+              <div className="mt-2 flex justify-between text-sm text-gray-600">
+                <span>Pajak</span>
+
+                <span>{formatCurrency(formTax)}</span>
+              </div>
+
+              <div className="mt-3 flex justify-between border-t border-gray-300 pt-3 text-base font-semibold text-gray-900">
+                <span>Total PO</span>
+
+                <span>{formatCurrency(formGrandTotal)}</span>
+              </div>
             </div>
-
-            <div className="mt-2 flex justify-between text-sm text-gray-600">
-              <span>Diskon</span>
-
-              <span>{formatCurrency(formDiscount)}</span>
-            </div>
-
-            <div className="mt-2 flex justify-between text-sm text-gray-600">
-              <span>Pajak</span>
-
-              <span>{formatCurrency(formTax)}</span>
-            </div>
-
-            <div className="mt-3 flex justify-between border-t border-gray-300 pt-3 text-base font-semibold text-gray-900">
-              <span>Total PO</span>
-
-              <span>{formatCurrency(formGrandTotal)}</span>
-            </div>
-          </div>
+          )}
 
           <div className="flex justify-end gap-3">
             <button
@@ -1751,170 +2033,283 @@ export function PurchaseOrderPage() {
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 font-medium">Nomor PO</th>
+                <th className="px-4 py-3 font-medium">
+                  Nomor PO
+                </th>
 
-                <th className="px-4 py-3 font-medium">Tanggal</th>
+                <th className="px-4 py-3 font-medium">
+                  Tanggal
+                </th>
 
-                <th className="px-4 py-3 font-medium">Supplier</th>
+                {access.viewSupplier && (
+                  <th className="px-4 py-3 font-medium">
+                    Supplier
+                  </th>
+                )}
 
-                <th className="px-4 py-3 font-medium">Total</th>
+                <th className="px-4 py-3 font-medium">
+                  Store Tujuan
+                </th>
 
-                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">
+                  Estimasi Datang
+                </th>
 
-                <th className="px-4 py-3 font-medium">Aksi</th>
+                {access.viewFinancial && (
+                  <th className="px-4 py-3 text-right font-medium">
+                    Total
+                  </th>
+                )}
+
+                <th className="px-4 py-3 font-medium">
+                  Status
+                </th>
+
+                <th className="px-4 py-3 font-medium">
+                  Detail
+                </th>
+
+                <th className="px-4 py-3 font-medium">
+                  Aksi
+                </th>
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-gray-200">
+            <tbody>
               {loading ? (
                 <tr>
                   <td
-                    colSpan={6}
-                    className="px-4 py-8 text-center text-gray-500"
+                    colSpan={purchaseOrderTableColumnCount}
+                    className="px-4 py-8 text-center text-sm text-gray-500"
                   >
-                    Memuat Purchase Order...
+                    Memuat data Purchase Order...
                   </td>
                 </tr>
               ) : purchaseOrders.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
-                    className="px-4 py-8 text-center text-gray-500"
+                    colSpan={purchaseOrderTableColumnCount}
+                    className="px-4 py-8 text-center text-sm text-gray-500"
                   >
-                    {search.trim()
-                      ? "Purchase Order tidak ditemukan untuk pencarian tersebut."
-                      : "Belum ada Purchase Order."}
+                    Tidak ada data Purchase Order.
                   </td>
                 </tr>
               ) : (
                 purchaseOrders.map((purchaseOrder) => (
-                  <tr key={purchaseOrder.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">
+                  <tr
+                    key={purchaseOrder.id}
+                    className="hover:bg-gray-50"
+                  >
+                    {/* NOMOR PO */}
+                    <td className="px-4 py-3 align-middle">
                       {purchaseOrder.po_number}
                     </td>
 
-                    <td className="px-4 py-3 text-gray-700">
+                    {/* TANGGAL */}
+                    <td className="px-4 py-3 align-middle">
                       {purchaseOrder.order_date}
                     </td>
 
-                    <td className="px-4 py-3 text-gray-700">
-                      <div>{purchaseOrder.supplier_name_snapshot}</div>
+                    {/* SUPPLIER */}
+                    {access.viewSupplier && (
+                      <td className="px-4 py-3 align-middle">
+                        <div>
+                          {purchaseOrder.supplier_name_snapshot || "-"}
+                        </div>
 
-                      <div className="mt-1 text-xs text-gray-500">
-                        {purchaseOrder.supplier_code_snapshot}
-                      </div>
+                        {purchaseOrder.supplier_code_snapshot && (
+                          <div className="mt-1 text-xs text-gray-500">
+                            {purchaseOrder.supplier_code_snapshot}
+                          </div>
+                        )}
+                      </td>
+                    )}
+
+                    {/* STORE TUJUAN */}
+                    <td className="px-4 py-3 align-middle">
+                      {purchaseOrder.store_name || "-"}
                     </td>
 
-                    <td className="px-4 py-3 text-gray-700">
-                      {formatCurrency(purchaseOrder.grand_total)}
+                    {/* ESTIMASI DATANG */}
+                    <td className="px-4 py-3 align-middle">
+                      {purchaseOrder.expected_delivery_date || "-"}
                     </td>
 
-                    <td className="px-4 py-3">
+                    {/* TOTAL */}
+                    {access.viewFinancial && (
+                      <td className="px-4 py-3 text-right align-middle">
+                        {formatCurrency(
+                          Number(purchaseOrder.grand_total ?? 0),
+                        )}
+                      </td>
+                    )}
+
+                    {/* STATUS */}
+                    <td className="px-4 py-3 text-center align-middle">
                       <span
-                        className={`rounded-full px-2 py-1 text-xs ${
-                          statusClasses[purchaseOrder.status]
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                          statusClasses[purchaseOrder.status] ??
+                          "bg-gray-100 text-gray-700"
                         }`}
                       >
-                        {statusLabels[purchaseOrder.status]}
+                        {statusLabels[purchaseOrder.status] ??
+                          purchaseOrder.status}
                       </span>
                     </td>
 
-                    <td className="whitespace-nowrap px-4 py-3 text-right">
-                      {access.print && (
-                        <button
-                          type="button"
-                          disabled={saving}
-                          onClick={() =>
-                            handlePrintPurchaseOrder(purchaseOrder)
-                          }
-                          className="mr-3 text-gray-700 hover:text-gray-900 disabled:opacity-50"
-                        >
-                          Print A4
-                        </button>
-                      )}
+                    {/* DETAIL */}
+                    <td className="px-4 py-3 text-center align-middle">
+                      <button
+                        type="button"
+                        title="Lihat Detail"
+                        onClick={() =>
+                          void handleViewDetail(purchaseOrder)
+                        }
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-md text-blue-600 hover:bg-blue-50"
+                      >
+                        <Eye
+                          size={18}
+                          strokeWidth={2.25}
+                          className="block shrink-0"
+                        />
+                      </button>
+                    </td>
 
-                      {purchaseOrder.status === "DRAFT" && (
-                        <>
-                          {access.editDraft && (
+                    {/* AKSI */}
+                    <td className="px-4 py-3 text-center align-middle">
+                      <div className="flex items-center justify-center gap-1">
+                        {/* EDIT DRAFT */}
+                        {purchaseOrder.status === "DRAFT" &&
+                          access.editDraft && (
                             <button
                               type="button"
-                              disabled={saving}
-                              onClick={() => handleEditDraft(purchaseOrder)}
-                              className="mr-3 text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                              title="Edit Draft"
+                              onClick={() =>
+                                void handleEditDraft(
+                                  purchaseOrder,
+                                )
+                              }
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-blue-600 hover:bg-blue-50"
                             >
-                              Edit
+                              <Pencil
+                                size={17}
+                                strokeWidth={2.25}
+                                className="block shrink-0"
+                              />
                             </button>
                           )}
 
-                          {access.open && (
+                        {/* HAPUS DRAFT */}
+                        {purchaseOrder.status === "DRAFT" &&
+                          access.deleteDraft && (
                             <button
                               type="button"
+                              title="Hapus Draft"
+                              onClick={() =>
+                                void handleDeleteDraft(
+                                  purchaseOrder,
+                                )
+                              }
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-red-600 hover:bg-red-50"
+                            >
+                              <Trash2
+                                size={17}
+                                strokeWidth={2.25}
+                                className="block shrink-0"
+                              />
+                            </button>
+                          )}
+
+                        {/* OPEN PO */}
+                        {purchaseOrder.status === "DRAFT" &&
+                          access.open && (
+                            <button
+                              type="button"
+                              title="Open PO"
                               disabled={saving}
                               onClick={() =>
-                                handleOpenPurchaseOrder(purchaseOrder)
+                                void handleOpenPurchaseOrder(
+                                  purchaseOrder,
+                                )
                               }
-                              className="mr-3 text-green-600 hover:text-green-800 disabled:opacity-50"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-green-600 hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                              Buka PO
+                              <CircleCheckBig
+                                size={18}
+                                strokeWidth={2.25}
+                                className="block shrink-0"
+                              />
                             </button>
                           )}
 
-                          {access.deleteDraft && (
+                        {/* CANCEL PO */}
+                        {access.cancel &&
+                          ["OPEN", "PARTIAL_RECEIVED"].includes(
+                            purchaseOrder.status,
+                          ) && (
                             <button
                               type="button"
-                              disabled={saving}
-                              onClick={() => handleDeleteDraft(purchaseOrder)}
-                              className="text-red-600 hover:text-red-800 disabled:opacity-50"
-                            >
-                              Hapus
-                            </button>
-                          )}
-                        </>
-                      )}
-
-                      {purchaseOrder.status === "OPEN" && (
-                        <>
-                          {access.cancel && (
-                            <button
-                              type="button"
+                              title="Cancel PO"
                               disabled={saving}
                               onClick={() =>
-                                handleCancelPurchaseOrder(purchaseOrder)
+                                void handleCancelPurchaseOrder(
+                                  purchaseOrder,
+                                )
                               }
-                              className="mr-3 text-red-600 hover:text-red-800 disabled:opacity-50"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                              Cancel PO
+                              <XCircle
+                                size={18}
+                                strokeWidth={2.25}
+                                className="block shrink-0"
+                              />
                             </button>
                           )}
 
-                          {access.closeOutstanding && (
+                        {/* CLOSE OUTSTANDING */}
+                        {access.closeOutstanding &&
+                          purchaseOrder.status ===
+                            "PARTIAL_RECEIVED" && (
                             <button
                               type="button"
+                              title="Close Outstanding"
                               disabled={saving}
                               onClick={() =>
-                                handleCloseOutstanding(purchaseOrder)
+                                void handleCloseOutstanding(
+                                  purchaseOrder,
+                                )
                               }
-                              className="text-orange-600 hover:text-orange-800 disabled:opacity-50"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-orange-600 hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                              Close Outstanding
+                              <FileDown
+                                size={18}
+                                strokeWidth={2.25}
+                                className="block shrink-0"
+                              />
                             </button>
                           )}
-                        </>
-                      )}
 
-                      {purchaseOrder.status === "PARTIAL_RECEIVED" &&
-                        access.closeOutstanding && (
+                        {/* PRINT */}
+                        {access.print && (
                           <button
                             type="button"
+                            title="Print PO"
                             disabled={saving}
                             onClick={() =>
-                              handleCloseOutstanding(purchaseOrder)
+                              void handlePrintPurchaseOrder(
+                                purchaseOrder,
+                              )
                             }
-                            className="text-orange-600 hover:text-orange-800 disabled:opacity-50"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
                           >
-                            Close Outstanding
+                            <Printer
+                              size={17}
+                              strokeWidth={2.25}
+                              className="block shrink-0"
+                            />
                           </button>
                         )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -1923,9 +2318,20 @@ export function PurchaseOrderPage() {
           </table>
         </div>
 
-        {/* ==================================================
-            PAGINATION
-        ================================================== */}
+        <PurchaseOrderDetailModal
+          open={showDetail}
+          purchaseOrder={detailPurchaseOrder}
+          lines={detailLines}
+          onClose={() => {
+            setShowDetail(false);
+            setDetailPurchaseOrder(null);
+            setDetailLines([]);
+          }}
+          canViewSupplier={access.viewSupplier}
+          canManageSupplier={access.manageSupplier}
+          canViewFinancial={access.viewFinancial}
+        />
+
         <div className="border-t border-gray-200">
           <div className="px-5 pb-4">
             <Pagination
