@@ -434,23 +434,34 @@ export function useItems(
    * ==========================================================
    * GENERATE NEXT ITEM CODE
    *
-   * FORMAT:
-   *
-   * [CATEGORY ARTICLE PREFIX]
-   * [SUBCATEGORY ARTICLE PREFIX]
-   * [5 DIGIT SEQUENCE]
-   *
-   * Contoh:
-   *
-   * categoryPrefix    = 1
-   * subcategoryPrefix = 2
-   *
-   * hasil:
-   *
-   * 1200001
-   *
-   * Tidak ada hard-code.
-   * Semua berasal dari database.
+    * FORMAT:
+    *
+    * [CATEGORY ARTICLE PREFIX]
+    * [SUBCATEGORY ARTICLE PREFIX]
+    * [5 DIGIT SEQUENCE]
+    *
+    * CATEGORY PREFIX dapat lebih dari satu digit.
+    *
+    * Contoh kategori 1:
+    *
+    * categoryPrefix    = 1
+    * subcategoryPrefix = 2
+    *
+    * hasil:
+    *
+    * 1200001
+    *
+    * Contoh kategori 10:
+    *
+    * categoryPrefix    = 10
+    * subcategoryPrefix = 2
+    *
+    * hasil:
+    *
+    * 10200001
+    *
+    * Tidak ada hard-code batas jumlah kategori.
+    * Semua prefix berasal dari database.
    * ==========================================================
    */
 
@@ -517,18 +528,58 @@ export function useItems(
 
       const subcategoryPrefix = Number(subcategory.article_prefix);
 
+      /*
+      * ======================================================
+      * VALIDASI CATEGORY ARTICLE PREFIX
+      *
+      * Category prefix berasal dari database.
+      *
+      * Tidak dibatasi hanya 1–9 karena jumlah kategori
+      * dapat lebih dari 9.
+      *
+      * Contoh:
+      *
+      * 1
+      * 2
+      * ...
+      * 9
+      * 10
+      * 11
+      * dan seterusnya.
+      * ======================================================
+      */
+
       if (
-        !Number.isInteger(categoryPrefix) ||
-        categoryPrefix < 1 ||
-        categoryPrefix > 9
+        !Number.isSafeInteger(categoryPrefix) ||
+        categoryPrefix < 1
       ) {
         throw new Error(
           `Kategori "${category.name}" belum memiliki article prefix yang valid.`,
         );
       }
 
+      /*
+      * ======================================================
+      * VALIDASI SUBCATEGORY ARTICLE PREFIX
+      *
+      * Tetap 1 digit karena format kode artikel saat ini:
+      *
+      * [CATEGORY PREFIX][SUBCATEGORY PREFIX][5 DIGIT SEQUENCE]
+      *
+      * Contoh:
+      *
+      * Category 10
+      * Subcategory 2
+      * Sequence 00001
+      *
+      * Hasil:
+      *
+      * 10200001
+      * ======================================================
+      */
+
       if (
-        !Number.isInteger(subcategoryPrefix) ||
+        !Number.isSafeInteger(subcategoryPrefix) ||
         subcategoryPrefix < 1 ||
         subcategoryPrefix > 9
       ) {
