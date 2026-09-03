@@ -11,14 +11,17 @@ import { createPortal } from "react-dom";
 import "react-date-range/dist/styles.css";
 import "react-date-range/dist/theme/default.css";
 import type { Range } from "react-date-range";
-import { toWIBDateString, getWIBTimestampFromUTC, toWIBTimeString } from "../utils/time";
+import {
+  toWIBDateString,
+  toWIBTimeString,
+} from "../utils/time";
 import { FiDownload, FiPrinter } from "react-icons/fi";
-import { getCustomUser, getCustomUserId} from "@/lib/authUser";
-import {createPaginationMeta,} from "../lib/pagination/types";  
-import {usePagination,} from "../lib/pagination/usePagination";
+import { getCustomUser, getCustomUserId } from "@/lib/authUser";
+import { createPaginationMeta } from "../lib/pagination/types";
+import { usePagination } from "../lib/pagination/usePagination";
 import Pagination from "../components/common/Pagination";
 import { printReport } from "@/utils/printReport";
-import { exportReport,formatReportDateRange } from "@/utils/exportReport";
+import { exportReport, formatReportDateRange } from "@/utils/exportReport";
 import { number as formatNumber } from "@/pages/procurement/utils/format";
 
 // ================= TYPES =================
@@ -48,21 +51,26 @@ type Journal = {
   }[];
 };
 
+function formatUpdatedAt(value?: string | null) {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const tanggal = toWIBDateString(date, "display");
+  const waktu = toWIBTimeString(value);
+
+  return `${tanggal} ${waktu}`;
+}
+
 // ================= PAGE =================
 export default function Jurnal() {
   const [data, setData] = useState<Journal[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
 
-  const {
-    page,
-    pageSize,
-    from,
-    to,
-    setPage,
-    setPageSize,
-    resetPage,
-  } = usePagination();
+  const { page, pageSize, from, to, setPage, setPageSize, resetPage } =
+    usePagination();
 
   const [q, setQ] = useState("");
   const [searchKeyword, setSearchKeyword] = useState("");
@@ -71,7 +79,7 @@ export default function Jurnal() {
 
   const [selectedEntity, setSelectedEntity] = useState("");
 
-    type Entity = {
+  type Entity = {
     id: string;
     kode: string;
     nama: string;
@@ -93,7 +101,7 @@ export default function Jurnal() {
   const firstDayOfCurrentMonth = new Date(
     today.getFullYear(),
     today.getMonth(),
-    1
+    1,
   );
 
   const [range, setRange] = useState<Range[]>([
@@ -117,10 +125,17 @@ export default function Jurnal() {
   type RowType = {
     account_id: string;
     search: string;
-    selectedLabel: string; // 🔥 TAMBAHAN
+    selectedLabel: string;
     desc: string;
     debit: number;
     credit: number;
+
+    // Menyimpan teks yang sedang diketik user.
+    // Ini penting agar user bisa mengetik nilai desimal
+    // seperti 1000.5 atau 1000.50 tanpa input langsung berubah.
+    debitInput: string;
+    creditInput: string;
+
     open: boolean;
     highlightIndex: number;
   };
@@ -129,28 +144,60 @@ export default function Jurnal() {
     {
       account_id: "",
       search: "",
-      selectedLabel: "", // 🔥
+      selectedLabel: "",
       desc: "",
       debit: 0,
       credit: 0,
+      debitInput: "",
+      creditInput: "",
       open: false,
       highlightIndex: 0,
     },
     {
       account_id: "",
       search: "",
-      selectedLabel: "", // 🔥
+      selectedLabel: "",
       desc: "",
       debit: 0,
       credit: 0,
+      debitInput: "",
+      creditInput: "",
       open: false,
       highlightIndex: 0,
     },
   ];
 
   const [rows, setRows] = useState<RowType[]>(defaultRows);
+  const [dropdownDirection, setDropdownDirection] = useState<
+    Record<number, "up" | "down">
+  >({});
 
   const rowRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  function openAccountDropdown(index: number) {
+    const rowElement = rowRefs.current[index];
+
+    if (rowElement) {
+      const rect = rowElement.getBoundingClientRect();
+
+      const estimatedDropdownHeight = 185;
+
+      const spaceBelow =
+        window.innerHeight - rect.bottom;
+
+      const direction =
+        spaceBelow < estimatedDropdownHeight
+          ? "up"
+          : "down";
+
+      setDropdownDirection((prev) => ({
+        ...prev,
+        [index]: direction,
+      }));
+    }
+
+    updateRow(index, "open", true);
+  }
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -163,13 +210,12 @@ export default function Jurnal() {
             return { ...r, open: false };
           }
           return r;
-        })
+        }),
       );
     }
 
     document.addEventListener("mousedown", handleClickOutside);
-    return () =>
-      document.removeEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const loadAccounts = async () => {
@@ -210,7 +256,7 @@ export default function Jurnal() {
           `,
           {
             count: "exact",
-          }
+          },
         )
         .order("created_at", {
           ascending: false,
@@ -218,72 +264,44 @@ export default function Jurnal() {
 
       // ================= ENTITY =================
       if (selectedEntity) {
-        query = query.eq(
-          "entity_id",
-          selectedEntity
-        );
+        query = query.eq("entity_id", selectedEntity);
       }
 
       // ================= DATE FROM =================
       if (startDate) {
-        query = query.gte(
-          "tanggal",
-          format(startDate, "yyyy-MM-dd")
-        );
+        query = query.gte("tanggal", format(startDate, "yyyy-MM-dd"));
       }
 
       // ================= DATE TO =================
       if (endDate) {
-        query = query.lte(
-          "tanggal",
-          format(endDate, "yyyy-MM-dd")
-        );
+        query = query.lte("tanggal", format(endDate, "yyyy-MM-dd"));
       }
 
       // ================= SEARCH =================
       const keyword = searchKeyword.trim();
-      const escapedKeyword = keyword.replace(
-        /[%_]/g,
-        "\\$&"
-      );
+      const escapedKeyword = keyword.replace(/[%_]/g, "\\$&");
 
       if (keyword) {
         if (filterBy === "reference") {
-          query = query.ilike(
-            "reference",
-            `%${escapedKeyword}%`
-          );
+          query = query.ilike("reference", `%${escapedKeyword}%`);
         }
 
         if (filterBy === "description") {
-          query = query.ilike(
-            "description",
-            `%${escapedKeyword}%`
-          );
+          query = query.ilike("description", `%${escapedKeyword}%`);
         }
 
         if (filterBy === "user_id") {
-          query = query.ilike(
-            "user_id",
-            `%${escapedKeyword}%`
-          );
+          query = query.ilike("user_id", `%${escapedKeyword}%`);
         }
       }
 
       // ================= PAGINATION =================
       query = query.range(from, to);
 
-      const {
-        data: journals,
-        count,
-        error,
-      } = await query;
+      const { data: journals, count, error } = await query;
 
       if (error) {
-        console.error(
-          "ERROR LOAD JURNAL:",
-          error.message
-        );
+        console.error("ERROR LOAD JURNAL:", error.message);
 
         setData([]);
         setTotal(0);
@@ -291,28 +309,22 @@ export default function Jurnal() {
         return;
       }
 
-      const journalRows =
-        journals ?? [];
+      const journalRows = journals ?? [];
 
       setTotal(count ?? 0);
 
       // ================= JOURNAL DETAIL =================
-      const journalIds =
-        journalRows.map(
-          (journal) => journal.id
-        );
+      const journalIds = journalRows.map((journal) => journal.id);
 
       if (journalIds.length === 0) {
         setData([]);
         return;
       }
 
-      const {
-        data: details,
-        error: detailError,
-      } = await supabase
+      const { data: details, error: detailError } = await supabase
         .from("journal_details")
-        .select(`
+        .select(
+          `
           id,
           journal_id,
           debit,
@@ -323,87 +335,50 @@ export default function Jurnal() {
             code,
             name
           )
-        `)
-        .in(
-          "journal_id",
-          journalIds
-        );
+        `,
+        )
+        .in("journal_id", journalIds);
 
       if (detailError) {
-        console.error(
-          "ERROR LOAD DETAIL JURNAL:",
-          detailError.message
-        );
+        console.error("ERROR LOAD DETAIL JURNAL:", detailError.message);
 
         setData(
-          journalRows.map(
-            (journal) => ({
-              ...journal,
-              journal_details: [],
-            })
-          )
+          journalRows.map((journal) => ({
+            ...journal,
+            journal_details: [],
+          })),
         );
 
         return;
       }
 
       // ================= GABUNG JOURNAL + DETAIL =================
-      const journalsWithDetails =
-        journalRows.map(
-          (journal) => ({
-            ...journal,
+      const journalsWithDetails = journalRows.map((journal) => ({
+        ...journal,
 
-            journal_details:
-              (details ?? [])
-                .filter(
-                  (detail) =>
-                    detail.journal_id ===
-                    journal.id
-                )
-                .map((detail) => ({
-                  id: detail.id,
-                  debit: Number(
-                    detail.debit ?? 0
-                  ),
-                  credit: Number(
-                    detail.credit ?? 0
-                  ),
-                  description:
-                    detail.description ?? "",
-                  account:
-                    Array.isArray(
-                      detail.account
-                    )
-                      ? detail.account[0] ??
-                        undefined
-                      : detail.account,
-                })),
-          })
-        );
+        journal_details: (details ?? [])
+          .filter((detail) => detail.journal_id === journal.id)
+          .map((detail) => ({
+            id: detail.id,
+            debit: Number(detail.debit ?? 0),
+            credit: Number(detail.credit ?? 0),
+            description: detail.description ?? "",
+            account: Array.isArray(detail.account)
+              ? (detail.account[0] ?? undefined)
+              : detail.account,
+          })),
+      }));
 
-      setData(
-        journalsWithDetails as Journal[]
-      );
+      setData(journalsWithDetails as Journal[]);
     } catch (error) {
-      console.error(
-        "ERROR LOAD JURNAL:",
-        error
-      );
+      console.error("ERROR LOAD JURNAL:", error);
 
       setData([]);
       setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, [
-    selectedEntity,
-    page,
-    pageSize,
-    searchKeyword,
-    filterBy,
-    range,
-  ]);
-
+  }, [selectedEntity, page, pageSize, searchKeyword, filterBy, range]);
 
   // ================= FETCH SEMUA DATA UNTUK EXPORT / PRINT =================
   const fetchAllFilteredJournals = async (): Promise<
@@ -412,10 +387,7 @@ export default function Jurnal() {
     const startDate = range[0].startDate;
     const endDate = range[0].endDate;
     const keyword = searchKeyword.trim();
-    const escapedKeyword = keyword.replace(
-      /[%_]/g,
-      "\\$&"
-    );
+    const escapedKeyword = keyword.replace(/[%_]/g, "\\$&");
 
     const PAGE_SIZE = 1000;
     let offset = 0;
@@ -446,7 +418,7 @@ export default function Jurnal() {
             updated_at,
             user_id,
             entity_id
-          `
+          `,
         )
         .order("created_at", {
           ascending: false,
@@ -455,56 +427,35 @@ export default function Jurnal() {
 
       // ================= ENTITY =================
       if (selectedEntity) {
-        query = query.eq(
-          "entity_id",
-          selectedEntity
-        );
+        query = query.eq("entity_id", selectedEntity);
       }
 
       // ================= DATE FROM =================
       if (startDate) {
-        query = query.gte(
-          "tanggal",
-          format(startDate, "yyyy-MM-dd")
-        );
+        query = query.gte("tanggal", format(startDate, "yyyy-MM-dd"));
       }
 
       // ================= DATE TO =================
       if (endDate) {
-        query = query.lte(
-          "tanggal",
-          format(endDate, "yyyy-MM-dd")
-        );
+        query = query.lte("tanggal", format(endDate, "yyyy-MM-dd"));
       }
 
       // ================= SEARCH =================
       if (keyword) {
         if (filterBy === "reference") {
-          query = query.ilike(
-            "reference",
-            `%${escapedKeyword}%`
-          );
+          query = query.ilike("reference", `%${escapedKeyword}%`);
         }
 
         if (filterBy === "description") {
-          query = query.ilike(
-            "description",
-            `%${escapedKeyword}%`
-          );
+          query = query.ilike("description", `%${escapedKeyword}%`);
         }
 
         if (filterBy === "user_id") {
-          query = query.ilike(
-            "user_id",
-            `%${escapedKeyword}%`
-          );
+          query = query.ilike("user_id", `%${escapedKeyword}%`);
         }
       }
 
-      const {
-        data: journals,
-        error,
-      } = await query;
+      const { data: journals, error } = await query;
 
       if (error) {
         throw error;
@@ -517,16 +468,12 @@ export default function Jurnal() {
       }
 
       // ================= AMBIL DETAIL =================
-      const journalIds = journalRows.map(
-        (journal) => journal.id
-      );
+      const journalIds = journalRows.map((journal) => journal.id);
 
-      const {
-        data: details,
-        error: detailError,
-      } = await supabase
+      const { data: details, error: detailError } = await supabase
         .from("journal_details")
-        .select(`
+        .select(
+          `
           id,
           journal_id,
           debit,
@@ -537,7 +484,8 @@ export default function Jurnal() {
             code,
             name
           )
-        `)
+        `,
+        )
         .in("journal_id", journalIds);
 
       if (detailError) {
@@ -546,50 +494,35 @@ export default function Jurnal() {
 
       // ================= FLATTEN DATA =================
       journalRows.forEach((journal) => {
-        const journalDetails =
-          (details ?? []).filter(
-            (detail) =>
-              detail.journal_id === journal.id
-          );
+        const journalDetails = (details ?? []).filter(
+          (detail) => detail.journal_id === journal.id,
+        );
 
         // Header jurnal
         result.push({
           tanggal: journal.tanggal
-            ? toWIBDateString(
-                new Date(journal.tanggal),
-                "display"
-              )
+            ? toWIBDateString(new Date(journal.tanggal), "display")
             : "",
 
-          waktu: journal.waktu
-            ? toWIBTimeString(journal.waktu)
-            : "",
+          waktu: journal.waktu ? toWIBTimeString(journal.waktu) : "",
 
-          reference:
-            journal.reference ?? "",
+          reference: journal.reference ?? "",
 
-          description:
-            journal.description ?? "",
+          description: journal.description ?? "",
 
           debit: "",
           credit: "",
 
-          user_id:
-            journal.user_id ?? "",
+          user_id: journal.user_id ?? "",
 
-          updated_at:
-            journal.updated_at
-              ? getWIBTimestampFromUTC(
-                  journal.updated_at
-                )
-              : "",
+          updated_at: formatUpdatedAt(
+            journal.updated_at,
+          ),
         });
 
         // Detail akun
         journalDetails.forEach((detail) => {
-          const account = Array.isArray(
-            detail.account
-          )
+          const account = Array.isArray(detail.account)
             ? detail.account[0]
             : detail.account;
 
@@ -601,16 +534,11 @@ export default function Jurnal() {
               ? `${account.code ?? ""} ${account.name ?? ""}`.trim()
               : "",
 
-            description:
-              detail.description ?? "",
+            description: detail.description ?? "",
 
-            debit: Number(
-              detail.debit ?? 0
-            ),
+            debit: Number(detail.debit ?? 0),
 
-            credit: Number(
-              detail.credit ?? 0
-            ),
+            credit: Number(detail.credit ?? 0),
 
             user_id: "",
             updated_at: "",
@@ -703,16 +631,26 @@ export default function Jurnal() {
 
     const newRows =
       row.journal_details?.map((d) => ({
-        account_id: d.account?.id || "", // 🔥 FIX
+        account_id: d.account?.id || "",
         search: "",
         selectedLabel: `${d.account?.code} - ${d.account?.name}`,
         desc: d.description,
-        debit: d.debit,
-        credit: d.credit,
+
+        debit: Number(d.debit || 0),
+        credit: Number(d.credit || 0),
+
+        debitInput: d.debit
+          ? Number(d.debit).toFixed(2)
+          : "",
+
+        creditInput: d.credit
+          ? Number(d.credit).toFixed(2)
+          : "",
+
         open: false,
         highlightIndex: 0,
       })) || [];
-
+      
     setRows(newRows);
     setShowForm(true);
   };
@@ -720,7 +658,9 @@ export default function Jurnal() {
   // ================= DELETE =================
   const handleDelete = async (row: Journal) => {
     if (row.source_table) {
-      alert("Jurnal otomatis tidak dapat dihapus dari sini. Hapus transaksi sumbernya.");
+      alert(
+        "Jurnal otomatis tidak dapat dihapus dari sini. Hapus transaksi sumbernya.",
+      );
       return;
     }
 
@@ -745,38 +685,81 @@ export default function Jurnal() {
         throw journalError;
       }
 
-      if (
-        data.length === 1 &&
-        page > 1
-      ) {
+      if (data.length === 1 && page > 1) {
         setPage(page - 1);
       } else {
         await loadData();
       }
     } catch (error) {
       const message =
-        error instanceof Error
-          ? error.message
-          : "Gagal menghapus jurnal.";
+        error instanceof Error ? error.message : "Gagal menghapus jurnal.";
 
       alert("❌ Gagal hapus jurnal: " + message);
     }
   };
 
+  // ================== FORMAT DECIMAL JURNAL ==================
+
+  function normalizeDecimalInput(value: string) {
+    // Hapus spasi
+    let cleaned = value.replace(/\s/g, "");
+
+    // Izinkan hanya angka, titik, dan koma
+    cleaned = cleaned.replace(/[^0-9.,]/g, "");
+
+    // Jika menggunakan koma sebagai desimal,
+    // ubah menjadi titik untuk proses internal.
+    cleaned = cleaned.replace(",", ".");
+
+    // Hanya boleh ada satu titik desimal.
+    const parts = cleaned.split(".");
+
+    if (parts.length > 2) {
+      cleaned = `${parts[0]}.${parts.slice(1).join("")}`;
+    }
+
+    // Batasi maksimal 2 angka di belakang desimal.
+    if (cleaned.includes(".")) {
+      const [integerPart, decimalPart = ""] = cleaned.split(".");
+
+      cleaned = `${integerPart}.${decimalPart.slice(0, 2)}`;
+    }
+
+    return cleaned;
+  }
+
+  function parseDecimal(value: string) {
+    const parsed = Number(value);
+
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
   // ================== INPUT JURNAL =============
   function updateRow(
     i: number,
     field: keyof RowType,
-    val: string | number | boolean
+    val: string | number | boolean,
   ) {
     const newRows = [...rows];
 
     if (field === "debit") {
-      newRows[i].debit = Number(val);
+      const inputValue = normalizeDecimalInput(String(val));
+
+      newRows[i].debitInput = inputValue;
+      newRows[i].debit = parseDecimal(inputValue);
+
+      // Jika Debit diisi, Kredit otomatis dikosongkan
       newRows[i].credit = 0;
+      newRows[i].creditInput = "";
     } else if (field === "credit") {
-      newRows[i].credit = Number(val);
+      const inputValue = normalizeDecimalInput(String(val));
+
+      newRows[i].creditInput = inputValue;
+      newRows[i].credit = parseDecimal(inputValue);
+
+      // Jika Kredit diisi, Debit otomatis dikosongkan
       newRows[i].debit = 0;
+      newRows[i].debitInput = "";
     } else {
       (newRows[i][field] as RowType[keyof RowType]) = val;
     }
@@ -839,14 +822,15 @@ export default function Jurnal() {
       }
 
       if ((!row.debit && !row.credit) || (row.debit > 0 && row.credit > 0)) {
-        alert(
-          `❌ Baris ke-${index + 1}: Isi debit atau kredit saja.`
-        );
+        alert(`❌ Baris ke-${index + 1}: Isi debit atau kredit saja.`);
         return;
       }
     }
 
-    if (totalDebit() !== totalCredit()) {
+    const debitTotal = Number(totalDebit().toFixed(2));
+    const creditTotal = Number(totalCredit().toFixed(2));
+
+    if (debitTotal !== creditTotal) {
       alert("❌ Debit dan Kredit harus sama (balance).");
       return;
     }
@@ -854,7 +838,9 @@ export default function Jurnal() {
     const userId = getCustomUserId();
 
     if (!userId) {
-      alert("❌ User login tidak ditemukan. Silakan logout lalu login kembali.");
+      alert(
+        "❌ User login tidak ditemukan. Silakan logout lalu login kembali.",
+      );
       return;
     }
 
@@ -936,8 +922,7 @@ export default function Jurnal() {
       resetForm();
       await loadData();
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Unknown error";
+      const message = err instanceof Error ? err.message : "Unknown error";
 
       alert("❌ Gagal simpan: " + message);
     }
@@ -961,7 +946,7 @@ export default function Jurnal() {
 
       const filename = `Jurnal_Umum${formatReportDateRange(
         range[0].startDate,
-        range[0].endDate
+        range[0].endDate,
       )}.xlsx`;
 
       exportReport({
@@ -987,14 +972,12 @@ export default function Jurnal() {
           {
             label: "Debit",
             key: "debit",
-            format: (value) =>
-              formatNumber(Number(value ?? 0)),
+            format: (value) => formatNumber(Number(value ?? 0)),
           },
           {
             label: "Kredit",
             key: "credit",
-            format: (value) =>
-              formatNumber(Number(value ?? 0)),
+            format: (value) => formatNumber(Number(value ?? 0)),
           },
           {
             label: "User ID",
@@ -1020,21 +1003,15 @@ export default function Jurnal() {
 
       const currentUser = getCustomUser();
 
-      const printedBy =
-        currentUser?.name ??
-        getCustomUserId() ??
-        "-";
+      const printedBy = currentUser?.name ?? getCustomUserId() ?? "-";
 
       printReport({
         title: "JURNAL UMUM",
 
-        period: `${range[0].startDate
-          ? format(range[0].startDate, "dd-MM-yyyy")
-          : "-"
+        period: `${
+          range[0].startDate ? format(range[0].startDate, "dd-MM-yyyy") : "-"
         } s/d ${
-          range[0].endDate
-            ? format(range[0].endDate, "dd-MM-yyyy")
-            : "-"
+          range[0].endDate ? format(range[0].endDate, "dd-MM-yyyy") : "-"
         }`,
 
         orientation: "landscape",
@@ -1062,15 +1039,13 @@ export default function Jurnal() {
             label: "Debit",
             key: "debit",
             align: "right",
-            format: (value) =>
-              formatNumber(Number(value ?? 0)),
+            format: (value) => formatNumber(Number(value ?? 0)),
           },
           {
             label: "Kredit",
             key: "credit",
             align: "right",
-            format: (value) =>
-              formatNumber(Number(value ?? 0)),
+            format: (value) => formatNumber(Number(value ?? 0)),
           },
           {
             label: "User ID",
@@ -1093,16 +1068,12 @@ export default function Jurnal() {
   // ================= UI =================
   return (
     <div className="w-full space-y-4">
-
       {/* ================= HEADER ================= */}
       <div className="mb-4 flex flex-col gap-3">
-
         {/* BARIS 1 */}
         <div className="flex flex-wrap items-center gap-3">
-
           {/* KIRI : DATE + SEARCH */}
           <div className="flex flex-wrap items-center gap-3">
-
             {/* DATE RANGE */}
             <div ref={triggerRef} className="flex items-center gap-2">
               <label className="font-semibold">Date range:</label>
@@ -1128,13 +1099,9 @@ export default function Jurnal() {
                     <DateRangePicker
                       className="custom-datepicker"
                       onChange={(ranges) => {
-                        const selection =
-                          ranges.selection;
+                        const selection = ranges.selection;
 
-                        if (
-                          selection.startDate &&
-                          selection.endDate
-                        ) {
+                        if (selection.startDate && selection.endDate) {
                           setRange([selection]);
                           resetPage();
                         }
@@ -1151,7 +1118,7 @@ export default function Jurnal() {
                       calendarFocus="forwards"
                     />
                   </div>,
-                  document.body
+                  document.body,
                 )}
             </div>
 
@@ -1179,8 +1146,7 @@ export default function Jurnal() {
             {/* FILTER */}
             <select
               value={filterBy}
-              onChange={(e) =>
-                setFilterBy(e.target.value)}
+              onChange={(e) => setFilterBy(e.target.value)}
               className="border px-2 py-1"
             >
               <option value="reference">No Referensi</option>
@@ -1207,11 +1173,12 @@ export default function Jurnal() {
             </button>
 
             <div className="flex items-center gap-3 ml-6">
-
               <button
                 onClick={() => {
                   const now = new Date();
-                  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+                  const local = new Date(
+                    now.getTime() - now.getTimezoneOffset() * 60000,
+                  );
                   const today = local.toISOString().split("T")[0];
                   setTanggal(today);
                   resetForm();
@@ -1235,7 +1202,6 @@ export default function Jurnal() {
               >
                 <FiPrinter /> Cetak
               </button>
-
             </div>
           </div>
         </div>
@@ -1287,14 +1253,10 @@ export default function Jurnal() {
                         {d.account?.code} {d.account?.name}
                       </td>
 
-                      <td className="border p-2 text-left">
-                        {d.description}
-                      </td>
+                      <td className="border p-2 text-left">{d.description}</td>
 
                       <td className="border p-2 text-right">
-                        {d.debit
-                          ? Number(d.debit).toLocaleString("id-ID")
-                          : ""}
+                        {d.debit ? Number(d.debit).toLocaleString("id-ID") : ""}
                       </td>
 
                       <td className="border p-2 text-right">
@@ -1344,14 +1306,10 @@ export default function Jurnal() {
                     <td className="border p-2"></td>
                     <td className="border p-2"></td>
 
-                    <td className="border p-2 align-top">
-                      {row.user_id}
-                    </td>
+                    <td className="border p-2 align-top">{row.user_id}</td>
 
-                    <td className="tengah p-2 border">
-                      {row.updated_at
-                        ? getWIBTimestampFromUTC(row.updated_at)
-                        : ""}
+                    <td className="tengah p-2 border whitespace-nowrap">
+                      {formatUpdatedAt(row.updated_at)}
                     </td>
                   </tr>,
 
@@ -1363,279 +1321,288 @@ export default function Jurnal() {
         </table>
 
         <Pagination
-          meta={createPaginationMeta(
-            page,
-            pageSize,
-            total
-          )}
+          meta={createPaginationMeta(page, pageSize, total)}
           onPageChange={setPage}
           onPageSizeChange={setPageSize}
         />
       </div>
 
       {showForm && (
-      <div className="fixed inset-0 bg-black/40 flex justify-center items-start pt-20 z-50">
-        <div className="bg-white w-[800px] rounded-lg shadow-lg p-6">
+        <div className="fixed inset-0 bg-black/40 z-50 flex justify-center p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-[900px] max-h-[calc(100vh-2rem)] rounded-lg shadow-lg flex flex-col my-auto">
+            <div className="px-6 pt-6 pb-4 border-b">
+              <h2 className="text-lg font-semibold text-center">
+                Input Jurnal
+              </h2>
+            </div>
+            
+            {/* CONTENT */}
+            <div className="flex-1 overflow-y-auto px-6 py-4">
 
-          <h2 className="text-lg font-semibold mb-4 text-center">
-            Input Jurnal
-          </h2>
+              {/* HEADER */}
+              <div className="flex gap-3 mb-4">
+                <input
+                  type="date"
+                  className="border px-3 py-2 rounded w-[180px]"
+                  value={tanggal}
+                  onChange={(e) => setTanggal(e.target.value)}
+                />
+                <input
+                  placeholder="No Referensi"
+                  className="border px-3 py-2 rounded w-[220px]"
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                />
+              </div>
 
-          {/* HEADER */}
-          <div className="flex gap-3 mb-4">
-            <input
-              type="date"
-              className="border px-3 py-2 rounded w-[180px]"
-              value={tanggal}
-              onChange={(e) => setTanggal(e.target.value)}
-            />
-            <input
-              placeholder="No Referensi"
-              className="border px-3 py-2 rounded w-[220px]"
-              value={reference}
-              onChange={(e) => setReference(e.target.value)}
-            />
-          </div>
+              {/* ROWS */}
+              <div className="max-h-[48vh] overflow-y-auto space-y-2 pr-2 pb-40">
+                {rows.map((row, i) => {
+                  const keyword = (row.search || "").toLowerCase();
+                  const filtered =
+                    keyword === ""
+                      ? accounts // 🔥 kalau kosong tampilkan semua
+                      : accounts.filter((a: Account) =>
+                          `${a.code} ${a.name}`.toLowerCase().includes(keyword),
+                        );
 
-          {/* ROWS */}
-          <div className="space-y-2">
-            {rows.map((row, i) => {
-              const keyword = (row.search || "").toLowerCase();
-              const filtered =
-                keyword === ""
-                  ? accounts // 🔥 kalau kosong tampilkan semua
-                  : accounts.filter((a: Account) =>
-                      `${a.code} ${a.name}`.toLowerCase().includes(keyword)
-                    );
+                  const highlightIndex = row.highlightIndex ?? 0;
 
-              const highlightIndex = row.highlightIndex ?? 0;
-
-              return (
-                <div
-                  key={i}
-                  ref={(el) => (rowRefs.current[i] = el)}
-                  className="flex items-center gap-2 border rounded px-2 py-2"
-                >
-                  {/* DELETE */}
-                  <button
-                    onClick={() => {
-                      if (rows.length <= 2) return;
-                      setRows(rows.filter((_, idx) => idx !== i));
-                    }}
-                    className="text-red-500 text-lg px-2"
-                  >
-                    ×
-                  </button>
-
-                  {/* DESKRIPSI */}
-                  <input
-                    className="border px-2 py-1 rounded w-[160px]"
-                    placeholder="Keterangan"
-                    value={row.desc}
-                    onChange={(e) =>
-                      updateRow(i, "desc", e.target.value)
-                    }
-                  />
-
-                  {/* AKUN */}
-                  <div className="relative w-full">
-                    <input
-                      className="border px-2 py-1 rounded w-full"
-                      placeholder="-- PILIH AKUN --"
-                      value={row.open ? row.search : row.selectedLabel}
-                      onFocus={() => {
-                        updateRow(i, "open", true);
-                        updateRow(i, "search", ""); // 🔥 reset biar list muncul semua
-                      }}
-                      onClick={() => {
-                        updateRow(i, "open", true);
-                        updateRow(i, "search", ""); // 🔥
-                      }}
-                      onChange={(e) => {
-                        updateRow(i, "search", e.target.value);
-                        updateRow(i, "open", true);
-                        updateRow(i, "highlightIndex", 0);
-                      }}
-                      onKeyDown={(e) => {
-                        let idx = highlightIndex;
-
-                        if (e.key === "ArrowDown") {
-                          e.preventDefault();
-
-                          if (filtered.length > 0) {
-                            idx =
-                              (idx + 1) %
-                              filtered.length;
-
-                            updateRow(
-                              i,
-                              "highlightIndex",
-                              idx
-                            );
-                          }
-                        }
-
-                        if (e.key === "ArrowUp") {
-                          e.preventDefault();
-
-                          if (filtered.length > 0) {
-                            idx =
-                              (idx - 1 + filtered.length) %
-                              filtered.length;
-
-                            updateRow(
-                              i,
-                              "highlightIndex",
-                              idx
-                            );
-                          }
-                        }
-
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          if (filtered[idx]) {
-                            selectAccount(i, filtered[idx]);
-                          }
-                        }
-
-                        if (e.key === "Escape") {
-                          updateRow(i, "open", false);
-                        }
-                      }}
-                    />
-
-                    {/* DROPDOWN */}
-                    {row.open && (
-                      <div
-                        ref={(el) => {
-                          if (el && row.open) {
-                            const item = el.querySelector(
-                              `[data-idx="${highlightIndex}"]`
-                            ) as HTMLElement;
-
-                            if (item) {
-                              item.scrollIntoView({
-                                block: "nearest",
-                              });
-                            }
-                          }
+                  return (
+                    <div
+                      key={i}
+                      ref={(el) => (rowRefs.current[i] = el)}
+                      className="flex items-center gap-2 border rounded px-2 py-2"
+                    >
+                      {/* DELETE */}
+                      <button
+                        onClick={() => {
+                          if (rows.length <= 2) return;
+                          setRows(rows.filter((_, idx) => idx !== i));
                         }}
-                        className="absolute z-20 bg-white border w-full max-h-48 overflow-auto shadow rounded"
+                        className="text-red-500 text-lg px-2"
                       >
+                        ×
+                      </button>
 
-                        <div className="px-2 py-1 bg-gray-100 text-xs text-gray-500">
-                          -- PILIH AKUN --
-                        </div>
+                      {/* DESKRIPSI */}
+                      <input
+                        className="border px-2 py-1 rounded w-[160px]"
+                        placeholder="Keterangan"
+                        value={row.desc}
+                        onChange={(e) => updateRow(i, "desc", e.target.value)}
+                      />
 
-                        {filtered.map((a, idx) => (
-                          <div
-                            key={a.id}
-                            data-idx={idx}
-                            className={`px-2 py-1 cursor-pointer text-sm ${
-                              idx === highlightIndex
-                                ? "bg-blue-200"
-                                : "hover:bg-blue-100"
-                            }`}
-                            onMouseEnter={() =>
-                              updateRow(i, "highlightIndex", idx)
+                      {/* AKUN */}
+                      <div className="relative w-full min-w-[240px]">
+                        <input
+                          className="border px-2 py-1 rounded w-full"
+                          placeholder="-- PILIH AKUN --"
+                          value={row.open ? row.search : row.selectedLabel}
+                          onFocus={() => {
+                            openAccountDropdown(i);
+                            updateRow(i, "search", "");
+                          }}
+                          onClick={() => {
+                            openAccountDropdown(i);
+                            updateRow(i, "search", "");
+                          }}
+                          onChange={(e) => {
+                            updateRow(i, "search", e.target.value);
+                            if (!row.open) {
+                              openAccountDropdown(i);
                             }
-                            onClick={() => selectAccount(i, a)}
-                          >
-                            {a.code} {a.name}
-                          </div>
-                        ))}
+                            updateRow(i, "highlightIndex", 0);
+                          }}
+                          onKeyDown={(e) => {
+                            let idx = highlightIndex;
 
-                        {filtered.length === 0 && (
-                          <div className="px-2 py-1 text-gray-400 text-sm">
-                            Tidak ditemukan
+                            if (e.key === "ArrowDown") {
+                              e.preventDefault();
+
+                              if (filtered.length > 0) {
+                                idx = (idx + 1) % filtered.length;
+
+                                updateRow(i, "highlightIndex", idx);
+                              }
+                            }
+
+                            if (e.key === "ArrowUp") {
+                              e.preventDefault();
+
+                              if (filtered.length > 0) {
+                                idx =
+                                  (idx - 1 + filtered.length) % filtered.length;
+
+                                updateRow(i, "highlightIndex", idx);
+                              }
+                            }
+
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              if (filtered[idx]) {
+                                selectAccount(i, filtered[idx]);
+                              }
+                            }
+
+                            if (e.key === "Escape") {
+                              updateRow(i, "open", false);
+                            }
+                          }}
+                        />
+
+                        {/* DROPDOWN */}
+                        {row.open && (
+                          <div
+                            ref={(el) => {
+                              if (el && row.open) {
+                                const item = el.querySelector(`[data-idx="${highlightIndex}"]`) as HTMLElement;
+                                if (item) {
+                                  item.scrollIntoView({ block: "nearest" });
+                                }
+                              }
+                            }}
+                            className={`absolute left-0 z-[60] w-full max-h-[185px] overflow-y-auto overflow-x-hidden bg-white border border-gray-300 shadow-lg rounded ${
+                              dropdownDirection[i] === "up" ? "bottom-full mb-1" : "top-full mt-1"
+                            }`}
+                          >                            
+                            <div className="px-2 py-1 bg-gray-100 text-xs text-gray-500">
+                              -- PILIH AKUN --
+                            </div>
+
+                            {filtered.map((a, idx) => (
+                              <div
+                                key={a.id}
+                                data-idx={idx}
+                                className={`px-2 py-1 cursor-pointer text-sm ${
+                                  idx === highlightIndex
+                                    ? "bg-blue-200"
+                                    : "hover:bg-blue-100"
+                                }`}
+                                onMouseEnter={() =>
+                                  updateRow(i, "highlightIndex", idx)
+                                }
+                                onClick={() => selectAccount(i, a)}
+                              >
+                                {a.code} {a.name}
+                              </div>
+                            ))}
+
+                            {filtered.length === 0 && (
+                              <div className="px-2 py-1 text-gray-400 text-sm">
+                                Tidak ditemukan
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
-                    )}
-                  </div>
 
-                  {/* DEBIT */}
-                  <input
-                    className="border px-2 py-1 rounded w-[120px] text-right"
-                    placeholder="Debit"
-                    value={row.debit ? formatNumber(row.debit) : ""}
-                    onChange={(e) =>
-                      updateRow(
-                        i,
-                        "debit",
-                        e.target.value.replace(/\./g, "")
-                      )
-                    }
-                  />
+                      {/* DEBIT */}
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        className="border px-2 py-1 rounded w-[120px] text-right"
+                        placeholder="Debit"
+                        value={row.debitInput}
+                        onChange={(e) =>
+                          updateRow(i, "debit", e.target.value)
+                        }
+                        onBlur={() => {
+                          if (row.debit > 0) {
+                            updateRow(
+                              i,
+                              "debit",
+                              Number(row.debit).toFixed(2),
+                            );
+                          }
+                        }}
+                      />
 
-                  {/* CREDIT */}
-                  <input
-                    className="border px-2 py-1 rounded w-[120px] text-right"
-                    placeholder="Kredit"
-                    value={row.credit ? formatNumber(row.credit) : ""}
-                    onChange={(e) =>
-                      updateRow(
-                        i,
-                        "credit",
-                        e.target.value.replace(/\./g, "")
-                      )
-                    }
-                  />
-                </div>
-              );
-            })}
-          </div>
+                      {/* CREDIT */}
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        className="border px-2 py-1 rounded w-[120px] text-right"
+                        placeholder="Kredit"
+                        value={row.creditInput}
+                        onChange={(e) =>
+                          updateRow(
+                            i,
+                            "credit",
+                            e.target.value,
+                          )
+                        }
+                        onBlur={() => {
+                          if (row.credit > 0) {
+                            updateRow(
+                              i,
+                              "credit",
+                              Number(row.credit).toFixed(2),
+                            );
+                          }
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
 
-          {/* TAMBAH BARIS */}
-          <button
-            onClick={() =>
-              setRows([
-                ...rows,
-                {
-                  account_id: "",
-                  search: "",
-                  selectedLabel: "", // 🔥 WAJIB DITAMBAHKAN
-                  desc: "",
-                  debit: 0,
-                  credit: 0,
-                  open: false,
-                  highlightIndex: 0,
-                },
-              ])
-            }
-            className="mt-3 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded"
-          >
-            + Tambah Baris
-          </button>
+              {/* TAMBAH BARIS */}
+              <button
+                onClick={() =>
+                  setRows([
+                    ...rows,
+                    {
+                      account_id: "",
+                      search: "",
+                      selectedLabel: "",
+                      desc: "",
 
-          {/* TOTAL */}
-          <div className="mt-3 font-semibold text-sm">
-            Total Debit: {formatNumber(totalDebit())} | Total Kredit:{" "}
-            {formatNumber(totalCredit())}
-          </div>
+                      debit: 0,
+                      credit: 0,
 
-          {/* ACTION */}
-          <div className="flex justify-end gap-2 mt-4">
-            <button
-              onClick={() => {
-              setShowForm(false);
-              resetForm();
-              }}
-              className="bg-gray-400 px-3 py-1 text-white rounded"
-            >
-              Batal
-            </button>
+                      debitInput: "",
+                      creditInput: "",
 
-            <button
-              onClick={saveJurnal}
-              className="bg-green-600 hover:bg-green-700 px-3 py-1 text-white rounded"
-            >
-              Simpan
-            </button>
+                      open: false,
+                      highlightIndex: 0,
+                    },
+                  ])
+                }
+                className="mt-3 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded"
+              >
+                + Tambah Baris
+              </button>
+
+              {/* TOTAL */}
+              <div className="mt-3 font-semibold text-sm">
+                Total Debit: {formatNumber(totalDebit())} | Total Kredit:{" "}
+                {formatNumber(totalCredit())}
+              </div>
+
+              {/* ACTION */}
+              <div className="flex justify-end gap-2 mt-4">
+                <button
+                  onClick={() => {
+                    setShowForm(false);
+                    resetForm();
+                  }}
+                  className="bg-gray-400 px-3 py-1 text-white rounded"
+                >
+                  Batal
+                </button>
+
+                <button
+                  onClick={saveJurnal}
+                  className="bg-green-600 hover:bg-green-700 px-3 py-1 text-white rounded"
+                >
+                  Simpan
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    )}
+      )}
     </div>
   );
 }
