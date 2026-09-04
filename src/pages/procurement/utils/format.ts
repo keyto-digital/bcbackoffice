@@ -33,7 +33,8 @@ export function number(value: number | null | undefined): string {
 }
 
 export function formatNumberInput(
-  value: number | string | null | undefined
+  value: number | string | null | undefined,
+  maximumFractionDigits = 0
 ): string {
   if (
     value === null ||
@@ -50,21 +51,64 @@ export function formatNumberInput(
   }
 
   return new Intl.NumberFormat("id-ID", {
-    maximumFractionDigits: 0,
+    maximumFractionDigits,
   }).format(numericValue);
 }
 
 export function parseNumberInput(
-  value: string
+  value: string,
+  options?: {
+    allowDotDecimal?: boolean;
+  }
 ): number {
   if (!value) {
     return 0;
   }
 
+  const cleanedValue = value
+    .trim()
+    .replace(/[^\d,.-]/g, "");
+
+  if (!cleanedValue) {
+    return 0;
+  }
+
+  /*
+   * Mode desimal:
+   *
+   * 1,5 → 1.5
+   * 1.5 → 1.5
+   */
+  if (options?.allowDotDecimal) {
+    const normalized = cleanedValue
+      .replace(",", ".");
+
+    const firstDecimalIndex = normalized.indexOf(".");
+
+    if (firstDecimalIndex === -1) {
+      return Number(normalized) || 0;
+    }
+
+    const integerPart = normalized.slice(0, firstDecimalIndex);
+
+    const decimalPart = normalized
+      .slice(firstDecimalIndex + 1)
+      .replace(/\./g, "");
+
+    return Number(
+      `${integerPart}.${decimalPart}`
+    ) || 0;
+  }
+
+  /*
+   * Mode standar Indonesia.
+   *
+   * 1.500    → 1500
+   * 1.500,50 → 1500.50
+   */
   return Number(
-    value
+    cleanedValue
       .replace(/\./g, "")
       .replace(",", ".")
-      .replace(/[^\d.-]/g, "")
   ) || 0;
 }

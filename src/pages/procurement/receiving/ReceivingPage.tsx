@@ -7,6 +7,7 @@ import { getCustomUserId } from "@/lib/authUser";
 import { usePagination } from "@/lib/pagination/usePagination";
 import { createPaginationMeta } from "@/lib/pagination/types";
 import Pagination from "@/components/common/Pagination";
+import DateInput from "@/components/common/DateInput";
 
 type PoDetail = {
   id: string;
@@ -45,8 +46,8 @@ type SettlementMethod = {
 
 type ReceivingLine = {
   purchase_order_detail_id: string;
-  quantity_received: number;
-  unit_cost: number;
+  quantity_received: string;
+  unit_cost: string;
   discount_amount: number;
   tax_amount: number;
   notes: string;
@@ -115,6 +116,21 @@ function rupiah(value: number) {
     currency: "IDR",
     maximumFractionDigits: 0,
   }).format(Number(value || 0));
+}
+
+function getLineNumber(value: string | number): number {
+  const text = String(value ?? "").trim();
+
+  if (text === "") {
+    return 0;
+  }
+
+  // Receiving menerima titik maupun koma sebagai desimal.
+  const normalized = text.replace(",", ".");
+
+  const result = Number(normalized);
+
+  return Number.isFinite(result) ? result : 0;
 }
 
 export default function ReceivingPage() {
@@ -195,9 +211,10 @@ export default function ReceivingPage() {
       lines.reduce(
         (total, line) =>
           total +
-          line.quantity_received * line.unit_cost -
-          line.discount_amount +
-          line.tax_amount,
+          getLineNumber(line.quantity_received) *
+            getLineNumber(line.unit_cost) -
+          Number(line.discount_amount || 0) +
+          Number(line.tax_amount || 0),
         0,
       ),
     [lines],
@@ -422,8 +439,11 @@ export default function ReceivingPage() {
         )
         .map((detail) => ({
           purchase_order_detail_id: detail.id,
-          quantity_received: 0,
-          unit_cost: Number(detail.unit_price || 0),
+          quantity_received: "",
+          unit_cost:
+            Number(detail.unit_price || 0) > 0
+              ? String(detail.unit_price)
+              : "",
           discount_amount: 0,
           tax_amount: 0,
           notes: "",
@@ -494,8 +514,15 @@ export default function ReceivingPage() {
       ((data.receiving_record_details ?? []) as ReceivingRecordDetailRow[]).map(
         (item) => ({
           purchase_order_detail_id: item.purchase_order_detail_id,
-          quantity_received: Number(item.quantity_received),
-          unit_cost: Number(item.unit_cost),
+          quantity_received:
+            Number(item.quantity_received || 0) > 0
+              ? String(item.quantity_received)
+              : "",
+
+          unit_cost:
+            Number(item.unit_cost || 0) > 0
+              ? String(item.unit_cost)
+              : "",
           discount_amount: Number(item.discount_amount ?? 0),
           tax_amount: Number(item.tax_amount ?? 0),
           notes: item.notes ?? "",
@@ -633,8 +660,14 @@ export default function ReceivingPage() {
       return;
     }
 
-    const validLines = lines.filter(
-      (line) => Number(line.quantity_received) > 0,
+    const validLines = lines
+    .map((line) => ({
+      ...line,
+      quantity_received: getLineNumber(line.quantity_received),
+      unit_cost: getLineNumber(line.unit_cost),
+    }))
+    .filter(
+      (line) => line.quantity_received > 0,
     );
 
     if (validLines.length === 0) {
@@ -1173,11 +1206,10 @@ export default function ReceivingPage() {
               <label className="mb-1 block text-sm font-medium">
                 Tanggal Receiving
               </label>
-              <input
-                type="date"
+              <DateInput
                 value={receivingDate}
-                onChange={(event) => setReceivingDate(event.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                onChange={setReceivingDate}
+                className="text-sm"
               />
             </div>
 
@@ -1203,12 +1235,15 @@ export default function ReceivingPage() {
               <label className="mb-1 block text-sm font-medium">
                 Store / Gudang Tujuan
               </label>
+
               <select
                 value={storeId}
-                disabled={!selectedPoId}
+                disabled
+                onChange={() => undefined}
                 className="w-full rounded-md border border-gray-300 bg-gray-100 px-3 py-2 text-sm disabled:cursor-not-allowed"
               >
                 <option value="">Pilih Store/Gudang</option>
+
                 {stores.map((store) => (
                   <option key={store.id} value={store.id}>
                     {store.code} - {store.name}
@@ -1240,11 +1275,10 @@ export default function ReceivingPage() {
                 Tanggal Invoice
               </label>
 
-              <input
-                type="date"
+              <DateInput
                 value={supplierInvoiceDate}
-                onChange={(e) => setSupplierInvoiceDate(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                onChange={setSupplierInvoiceDate}
+                className="text-sm"
               />
             </div>
 
@@ -1287,9 +1321,10 @@ export default function ReceivingPage() {
                     );
 
                     const total =
-                      line.quantity_received * line.unit_cost -
-                      line.discount_amount +
-                      line.tax_amount;
+                      getLineNumber(line.quantity_received) *
+                        getLineNumber(line.unit_cost) -
+                      Number(line.discount_amount || 0) +
+                      Number(line.tax_amount || 0);
 
                     return (
                       <tr key={line.purchase_order_detail_id}>
@@ -1309,22 +1344,45 @@ export default function ReceivingPage() {
 
                         <td className="px-3 py-3 text-right">
                           <input
-                            type="number"
-                            min="0"
-                            max={
-                              Number(poDetail?.quantity_ordered || 0) -
-                              Number(poDetail?.quantity_received || 0)
-                            }
-                            step="0.0001"
+                            type="text"
+                            inputMode="decimal"
                             value={line.quantity_received}
-                            onChange={(event) =>
+                            onChange={(event) => {
+                              const rawValue = event.target.value;
+
+                              if (!/^\d*[.,]?\d*$/.test(rawValue)) {
+                                return;
+                              }
+
                               updateLine(
                                 index,
                                 "quantity_received",
-                                Number(event.target.value || 0),
-                              )
-                            }
+                                rawValue,
+                              );
+                            }}
+                            onBlur={() => {
+                              if (line.quantity_received.trim() === "") {
+                                return;
+                              }
+
+                              const quantityReceived = getLineNumber(
+                                line.quantity_received,
+                              );
+
+                              const remainingQuantity =
+                                Number(poDetail?.quantity_ordered || 0) -
+                                Number(poDetail?.quantity_received || 0);
+
+                              if (quantityReceived > remainingQuantity) {
+                                updateLine(
+                                  index,
+                                  "quantity_received",
+                                  String(remainingQuantity),
+                                );
+                              }
+                            }}
                             className="w-24 rounded-md border border-gray-300 px-2 py-2 text-right"
+                            placeholder="0"
                           />
                         </td>
 
@@ -1334,17 +1392,10 @@ export default function ReceivingPage() {
 
                         <td className="px-3 py-3 text-right">
                           <input
-                            type="number"
-                            min="0"
+                            type="text"
                             value={line.unit_cost}
-                            onChange={(event) =>
-                              updateLine(
-                                index,
-                                "unit_cost",
-                                Number(event.target.value || 0),
-                              )
-                            }
-                            className="w-32 rounded-md border border-gray-300 px-2 py-2 text-right"
+                            readOnly
+                            className="w-32 rounded-md border border-gray-300 bg-gray-50 px-2 py-2 text-right text-gray-700"
                           />
                         </td>
 
