@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import bcrypt from "bcryptjs";
-import {FiEdit, FiTrash2} from "react-icons/fi";
+import { FiEdit, FiTrash2 } from "react-icons/fi";
 
 interface User {
   id: string;
@@ -13,7 +13,10 @@ interface User {
   created_at: string;
   access?: string[];
   username?: string;
-  entity_id: string;   // 🔴 WAJIB
+  entity_id: string;
+
+  default_store_id?: string | null;
+  store_access_scope?: "OWN_STORE" | "ALL_STORES";
 }
 
 interface Role {
@@ -27,7 +30,11 @@ interface UpdateUserData {
   name: string;
   role: string;
   access: string[];
-  entity_id: string;   // 🔴 WAJIB
+  entity_id: string;
+
+  default_store_id: string | null;
+  store_access_scope: "OWN_STORE" | "ALL_STORES";
+
   password?: string;
 }
 
@@ -36,6 +43,14 @@ interface Entity {
   kode: string;
   nama: string;
   tipe?: "pusat" | "outlet";
+}
+
+interface Store {
+  id: string;
+  entity_id: string;
+  code: string;
+  name: string;
+  is_active: boolean;
 }
 
 export default function ListUser() {
@@ -56,11 +71,34 @@ export default function ListUser() {
   const [newEntityId, setNewEntityId] = useState<string>("");
   const [editingEntityId, setEditingEntityId] = useState("");
 
+  const [stores, setStores] = useState<Store[]>([]);
+
+  const [newStoreId, setNewStoreId] = useState("");
+  const [newStoreAccessScope, setNewStoreAccessScope] =
+    useState<"OWN_STORE" | "ALL_STORES">("OWN_STORE");
+
+  const [editingStoreId, setEditingStoreId] = useState("");
+  const [editingStoreAccessScope, setEditingStoreAccessScope] =
+    useState<"OWN_STORE" | "ALL_STORES">("OWN_STORE");
+
   // Fetch users
   const fetchUsers = async () => {
     const { data, error } = await supabase
       .from("custom_users")
-      .select("id, user_id, name, username, role, access, entity_id, created_at")
+      .select(
+        `
+          id,
+          user_id,
+          name,
+          username,
+          role,
+          access,
+          entity_id,
+          default_store_id,
+          store_access_scope,
+          created_at
+        `,
+      )
       .order("created_at", { ascending: true });
     if (error) alert("Gagal ambil user: " + error.message);
     else setUsers(data as User[]);
@@ -98,12 +136,34 @@ export default function ListUser() {
 
     fetchEntities();
   }, []);
-  
+
+ //== UNTUK STORE ==
+  useEffect(() => {
+  const fetchStores = async () => {
+    const { data, error } = await supabase
+      .from("stores")
+      .select("id, entity_id, code, name, is_active")
+      .eq("is_active", true)
+      .order("code");
+
+    if (error) {
+      alert("Gagal ambil store: " + error.message);
+    } else {
+      setStores(data || []);
+    }
+  };
+
+  fetchStores();
+}, []);
 
   // Tambah user baru
   const addUser = async () => {
     if (!newName.trim() || !newPassword || !newRole || !newEntityId) {
       return alert("Nama, password, role, dan entity wajib diisi");
+    }
+
+    if (!newStoreId) {
+      return alert("Default store wajib dipilih");
     }
 
     setLoading(true);
@@ -157,7 +217,10 @@ export default function ListUser() {
             password: hashedPassword,
             role: newRole,
             access: accessFromRole,
-            entity_id: newEntityId, // 🔴 WAJIB
+            entity_id: newEntityId,
+
+            default_store_id: newStoreId,
+            store_access_scope: newStoreAccessScope,
           },
         ])
 
@@ -171,6 +234,8 @@ export default function ListUser() {
       setNewPassword("");
       setNewRole("");
       setNewEntityId("");
+      setNewStoreId("");
+      setNewStoreAccessScope("OWN_STORE");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       alert("Gagal tambah user: " + message);
@@ -181,10 +246,20 @@ export default function ListUser() {
 
   // Update user
   const updateUser = async (userId: string) => {
-    if (!editingName || !editingRole)
-      return alert("Nama dan role wajib diisi");
-    if (!editingEntityId) {
-      return alert("Entity wajib dipilih");
+    if (
+      !editingName.trim() ||
+      !editingRole ||
+      !editingEntityId
+    ) {
+      return alert(
+        "Nama, role, dan entity wajib diisi",
+      );
+    }
+
+    if (!editingStoreId) {
+      return alert(
+        "Default store wajib dipilih",
+      );
     }
 
     const selectedRole = roles.find((r) => r.name === editingRole);
@@ -194,7 +269,10 @@ export default function ListUser() {
       name: editingName,
       role: editingRole,
       access: accessFromRole,
-      entity_id: editingEntityId, // 🔴 WAJIB
+      entity_id: editingEntityId,
+
+      default_store_id: editingStoreId,
+      store_access_scope: editingStoreAccessScope,
     };
 
     if (editingPassword)
@@ -213,8 +291,15 @@ export default function ListUser() {
 
       setUsers(users.map((u) => (u.id === userId ? (data as User) : u)));
       setEditingUserId(null);
-      setEditingEntityId("");
+
+      setEditingName("");
       setEditingPassword("");
+      setEditingRole("");
+
+      setEditingEntityId("");
+
+      setEditingStoreId("");
+      setEditingStoreAccessScope("OWN_STORE");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       alert("Gagal update user: " + message);
@@ -251,6 +336,29 @@ export default function ListUser() {
     return `${ent.kode} - ${ent.nama}`;
   };
 
+  // == TAMPIL STORE LABEL ==
+  const getStoreLabel = (
+    storeId?: string | null,
+  ) => {
+    if (!storeId) return "-";
+
+    const store = stores.find(
+      (item) => item.id === storeId,
+    );
+
+    if (!store) return "-";
+
+    return `${store.code} - ${store.name}`;
+  };
+  
+  // == TAMPIL STORE ==
+  const getStoresByEntity = (entityId: string) => {
+    return stores.filter(
+      (store) =>
+        store.entity_id === entityId &&
+        store.is_active,
+    );
+  };
 
   return (
     <div className="p-4 bg-white rounded shadow">
@@ -311,7 +419,12 @@ export default function ListUser() {
 
           <select
             value={newEntityId}
-            onChange={(e) => setNewEntityId(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+
+              setNewEntityId(value);
+              setNewStoreId("");
+            }}
             style={{
               padding: "8px 12px",
               borderRadius: "6px",
@@ -330,11 +443,59 @@ export default function ListUser() {
             ))}
           </select>
 
+          <select
+            value={newStoreId}
+            onChange={(e) => setNewStoreId(e.target.value)}
+            disabled={!newEntityId}
+            style={{
+              padding: "8px 12px",
+              borderRadius: "6px",
+              border: "1px solid #d1d5db",
+              fontSize: "0.875rem",
+            }}
+          >
+            <option value="">Pilih Default Store</option>
+
+            {getStoresByEntity(newEntityId).map((store) => (
+              <option
+                key={store.id}
+                value={store.id}
+              >
+                {store.code} - {store.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={newStoreAccessScope}
+            onChange={(e) =>
+              setNewStoreAccessScope(
+                e.target.value as "OWN_STORE" | "ALL_STORES",
+              )
+            }
+            style={{
+              padding: "8px 12px",
+              borderRadius: "6px",
+              border: "1px solid #d1d5db",
+              fontSize: "0.875rem",
+            }}
+          >
+            <option value="OWN_STORE">
+              Store Sendiri
+            </option>
+
+            <option value="ALL_STORES">
+              Semua Store
+            </option>
+          </select>
+
           <button
             onClick={addUser}
             disabled={loading}
             className={`min-w-[120px] px-4 py-2 rounded-md text-white text-sm ${
-              loading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-500 hover:bg-blue-600 cursor-pointer"
+              loading
+                ? "bg-blue-400 cursor-not-allowed"
+                : "bg-blue-500 hover:bg-blue-600 cursor-pointer"
             }`}
           >
             {loading ? "Memproses..." : "Tambah User"}
@@ -344,141 +505,308 @@ export default function ListUser() {
 
       {/* Tabel user */}
       <div className="w-full pr-8">
-      <table className="w-full table-auto border border-gray-300 text-sm">
-        <thead className="bg-gray-400 text-white">
-          <tr>
-            <th className="border p-2 text-center w-[100px]">Nama</th>
-            <th className="border p-2 text-center w-[50px]">Role</th>
-            <th className="border p-2 text-center w-[50px]">Entity</th>
-            <th className="border p-2 text-center w-[60px]">User id</th>
-            <th className="border p-2 text-center w-[60px]">Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          {users.map((user, index) => (
-            <tr key={user.user_id || user.id || index} className="hover:bg-yellow-300 transition-all duration-150">
-              <td className="border p-2 text-center">
-                {editingUserId === user.id ? (
-                  <input
-                    type="text"
-                    value={editingName}
-                    onChange={(e) => setEditingName(e.target.value)}
-                    style={{ padding: "4px" }}
-                  />
-                ) : (
-                  user.name
-                )}
-              </td>
-              <td className="border p-2 text-center">
-                {editingUserId === user.id ? (
-                  <select value={editingRole} onChange={(e) => setEditingRole(e.target.value)}>
-                    {roles.map((r) => (
-                      <option key={r.id || r.name} value={r.name}>
-                        {r.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  user.role
-                )}
-              </td>
-
-              <td className="border p-2 text-center">
-                {editingUserId === user.id ? (
-                  <select value={editingEntityId} onChange={(e) => setEditingEntityId(e.target.value)}>
-                    {entities.map((e) => (
-                      <option key={e.id} value={e.id}>
-                        {e.kode} - {e.nama}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  getEntityLabel(user.entity_id)
-                )}
-              </td>
-
-              <td className="border p-2 text-center">
-                {user.user_id || user.id}
-              </td>
-              <td className="border p-2 text-center">
-                {editingUserId === user.id ? (
-                  <>
+        <table className="w-full table-auto border border-gray-300 text-sm">
+          <thead className="bg-gray-400 text-white">
+            <tr>
+              <th className="border p-2 text-center w-[100px]">Nama</th>
+              <th className="border p-2 text-center w-[80px]">Role</th>
+              <th className="border p-2 text-center w-[140px]">Entity</th>
+              <th className="border p-2 text-center w-[140px]">Default Store</th>
+              <th className="border p-2 text-center w-[120px]">Akses Store</th>
+              <th className="border p-2 text-center w-[80px]">User id</th>
+              <th className="border p-2 text-center w-[100px]">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((user, index) => (
+              <tr
+                key={user.user_id || user.id || index}
+                className="hover:bg-yellow-300 transition-all duration-150"
+              >
+                {/* NAMA */}
+                <td className="border p-2 text-center">
+                  {editingUserId === user.id ? (
                     <input
-                      type="password"
-                      placeholder="Password baru"
-                      value={editingPassword}
-                      onChange={(e) => setEditingPassword(e.target.value)}
+                      type="text"
+                      value={editingName}
+                      onChange={(e) =>
+                        setEditingName(e.target.value)
+                      }
                       style={{
-                        padding: "6px 10px",
+                        padding: "6px 8px",
+                        width: "100%",
+                        minWidth: "100px",
                         borderRadius: "4px",
                         border: "1px solid #ccc",
-                        fontSize: "0.875rem",
                       }}
                     />
-                    <button
-                      onClick={() => updateUser(user.id)}
+                  ) : (
+                    user.name
+                  )}
+                </td>
+
+                {/* ROLE */}
+                <td className="border p-2 text-center">
+                  {editingUserId === user.id ? (
+                    <select
+                      value={editingRole}
+                      onChange={(e) =>
+                        setEditingRole(e.target.value)
+                      }
                       style={{
-                        backgroundColor: "#16a34a",
-                        color: "white",
-                        padding: "6px 12px",
+                        width: "100%",
+                        padding: "6px",
                         borderRadius: "4px",
-                        border: "none",
-                        fontSize: "0.875rem",
-                        cursor: "pointer",
+                        border: "1px solid #ccc",
                       }}
                     >
-                      Simpan
-                    </button>
-                    <button
-                      onClick={() => setEditingUserId(null)}
+                      <option value="">
+                        Pilih Role
+                      </option>
+
+                      {roles.map((r) => (
+                        <option
+                          key={r.id || r.name}
+                          value={r.name}
+                        >
+                          {r.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    user.role
+                  )}
+                </td>
+
+                {/* ENTITY */}
+                <td className="border p-2 text-center">
+                  {editingUserId === user.id ? (
+                    <select
+                      value={editingEntityId}
+                      onChange={(e) => {
+                        const value = e.target.value;
+
+                        setEditingEntityId(value);
+
+                        // Reset store jika entity berubah
+                        setEditingStoreId("");
+                      }}
                       style={{
-                        backgroundColor: "#9ca3af",
-                        color: "white",
-                        padding: "6px 12px",
+                        width: "100%",
+                        padding: "6px",
                         borderRadius: "4px",
-                        border: "none",
-                        fontSize: "0.875rem",
-                        cursor: "pointer",
+                        border: "1px solid #ccc",
                       }}
                     >
-                      Batal
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => {
-                        setEditingUserId(user.id);
-                        setEditingName(user.name);
-                        setEditingRole(user.role);
-                        setEditingPassword("");
-                        setEditingEntityId(user.entity_id);
+                      <option value="">
+                        Pilih Entity
+                      </option>
+
+                      {entities.map((entity) => (
+                        <option
+                          key={entity.id}
+                          value={entity.id}
+                        >
+                          {entity.kode} - {entity.nama}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    getEntityLabel(user.entity_id)
+                  )}
+                </td>
+
+                {/* DEFAULT STORE */}
+                <td className="border p-2 text-center">
+                  {editingUserId === user.id ? (
+                    <select
+                      value={editingStoreId}
+                      onChange={(e) =>
+                        setEditingStoreId(e.target.value)
+                      }
+                      disabled={!editingEntityId}
+                      style={{
+                        width: "100%",
+                        padding: "6px",
+                        borderRadius: "4px",
+                        border: "1px solid #ccc",
                       }}
-                      className="text-blue-600 hover:text-blue-800 px-[5px]"
-                      title="Edit"
                     >
-                      <FiEdit size={16} />
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (!user.id) {
-                          alert("❌ ID user tidak valid");
-                          return;
+                      <option value="">
+                        Pilih Default Store
+                      </option>
+
+                      {getStoresByEntity(
+                        editingEntityId,
+                      ).map((store) => (
+                        <option
+                          key={store.id}
+                          value={store.id}
+                        >
+                          {store.code} - {store.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    getStoreLabel(user.default_store_id)
+                  )}
+                </td>
+
+                {/* AKSES STORE */}
+                <td className="border p-2 text-center">
+                  {editingUserId === user.id ? (
+                    <select
+                      value={editingStoreAccessScope}
+                      onChange={(e) =>
+                        setEditingStoreAccessScope(
+                          e.target.value as
+                            | "OWN_STORE"
+                            | "ALL_STORES",
+                        )
+                      }
+                      style={{
+                        width: "100%",
+                        padding: "6px",
+                        borderRadius: "4px",
+                        border: "1px solid #ccc",
+                      }}
+                    >
+                      <option value="OWN_STORE">
+                        Store Sendiri
+                      </option>
+
+                      <option value="ALL_STORES">
+                        Semua Store
+                      </option>
+                    </select>
+                  ) : user.store_access_scope ===
+                    "ALL_STORES" ? (
+                    "Semua Store"
+                  ) : (
+                    "Store Sendiri"
+                  )}
+                </td>
+
+                {/* USER ID */}
+                <td className="border p-2 text-center">
+                  {user.user_id || user.id}
+                </td>
+
+                {/* AKSI */}
+                <td className="border p-2 text-center">
+                  {editingUserId === user.id ? (
+                    <div className="flex flex-col gap-2">
+                      <input
+                        type="password"
+                        placeholder="Password baru"
+                        value={editingPassword}
+                        onChange={(e) =>
+                          setEditingPassword(e.target.value)
                         }
-                        deleteUser(user.id);
-                      }}
-                      className="text-red-600 hover:text-red-800 px-[5px]"
-                      title="Hapus"
-                    >
-                      <FiTrash2 size={16} />
-                    </button>
-                  </>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                        style={{
+                          padding: "6px 8px",
+                          borderRadius: "4px",
+                          border: "1px solid #ccc",
+                          width: "100%",
+                          minWidth: "120px",
+                        }}
+                      />
+
+                      <div className="flex justify-center gap-2">
+                        <button
+                          onClick={() =>
+                            updateUser(user.id)
+                          }
+                          disabled={loading}
+                          style={{
+                            backgroundColor: "#16a34a",
+                            color: "white",
+                            padding: "6px 10px",
+                            borderRadius: "4px",
+                            border: "none",
+                            fontSize: "0.875rem",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Simpan
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setEditingUserId(null);
+                            setEditingName("");
+                            setEditingPassword("");
+                            setEditingRole("");
+                            setEditingEntityId("");
+                            setEditingStoreId("");
+                            setEditingStoreAccessScope(
+                              "OWN_STORE",
+                            );
+                          }}
+                          style={{
+                            backgroundColor: "#9ca3af",
+                            color: "white",
+                            padding: "6px 10px",
+                            borderRadius: "4px",
+                            border: "none",
+                            fontSize: "0.875rem",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Batal
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex justify-center gap-2">
+                      <button
+                        onClick={() => {
+                          setEditingUserId(user.id);
+
+                          setEditingName(user.name);
+                          setEditingRole(user.role);
+                          setEditingPassword("");
+
+                          setEditingEntityId(
+                            user.entity_id ?? "",
+                          );
+
+                          setEditingStoreId(
+                            user.default_store_id ?? "",
+                          );
+
+                          setEditingStoreAccessScope(
+                            user.store_access_scope ??
+                              "OWN_STORE",
+                          );
+                        }}
+                        className="text-blue-600 hover:text-blue-800 px-[5px]"
+                        title="Edit"
+                      >
+                        <FiEdit size={16} />
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          if (!user.id) {
+                            alert("❌ ID user tidak valid");
+                            return;
+                          }
+
+                          deleteUser(user.id);
+                        }}
+                        className="text-red-600 hover:text-red-800 px-[5px]"
+                        title="Hapus"
+                      >
+                        <FiTrash2 size={16} />
+                      </button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
