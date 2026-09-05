@@ -1223,11 +1223,11 @@ export default function StockMutationPage(): JSX.Element {
                     No
                   </th>
 
-                  <th className="border-b px-3 py-3 text-left">
+                  <th className="border-b px-3 py-3">
                     Tanggal
                   </th>
 
-                  <th className="border-b px-3 py-3 text-left">
+                  <th className="border-b px-3 py-3">
                     Artikel
                   </th>
 
@@ -1235,15 +1235,15 @@ export default function StockMutationPage(): JSX.Element {
                     Satuan
                   </th>
 
-                  <th className="border-b px-3 py-3 text-left">
+                  <th className="border-b px-3 py-3">
                     Store / Gudang
                   </th>
 
-                  <th className="border-b px-3 py-3 text-left">
+                  <th className="border-b px-3 py-3">
                     Jenis Mutasi
                   </th>
 
-                  <th className="border-b px-3 py-3 text-left">
+                  <th className="border-b px-3 py-3">
                     Referensi
                   </th>
 
@@ -1271,7 +1271,7 @@ export default function StockMutationPage(): JSX.Element {
                     </>
                   )}
 
-                  <th className="border-b px-3 py-3 text-left">
+                  <th className="border-b px-3 py-3">
                     Keterangan
                   </th>
 
@@ -1337,7 +1337,7 @@ export default function StockMutationPage(): JSX.Element {
                           {row.movement_date}
                         </td>
 
-                        <td className="border-b px-3 py-2">
+                        <td className="border-b px-3 py-2 text-left">
 
                           {row.item
                             ? `${row.item.code ?? ""} - ${
