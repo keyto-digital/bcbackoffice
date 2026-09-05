@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import {
+  getDefaultStoreId,
+  hasAllStoresAccess,
+} from "@/lib/storeAccess";
 
 import type {
   InventoryRequest,
@@ -170,6 +174,37 @@ export function useInventoryRequests(entityId?: string | null) {
         query = query.eq("entity_id", entityId);
       }
 
+      /*
+      * =====================================================
+      * STORE ACCESS
+      * =====================================================
+      *
+      * ALL_STORES:
+      * tidak diberi filter store.
+      *
+      * OWN_STORE:
+      * hanya request dengan destination store
+      * sesuai default store user.
+      */
+      if (!hasAllStoresAccess()) {
+        const defaultStoreId = getDefaultStoreId();
+
+        if (!defaultStoreId) {
+          setRequests([]);
+
+          setTotalCount(0);
+
+          setLoading(false);
+
+          return;
+        }
+
+        query = query.eq(
+          "destination_store_id",
+          defaultStoreId,
+        );
+      }
+
       if (startDate) {
         query = query.gte("request_date", startDate);
       }
@@ -279,6 +314,23 @@ export function useInventoryRequests(entityId?: string | null) {
 
         if (entityId) {
           query = query.eq("entity_id", entityId);
+        }
+
+        /*
+        * Filter akses store juga berlaku
+        * untuk Export.
+        */
+        if (!hasAllStoresAccess()) {
+          const defaultStoreId = getDefaultStoreId();
+
+          if (!defaultStoreId) {
+            return [];
+          }
+
+          query = query.eq(
+            "destination_store_id",
+            defaultStoreId,
+          );
         }
 
         if (startDate) {

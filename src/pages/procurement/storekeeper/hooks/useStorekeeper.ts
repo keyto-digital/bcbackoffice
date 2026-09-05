@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { hasAccess } from "@/lib/hasAccess";
+import { getCustomUser } from "@/lib/authUser";
+import {
+  getDefaultStoreId,
+  hasAllStoresAccess,
+} from "@/lib/storeAccess";
 import { supabase } from "@/lib/supabaseClient";
 
 import type {
@@ -86,11 +91,19 @@ type GroupedMovement = MovementRow & {
 
 export function useStorekeeper() {
   // ---------------------------------------------------------------------
+  // STORE ACCESS
+  // ---------------------------------------------------------------------
+
+  const defaultStoreId = getDefaultStoreId();
+
+  const canAccessAllStores = hasAllStoresAccess();
+
+  // ---------------------------------------------------------------------
   // MASTER DATA
   // ---------------------------------------------------------------------
 
   const [stocks, setStocks] = useState<StockRow[]>([]);
-  const currentUser = JSON.parse(localStorage.getItem("custom_user") || "{}",  );
+  const currentUser = getCustomUser() ?? {};
   const entityId =
     typeof currentUser.entity_id === "string"
       ? currentUser.entity_id
@@ -103,7 +116,11 @@ export function useStorekeeper() {
   // FILTER
   // ---------------------------------------------------------------------
 
-  const [storeId, setStoreId] = useState("");
+  const [storeId, setStoreId] = useState(
+    canAccessAllStores
+      ? ""
+      : defaultStoreId ?? "",
+  );
   const [itemId, setItemId] = useState("");
   const [search, setSearch] = useState("");
 
@@ -140,8 +157,35 @@ export function useStorekeeper() {
         .order("store_code")
         .order("item_code");
 
-      if (storeId) {
-        stockQuery = stockQuery.eq("store_id", storeId);
+      /*
+      * =====================================================
+      * STORE ACCESS FILTER
+      * =====================================================
+      */
+
+      if (canAccessAllStores) {
+        // ALL_STORES:
+        // mengikuti filter store jika user memilih store tertentu.
+        if (storeId) {
+          stockQuery = stockQuery.eq(
+            "store_id",
+            storeId,
+          );
+        }
+      } else {
+        // OWN_STORE:
+        // selalu pakai default store user.
+        if (!defaultStoreId) {
+          stockQuery = stockQuery.eq(
+            "store_id",
+            "__NO_ACCESS_STORE__",
+          );
+        } else {
+          stockQuery = stockQuery.eq(
+            "store_id",
+            defaultStoreId,
+          );
+        }
       }
 
       let movementQuery = supabase
@@ -183,8 +227,28 @@ export function useStorekeeper() {
           ascending: false,
         });
 
-      if (storeId) {
-        movementQuery = movementQuery.eq("store_id", storeId);
+      if (canAccessAllStores) {
+        // ALL_STORES dapat memfilter store tertentu.
+        if (storeId) {
+          movementQuery = movementQuery.eq(
+            "store_id",
+            storeId,
+          );
+        }
+      } else {
+        // OWN_STORE selalu hanya melihat
+        // movement pada default store.
+        if (!defaultStoreId) {
+          movementQuery = movementQuery.eq(
+            "store_id",
+            "__NO_ACCESS_STORE__",
+          );
+        } else {
+          movementQuery = movementQuery.eq(
+            "store_id",
+            defaultStoreId,
+          );
+        }
       }
 
       if (itemId) {
@@ -199,25 +263,41 @@ export function useStorekeeper() {
         movementQuery = movementQuery.lte("movement_date", dateTo);
       }
 
-      const [stockResult, movementResult, storeResult, accountResult] =
-        await Promise.all([
-          stockQuery,
+      let storeQuery = supabase
+        .from("stores")
+        .select("id,code,name")
+        .eq("is_active", true)
+        .order("code");
 
-          movementQuery,
+      if (!canAccessAllStores) {
+        if (!defaultStoreId) {
+          storeQuery = storeQuery.eq(
+            "id",
+            "__NO_ACCESS_STORE__",
+          );
+        } else {
+          storeQuery = storeQuery.eq(
+            "id",
+            defaultStoreId,
+          );
+        }
+      }
 
-          supabase
-            .from("stores")
-            .select("id,code,name")
-            .eq("is_active", true)
-            .order("code"),
+    const [stockResult, movementResult, storeResult, accountResult] =
+      await Promise.all([
+        stockQuery,
 
-          supabase
-            .from("accounts")
-            .select("id,code,name")
-            .eq("is_active", true)
-            .eq("is_posting", true)
-            .order("code"),
-        ]);
+        movementQuery,
+
+        storeQuery,
+
+        supabase
+          .from("accounts")
+          .select("id,code,name")
+          .eq("is_active", true)
+          .eq("is_posting", true)
+          .order("code"),
+      ]);
 
       if (stockResult.error) {
         setError(stockResult.error.message);
@@ -286,7 +366,7 @@ export function useStorekeeper() {
     } finally {
       setLoading(false);
     }
-  }, [storeId, itemId, dateFrom, dateTo]);
+  }, [storeId, itemId, dateFrom, dateTo, defaultStoreId, canAccessAllStores]);
 
   // ---------------------------------------------------------------------
   // LOAD ACCESS
@@ -445,6 +525,10 @@ export function useStorekeeper() {
 
     // entity aktif
     entityId,
+
+    // store access
+    defaultStoreId,
+    canAccessAllStores,
 
     // filtered
     filteredStocks,

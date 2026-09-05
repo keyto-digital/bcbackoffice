@@ -5,6 +5,10 @@ import Pagination from "@/components/common/Pagination";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { hasAccess } from "@/lib/hasAccess";
+import {
+  getDefaultStoreId,
+  hasAllStoresAccess,
+} from "@/lib/storeAccess";
 import { useInventoryRequests } from "./hooks/useInventoryRequest";
 import TransferDialog from "./components/TransferDialog";
 import ApprovalDialog from "./components/ApprovalDialog";
@@ -86,6 +90,10 @@ function createForm(entityId?: string | null): InventoryRequestFormData {
 }
 
 export default function InventoryRequestPage({ entityId = null }: Props) {
+  const defaultStoreId = getDefaultStoreId();
+
+  const canAccessAllStores = hasAllStoresAccess();
+
   const {
     requests,
     totalCount,
@@ -231,25 +239,73 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
   }, [fetchRequests, page, pageSize, search, startDate, endDate]);
 
   const destinationStores = useMemo(() => {
-    return stores.filter((store) => store.id !== form.source_store_id);
-  }, [stores, form.source_store_id]);
+    // User ALL_STORES dapat memilih semua store,
+    // kecuali store asal.
+    if (canAccessAllStores) {
+      return stores.filter(
+        (store) => store.id !== form.source_store_id,
+      );
+    }
+
+    // OWN_STORE hanya dapat menggunakan
+    // default store miliknya sebagai tujuan.
+    return stores.filter(
+      (store) =>
+        store.id === defaultStoreId &&
+        store.id !== form.source_store_id,
+    );
+  }, [
+    stores,
+    form.source_store_id,
+    defaultStoreId,
+    canAccessAllStores,
+  ]);
 
   const openCreate = () => {
     setViewOnly(false);
+
     setEditing(null);
 
-    const genstore = stores.find((x) => x.code === "GENSTORE");
+    const genstore = stores.find(
+      (store) => store.code === "GENSTORE",
+    );
 
-    if (genstore) {
-      fetchStoreItems(genstore.id);
+    if (!genstore) {
+      alert("GENSTORE tidak ditemukan.");
+
+      return;
     }
+
+    /*
+    * OWN_STORE wajib memiliki default store.
+    */
+    if (!canAccessAllStores && !defaultStoreId) {
+      alert("Default Store user belum diatur.");
+
+      return;
+    }
+
+    fetchStoreItems(genstore.id);
 
     setForm({
       ...createForm(entityId),
 
-      source_store_id: genstore?.id ?? "",
+      /*
+      * Source selalu GENSTORE
+      */
+      source_store_id: genstore.id,
 
-      entity_id: genstore?.entity_id ?? entityId,
+      /*
+      * OWN_STORE otomatis tujuan ke store user.
+      *
+      * ALL_STORES tetap dapat memilih tujuan.
+      */
+      destination_store_id: canAccessAllStores
+        ? ""
+        : defaultStoreId ?? "",
+
+      entity_id:
+        genstore.entity_id ?? entityId,
     });
 
     setShowForm(true);
@@ -786,7 +842,10 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
               <label className="mb-1 block">Gudang Tujuan</label>
 
               <select
-                disabled={viewOnly}
+                disabled={
+                  viewOnly ||
+                  !canAccessAllStores
+                }
                 value={form.destination_store_id}
                 onChange={(e) =>
                   setForm({
@@ -1082,6 +1141,21 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
                         title={request.status === "DRAFT" ? "Edit" : "Detail"}
                         className="mr-3 text-blue-600 hover:underline"
                         onClick={async () => {
+                          /*
+                          * OWN_STORE hanya boleh membuka
+                          * request milik default store.
+                          */
+                          if (
+                            !canAccessAllStores &&
+                            request.destination_store_id !== defaultStoreId
+                          ) {
+                            alert(
+                              "Anda tidak memiliki akses ke request store ini.",
+                            );
+
+                            return;
+                          }
+
                           const detail = await fetchDetails(request.id);
 
                           if (!detail) return;

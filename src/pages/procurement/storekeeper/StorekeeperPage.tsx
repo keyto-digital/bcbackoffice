@@ -11,6 +11,7 @@ import InventoryTransactionModal from "./components/InventoryTransactionModal";
 import MovementDetailModal from "./components/MovementDetailModal";
 import { createPaginationMeta } from "@/lib/pagination/types";
 import Pagination from "@/components/common/Pagination";
+import { getCustomUser } from "@/lib/authUser";
 
 export default function StorekeeperPage(): JSX.Element {
   const [tab, setTab] = useState<"SUMMARY" | "CARD">("SUMMARY");
@@ -33,6 +34,10 @@ export default function StorekeeperPage(): JSX.Element {
     loading,
     error,
     access,
+    // store access
+    defaultStoreId,
+    canAccessAllStores,
+
     storeId,
     setStoreId,
     itemId,
@@ -49,13 +54,9 @@ export default function StorekeeperPage(): JSX.Element {
     accounts,
   } = useStorekeeper();
 
-  const currentUser = JSON.parse(
-    localStorage.getItem("custom_user") || "{}",
-  ) as {
-    entity_id?: string;
-  };
+  const currentUser = getCustomUser();
 
-  const entityId = currentUser.entity_id ?? null;
+  const entityId = currentUser?.entity_id ?? null;
 
   const summaryFrom = (summaryPage - 1) * pageSize;
 
@@ -381,14 +382,32 @@ export default function StorekeeperPage(): JSX.Element {
       {/* Filters */}
       <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
         <div className="grid gap-3 md:grid-cols-5">
+          {!canAccessAllStores && !defaultStoreId && (
+            <div className="text-sm text-red-600">
+              Default Store user belum diatur.
+            </div>
+          )}
           <select
             value={storeId}
             onChange={(e) => setStoreId(e.target.value)}
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+            disabled={!canAccessAllStores}
+            className={`border px-3 py-2 rounded ${
+              !canAccessAllStores
+                ? "bg-gray-100 cursor-not-allowed"
+                : "bg-white"
+            }`}
           >
-            <option value="">Semua Store / Gudang</option>
+            {canAccessAllStores && (
+              <option value="">
+                Semua Store
+              </option>
+            )}
+
             {stores.map((store) => (
-              <option key={store.id} value={store.id}>
+              <option
+                key={store.id}
+                value={store.id}
+              >
                 {store.code} - {store.name}
               </option>
             ))}

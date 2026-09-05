@@ -6,6 +6,10 @@ import {
 } from "react";
 
 import { supabase } from "@/lib/supabaseClient";
+import {
+  getDefaultStoreId,
+  hasAllStoresAccess,
+} from "@/lib/storeAccess";
 
 import type {
   StockMutationItem,
@@ -136,6 +140,13 @@ function numberValue(
 // ============================================================================
 
 export function useStockMutation() {
+    // --------------------------------------------------------------------------
+  // STORE ACCESS
+  // --------------------------------------------------------------------------
+
+  const defaultStoreId = getDefaultStoreId();
+  const canAccessAllStores = hasAllStoresAccess();
+
   // --------------------------------------------------------------------------
   // MASTER
   // --------------------------------------------------------------------------
@@ -182,7 +193,11 @@ export function useStockMutation() {
   const [
     storeId,
     setStoreId,
-  ] = useState("");
+  ] = useState(
+    canAccessAllStores
+      ? ""
+      : defaultStoreId ?? "",
+  );
 
   const [
     dateFrom,
@@ -249,56 +264,50 @@ export function useStockMutation() {
         );
 
         try {
+          let storeQuery = supabase
+            .from("stores")
+            .select(`
+              id,
+              code,
+              name
+            `)
+            .eq("is_active", true)
+            .order("code", {
+              ascending: true,
+            });
+
+          if (!canAccessAllStores) {
+            if (!defaultStoreId) {
+              storeQuery = storeQuery.eq(
+                "id",
+                "__NO_ACCESS_STORE__",
+              );
+            } else {
+              storeQuery = storeQuery.eq(
+                "id",
+                defaultStoreId,
+              );
+            }
+          }
+
           const [
             storeResult,
             itemResult,
           ] =
             await Promise.all([
-              supabase
-                .from(
-                  "stores",
-                )
-                .select(
-                  `
-                  id,
-                  code,
-                  name
-                  `,
-                )
-                .eq(
-                  "is_active",
-                  true,
-                )
-                .order(
-                  "code",
-                  {
-                    ascending:
-                      true,
-                  },
-                ),
+              storeQuery,
 
               supabase
-                .from(
-                  "items",
-                )
-                .select(
-                  `
+                .from("items")
+                .select(`
                   id,
                   code,
                   name
-                  `,
-                )
-                .eq(
-                  "is_active",
-                  true,
-                )
-                .order(
-                  "code",
-                  {
-                    ascending:
-                      true,
-                  },
-                ),
+                `)
+                .eq("is_active", true)
+                .order("code", {
+                  ascending: true,
+                }),
             ]);
 
           if (
@@ -480,17 +489,33 @@ export function useStockMutation() {
           }
 
           // ------------------------------------------------
-          // STORE
+          // STORE ACCESS
           // ------------------------------------------------
 
-          if (
-            storeId
-          ) {
-            query =
-              query.eq(
+          if (canAccessAllStores) {
+            /*
+            * ALL_STORES:
+            * boleh melihat semua store.
+            * Jika user memilih store tertentu,
+            * gunakan pilihan tersebut sebagai filter.
+            */
+            if (storeId) {
+              query = query.eq(
                 "store_id",
                 storeId,
               );
+            }
+          } else {
+            /*
+            * OWN_STORE:
+            * abaikan pilihan store dari luar.
+            * Selalu paksa ke default store user.
+            */
+            query = query.eq(
+              "store_id",
+              defaultStoreId ??
+                "__NO_ACCESS_STORE__",
+            );
           }
 
           // ------------------------------------------------
@@ -842,6 +867,8 @@ export function useStockMutation() {
         dateFrom,
         dateTo,
         keyword,
+        defaultStoreId,
+        canAccessAllStores,
       ],
     );
 
@@ -1030,14 +1057,32 @@ export function useStockMutation() {
               );
           }
 
-          if (
-            storeId
-          ) {
-            query =
-              query.eq(
+          // ------------------------------------------------
+          // STORE ACCESS
+          // ------------------------------------------------
+
+          if (canAccessAllStores) {
+            /*
+            * ALL_STORES:
+            * boleh memilih store tertentu
+            * atau semua store.
+            */
+            if (storeId) {
+              query = query.eq(
                 "store_id",
                 storeId,
               );
+            }
+          } else {
+            /*
+            * OWN_STORE:
+            * selalu pakai default store user.
+            */
+            query = query.eq(
+              "store_id",
+              defaultStoreId ??
+                "__NO_ACCESS_STORE__",
+            );
           }
 
           if (
@@ -1353,6 +1398,8 @@ export function useStockMutation() {
         dateFrom,
         dateTo,
         keyword,
+        defaultStoreId,
+        canAccessAllStores,
       ],
     );
 
@@ -1392,6 +1439,12 @@ export function useStockMutation() {
     stores,
 
     items,
+
+    // STORE ACCESS
+
+    defaultStoreId,
+
+    canAccessAllStores,
 
     // DATA
 

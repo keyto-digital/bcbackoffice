@@ -11,11 +11,31 @@ interface UseInventoryTransactionProps {
 }
 
 const createEmptyLine = (): StockOpnameLine => ({
-  id: crypto.randomUUID(),
+  id: generateLocalId(),
   stockId: "",
   qty: "",
   accountId: "",
 });
+
+// =====================================================
+// LOCAL LINE ID
+// =====================================================
+
+const generateLocalId = (): string => {
+  if (
+    typeof globalThis !== "undefined" &&
+    globalThis.crypto &&
+    typeof globalThis.crypto.randomUUID === "function"
+  ) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return [
+    "local",
+    Date.now().toString(36),
+    Math.random().toString(36).slice(2, 11),
+  ].join("-");
+};
 
 export function useInventoryTransaction({
   stocks,
@@ -28,31 +48,18 @@ export function useInventoryTransaction({
 
   const [transactionKind, setTransactionKind] =
     useState<TransactionKind | null>(null);
-
   const [transactionStockId, setTransactionStockId] = useState("");
-
   const [targetStoreId, setTargetStoreId] = useState("");
-
   const [fromStoreId, setFromStoreId] = useState("");
-
   const [toStoreId, setToStoreId] = useState("");
-
   const [transactionDate, setTransactionDate] = useState(inputDate(new Date()));
-
   const [transactionQty, setTransactionQty] = useState("");
-
   const [lines, setLines] = useState<StockOpnameLine[]>([createEmptyLine()]);
-
   const [offsetAccountId, setOffsetAccountId] = useState("");
-
   const [reference, setReference] = useState("");
-
   const [transactionNotes, setTransactionNotes] = useState("");
-
   const [postingTransaction, setPostingTransaction] = useState(false);
-
   const [isOpen, setIsOpen] = useState(false);
-
   const currentUser = JSON.parse(
     localStorage.getItem("custom_user") || "{}",
   ) as {
@@ -61,7 +68,6 @@ export function useInventoryTransaction({
   };
 
   const userId = currentUser.id ?? "";
-
   const currentUserEntityId =
     currentUser.entity_id ?? null;
 

@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 export async function authenticateUser(name: string, password: string) {
   const { data: user, error } = await supabase
     .from("custom_users") // ✅ HARUS dari custom_users
-    .select("id, name, password, role, access, entity_id")
+    .select("id, name, password, role, access, entity_id, default_store_id, store_access_scope")
     .eq("name", name)
     .maybeSingle();
 
@@ -14,7 +14,7 @@ export async function authenticateUser(name: string, password: string) {
 
   const passwordMatches = bcrypt.compareSync(password, user.password);
   if (!passwordMatches) throw new Error("Password salah");
-
+  
   localStorage.setItem("custom_user", JSON.stringify(user));
   return user; // ✅ ini yang kamu simpan ke localStorage
 }

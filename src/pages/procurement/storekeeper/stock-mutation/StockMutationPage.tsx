@@ -159,6 +159,9 @@ export default function StockMutationPage(): JSX.Element {
     storeId,
     setStoreId,
 
+    defaultStoreId,
+    canAccessAllStores,
+
     dateFrom,
     setDateFrom,
 
@@ -346,7 +349,9 @@ export default function StockMutationPage(): JSX.Element {
     );
 
     setStoreId(
-      "",
+      canAccessAllStores
+        ? ""
+        : defaultStoreId ?? "",
     );
 
     setKeyword(
@@ -957,10 +962,13 @@ export default function StockMutationPage(): JSX.Element {
               placeholder={
                 loadingMaster
                   ? "Memuat store..."
-                  : "Semua store"
+                  : canAccessAllStores
+                    ? "Semua store"
+                    : "Store user"
               }
               emptyMessage="Store tidak ditemukan."
               onChange={setStoreId}
+              disabled={!canAccessAllStores}
             />
           </div>
 
