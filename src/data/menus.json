@@ -394,6 +394,12 @@
         "component": "StockMutationPage"
       },
       {
+        "label": "stock_mutation.view_financial",
+        "access": "stock_mutation.view_financial",
+        "path": "/stock-cards/view-financial",
+        "component": "StockMutationPage"
+      },
+      {
         "label": "Transfer List",
         "access": "Storekeeper -> Transfer List",
         "path": "/transfer-list",

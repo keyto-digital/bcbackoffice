@@ -1,6 +1,8 @@
 import {
   useCallback,
+  useEffect,
   useMemo,
+  useState,
 } from "react";
 
 import DateInput from "@/components/common/DateInput";
@@ -21,6 +23,10 @@ import {
 import {
   getCustomUser,
 } from "@/lib/authUser";
+
+import {
+  hasAccess,
+} from "@/lib/hasAccess";
 
 import {
   exportReport,
@@ -144,6 +150,30 @@ export default function StockMutationPage(): JSX.Element {
   // --------------------------------------------------------------------------
   // DATA
   // --------------------------------------------------------------------------
+
+    // ==========================================================================
+  // ACCESS
+  // ==========================================================================
+
+  const [
+    canViewFinancial,
+    setCanViewFinancial,
+  ] = useState(false);
+
+  useEffect(() => {
+    async function loadAccess() {
+      const viewFinancial =
+        await hasAccess(
+          "stock_mutation.view_financial",
+        );
+
+      setCanViewFinancial(
+        viewFinancial,
+      );
+    }
+
+    void loadAccess();
+  }, []);
 
   const {
     stores,
@@ -496,33 +526,37 @@ export default function StockMutationPage(): JSX.Element {
                   ),
             },
 
-            {
-              label:
-                "Avg Cost",
+            ...(canViewFinancial
+              ? [
+                  {
+                    label:
+                      "Avg Cost",
 
-              key:
-                "average_cost_after",
+                    key:
+                      "average_cost_after",
 
-              format:
-                (value) =>
-                  Number(
-                    value ?? 0,
-                  ),
-            },
+                    format:
+                      (value: unknown) =>
+                        Number(
+                          value ?? 0,
+                        ),
+                  },
 
-            {
-              label:
-                "Nilai Mutasi",
+                  {
+                    label:
+                      "Nilai Mutasi",
 
-              key:
-                "movement_value",
+                    key:
+                      "movement_value",
 
-              format:
-                (value) =>
-                  Number(
-                    value ?? 0,
-                  ),
-            },
+                    format:
+                      (value: unknown) =>
+                        Number(
+                          value ?? 0,
+                        ),
+                  },
+                ]
+            : []),
 
             {
               label:
@@ -581,15 +615,19 @@ export default function StockMutationPage(): JSX.Element {
                     row.quantity_after ?? 0,
                   ),
 
-                average_cost_after:
-                  Number(
-                    row.average_cost_after ?? 0,
-                  ),
+                  ...(canViewFinancial
+                    ? {
+                        average_cost_after:
+                          Number(
+                            row.average_cost_after ?? 0,
+                          ),
 
-                movement_value:
-                  Number(
-                    row.movement_value ?? 0,
-                  ),
+                        movement_value:
+                          Number(
+                            row.movement_value ?? 0,
+                          ),
+                      }
+                  : {}),
 
                 description:
                   row.description ?? "",
@@ -612,6 +650,7 @@ export default function StockMutationPage(): JSX.Element {
       movements,
       dateFrom,
       dateTo,
+      canViewFinancial,
     ]);
 
   // ==========================================================================
@@ -774,27 +813,31 @@ export default function StockMutationPage(): JSX.Element {
                   ),
             },
 
-            {
-              label:
-                "Avg Cost",
+            ...(canViewFinancial
+              ? [
+                  {
+                    label:
+                      "Avg Cost",
 
-              key:
-                "average_cost_after",
+                    key:
+                      "average_cost_after",
 
-              align:
-                "right",
+                    align:
+                      "right" as const,
 
-              width:
-                "12%",
+                    width:
+                      "12%",
 
-              format:
-                (value) =>
-                  money(
-                    Number(
-                      value ?? 0,
-                    ),
-                  ),
-            },
+                    format:
+                      (value: unknown) =>
+                        money(
+                          Number(
+                            value ?? 0,
+                          ),
+                        ),
+                  },
+                ]
+            : []),
           ],
 
           rows:
@@ -842,10 +885,14 @@ export default function StockMutationPage(): JSX.Element {
                     row.quantity_after ?? 0,
                   ),
 
-                average_cost_after:
-                  Number(
-                    row.average_cost_after ?? 0,
-                  ),
+                ...(canViewFinancial
+                  ? {
+                      average_cost_after:
+                        Number(
+                          row.average_cost_after ?? 0,
+                        ),
+                    }
+                : {}),
               }),
             ),
 
@@ -898,6 +945,7 @@ export default function StockMutationPage(): JSX.Element {
       totalCount,
       totalIn,
       totalOut,
+      canViewFinancial,
     ]);
 
   // ==========================================================================
@@ -1211,13 +1259,17 @@ export default function StockMutationPage(): JSX.Element {
                     Saldo
                   </th>
 
-                  <th className="border-b px-3 py-3 text-right">
-                    Avg Cost
-                  </th>
+                  {canViewFinancial && (
+                    <>
+                      <th className="border-b px-3 py-3 text-right">
+                        Avg Cost
+                      </th>
 
-                  <th className="border-b px-3 py-3 text-right">
-                    Nilai Mutasi
-                  </th>
+                      <th className="border-b px-3 py-3 text-right">
+                        Nilai Mutasi
+                      </th>
+                    </>
+                  )}
 
                   <th className="border-b px-3 py-3 text-left">
                     Keterangan
@@ -1234,7 +1286,11 @@ export default function StockMutationPage(): JSX.Element {
                   <tr>
 
                     <td
-                      colSpan={13}
+                      colSpan={
+                        canViewFinancial
+                          ? 13
+                          : 11
+                      }
                       className="px-4 py-8 text-center text-gray-500"
                     >
                       Memuat data...
@@ -1349,21 +1405,25 @@ export default function StockMutationPage(): JSX.Element {
                           )}
                         </td>
 
-                        <td className="border-b px-3 py-2 text-right">
-                          {money(
-                            Number(
-                              row.average_cost_after ?? 0,
-                            ),
-                          )}
-                        </td>
+                        {canViewFinancial && (
+                          <>
+                            <td className="border-b px-3 py-2 text-right">
+                              {money(
+                                Number(
+                                  row.average_cost_after ?? 0,
+                                ),
+                              )}
+                            </td>
 
-                        <td className="border-b px-3 py-2 text-right">
-                          {money(
-                            Number(
-                              row.movement_value ?? 0,
-                            ),
-                          )}
-                        </td>
+                            <td className="border-b px-3 py-2 text-right">
+                              {money(
+                                Number(
+                                  row.movement_value ?? 0,
+                                ),
+                              )}
+                            </td>
+                          </>
+                        )}
 
                         <td className="border-b px-3 py-2">
                           {row.description ?? "-"}
