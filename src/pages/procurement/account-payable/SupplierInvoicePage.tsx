@@ -1953,121 +1953,153 @@ export function SupplierInvoicePage() {
           ====================================================== */}
 
       {showRequestForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-4xl rounded-lg bg-white shadow-xl">
-            <div className="border-b px-6 py-4">
-              <h2 className="text-lg font-semibold">Ajukan Pembayaran</h2>
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-hidden bg-black/40 px-4 pt-10 pb-4">
+          <div className="flex w-full max-w-4xl max-h-[calc(100vh-3.5rem)] flex-col overflow-hidden rounded-lg bg-white shadow-xl">
 
-              <p className="text-sm text-gray-500">
+            {/* HEADER */}
+            <div className="shrink-0 border-b bg-white px-6 py-4">
+              <h2 className="text-lg font-semibold leading-6">
+                Ajukan Pembayaran
+              </h2>
+
+              <p className="mt-1 text-sm leading-5 text-gray-500">
                 Transaksi yang dipilih akan dibuat menjadi Payment Voucher.
               </p>
             </div>
 
-            <div className="space-y-5 p-6">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-sm font-medium">
-                    Tanggal Pengajuan
-                  </label>
+            {/* CONTENT SCROLL */}
+            <div className="min-h-0 flex-1 overflow-y-auto p-6">
+              <div className="space-y-5">
 
-                  <input
-                    type="date"
-                    value={requestDate}
-                    onChange={(event) => setRequestDate(event.target.value)}
-                    className="w-full rounded border px-3 py-2 text-sm"
-                  />
+                {/* HEADER FORM */}
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium">
+                      Tanggal Pengajuan
+                    </label>
+
+                    <input
+                      type="date"
+                      value={requestDate}
+                      onChange={(event) =>
+                        setRequestDate(event.target.value)
+                      }
+                      className="w-full rounded border px-3 py-2 text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-sm font-medium">
+                      No Payment Voucher
+                    </label>
+
+                    <input
+                      type="text"
+                      value="Otomatis oleh sistem"
+                      disabled
+                      className="w-full rounded border bg-gray-100 px-3 py-2 text-sm text-gray-500"
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="mb-1 block text-sm font-medium">
-                    No Payment Voucher
-                  </label>
+                {/* TABLE INVOICE */}
+                <div className="overflow-hidden rounded border">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 font-medium">
+                            Supplier
+                          </th>
 
-                  <input
-                    type="text"
-                    value="Otomatis oleh sistem"
-                    disabled
-                    className="w-full rounded border bg-gray-100 px-3 py-2 text-sm text-gray-500"
-                  />
-                </div>
-              </div>
+                          <th className="px-4 py-3 font-medium">
+                            Invoice
+                          </th>
 
-              <div className="overflow-hidden rounded border">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-3 font-medium">Supplier</th>
+                          <th className="px-4 py-3 font-medium">
+                            RR
+                          </th>
 
-                        <th className="px-4 py-3 font-medium">Invoice</th>
+                          <th className="px-4 py-3 font-medium">
+                            Jatuh Tempo
+                          </th>
 
-                        <th className="px-4 py-3 font-medium">RR</th>
+                          <th className="px-4 py-3 font-medium text-right">
+                            Sisa
+                          </th>
+                        </tr>
+                      </thead>
 
-                        <th className="px-4 py-3 font-medium">Jatuh Tempo</th>
+                      <tbody className="divide-y">
+                        {selectedInvoices.map(
+                          (invoice: ApInvoice) => (
+                            <tr key={invoice.id}>
+                              <td className="px-3 py-2">
+                                {invoice.supplier_name}
+                              </td>
 
-                        <th className="px-4 py-3 font-medium text-right">
-                          Sisa
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {selectedInvoices.map((invoice: ApInvoice) => (
-                        <tr key={invoice.id}>
-                          <td className="px-3 py-2">{invoice.supplier_name}</td>
+                              <td className="px-3 py-2">
+                                {invoice.invoice_number}
+                              </td>
 
-                          <td className="px-3 py-2">
-                            {invoice.invoice_number}
+                              <td className="px-3 py-2">
+                                {invoice.receiving_number ?? "-"}
+                              </td>
+
+                              <td className="px-3 py-2">
+                                {formatDate(invoice.due_date)}
+                              </td>
+
+                              <td className="px-3 py-2 text-right font-medium">
+                                {formatCurrency(
+                                  Number(invoice.remaining_amount),
+                                )}
+                              </td>
+                            </tr>
+                          ),
+                        )}
+                      </tbody>
+
+                      <tfoot className="border-t bg-gray-50">
+                        <tr>
+                          <td
+                            colSpan={4}
+                            className="px-3 py-3 text-right font-semibold"
+                          >
+                            Total
                           </td>
 
-                          <td className="px-3 py-2">
-                            {invoice.receiving_number ?? "-"}
-                          </td>
-
-                          <td className="px-3 py-2">
-                            {formatDate(invoice.due_date)}
-                          </td>
-
-                          <td className="px-3 py-2 text-right font-medium">
-                            {formatCurrency(Number(invoice.remaining_amount))}
+                          <td className="px-3 py-3 text-right font-bold">
+                            {formatCurrency(selectedTotal)}
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-
-                    <tfoot className="border-t bg-gray-50">
-                      <tr>
-                        <td
-                          colSpan={4}
-                          className="px-3 py-3 text-right font-semibold"
-                        >
-                          Total
-                        </td>
-
-                        <td className="px-3 py-3 text-right font-bold">
-                          {formatCurrency(selectedTotal)}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
+                      </tfoot>
+                    </table>
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="mb-1 block text-sm font-medium">
-                  Catatan
-                </label>
+                {/* CATATAN */}
+                <div>
+                  <label className="mb-1 block text-sm font-medium">
+                    Catatan
+                  </label>
 
-                <textarea
-                  value={requestNotes}
-                  onChange={(event) => setRequestNotes(event.target.value)}
-                  rows={3}
-                  className="w-full rounded border px-3 py-2 text-sm"
-                  placeholder="Catatan pengajuan..."
-                />
+                  <textarea
+                    value={requestNotes}
+                    onChange={(event) =>
+                      setRequestNotes(event.target.value)
+                    }
+                    rows={3}
+                    className="w-full rounded border px-3 py-2 text-sm"
+                    placeholder="Catatan pengajuan..."
+                  />
+                </div>
+
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 border-t px-6 py-4">
+            {/* FOOTER */}
+            <div className="shrink-0 flex justify-end gap-2 border-t bg-white px-6 py-4">
               <button
                 type="button"
                 onClick={() => setShowRequestForm(false)}
@@ -2082,9 +2114,12 @@ export function SupplierInvoicePage() {
                 disabled={saving}
                 className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
-                {saving ? "Menyimpan..." : "Simpan Pengajuan"}
+                {saving
+                  ? "Menyimpan..."
+                  : "Simpan Pengajuan"}
               </button>
             </div>
+
           </div>
         </div>
       )}

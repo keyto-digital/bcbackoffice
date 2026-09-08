@@ -213,11 +213,168 @@ export function useInventoryRequests(entityId?: string | null) {
         query = query.lte("request_date", endDate);
       }
 
-      const key = search.trim();
+      /*
+      * =====================================================
+      * SERVER-SIDE SEARCH
+      * =====================================================
+      *
+      * Kolom yang dapat dicari:
+      *
+      * 1. Nomor Store Request
+      * 2. Catatan
+      * 3. Status
+      * 4. Gudang Tujuan
+      *
+      * Gudang tujuan dicari berdasarkan:
+      * - kode store
+      * - nama store
+      *
+      * Karena nama/kode gudang berada di tabel stores,
+      * kita cari dahulu ID store yang cocok, lalu
+      * memasukkan destination_store_id ke OR query.
+      */
+      const key = search
+        .trim()
+        .replace(/[%_]/g, "\\$&")
+        .replace(/,/g, " ");
 
       if (key) {
+        /*
+        * -----------------------------------------------------
+        * CARI GUDANG TUJUAN
+        * -----------------------------------------------------
+        *
+        * Search:
+        * BAR
+        *
+        * dapat menemukan:
+        * BAR
+        * Bar Store
+        * BAR-01
+        * dan sebagainya.
+        */
+        let destinationStoreIds: string[] = [];
+
+        let storeSearchQuery = supabase
+          .from("stores")
+          .select("id");
+
+        if (entityId) {
+          storeSearchQuery = storeSearchQuery.eq(
+            "entity_id",
+            entityId,
+          );
+        }
+
+        if (!hasAllStoresAccess()) {
+          const defaultStoreId = getDefaultStoreId();
+
+          if (defaultStoreId) {
+            storeSearchQuery = storeSearchQuery.eq(
+              "id",
+              defaultStoreId,
+            );
+          }
+        }
+
+        const { data: matchingStores, error: storeSearchError } =
+          await storeSearchQuery.or(
+            [
+              `code.ilike.%${key}%`,
+              `name.ilike.%${key}%`,
+            ].join(","),
+          );
+
+        /*
+        * Jika pencarian store gagal, jangan diam-diam
+        * menghilangkan hasil pencarian utama.
+        *
+        * Search request/status tetap dijalankan.
+        */
+        if (!storeSearchError) {
+          destinationStoreIds = (matchingStores ?? []).map(
+            (store) => store.id,
+          );
+        }
+
+        /*
+        * -----------------------------------------------------
+        * STATUS ALIAS
+        * -----------------------------------------------------
+        *
+        * Supaya user bisa mengetik label yang tampil
+        * di UI, bukan hanya nilai database.
+        *
+        * Contoh:
+        * "in preparation"
+        *       ↓
+        * IN_PREPARATION
+        *
+        * "cancelled"
+        *       ↓
+        * CANCELLED
+        */
+        const normalizedStatusSearch = key
+          .toLowerCase()
+          .replace(/[_-]+/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+
+        const statusAliases: Record<string, string> = {
+          draft: "DRAFT",
+          approved: "APPROVED",
+          preparation: "IN_PREPARATION",
+          "in preparation": "IN_PREPARATION",
+          completed: "COMPLETED",
+          rejected: "REJECTED",
+          cancelled: "CANCELLED",
+          canceled: "CANCELLED",
+        };
+
+        const matchedStatus =
+          statusAliases[normalizedStatusSearch];
+
+        /*
+        * -----------------------------------------------------
+        * GABUNGKAN SEARCH
+        * -----------------------------------------------------
+        */
+        const searchConditions = [
+          `request_no.ilike.%${key}%`,
+          `remarks.ilike.%${key}%`,
+          `status.ilike.%${key}%`,
+        ];
+
+        /*
+        * Jika user mencari nama/kode gudang dan ditemukan
+        * store yang sesuai, tambahkan destination_store_id.
+        */
+        if (destinationStoreIds.length > 0) {
+          searchConditions.push(
+            `destination_store_id.in.(${destinationStoreIds.join(",")})`,
+          );
+        }
+
+        /*
+        * Jika user mengetik label status secara persis,
+        * tambahkan pencarian status berdasarkan nilai database.
+        *
+        * Ini membuat:
+        *
+        * "In Preparation"
+        *
+        * tetap menemukan:
+        *
+        * IN_PREPARATION
+        */
+        if (matchedStatus) {
+          searchConditions.push(
+            `status.eq.${matchedStatus}`,
+          );
+        }
+
         query = query.or(
-          [`request_no.ilike.%${key}%`, `remarks.ilike.%${key}%`].join(","),
+          searchConditions.join(","),
         );
       }
 
@@ -341,11 +498,104 @@ export function useInventoryRequests(entityId?: string | null) {
           query = query.lte("request_date", endDate);
         }
 
-        const key = search.trim();
+        /*
+        * =====================================================
+        * SERVER-SIDE SEARCH UNTUK EXPORT
+        * =====================================================
+        *
+        * Harus sama dengan pencarian pada tabel:
+        * - Nomor
+        * - Catatan
+        * - Status
+        * - Gudang Tujuan
+        */
+        const key = search
+          .trim()
+          .replace(/[%_]/g, "\\$&")
+          .replace(/,/g, " ");
 
         if (key) {
+          /*
+          * Cari store tujuan yang sesuai dengan keyword.
+          */
+          let destinationStoreIds: string[] = [];
+
+          let storeSearchQuery = supabase
+            .from("stores")
+            .select("id");
+
+          if (entityId) {
+            storeSearchQuery = storeSearchQuery.eq(
+              "entity_id",
+              entityId,
+            );
+          }
+
+          if (!hasAllStoresAccess()) {
+            const defaultStoreId = getDefaultStoreId();
+
+            if (defaultStoreId) {
+              storeSearchQuery = storeSearchQuery.eq(
+                "id",
+                defaultStoreId,
+              );
+            }
+          }
+
+          const { data: matchingStores, error: storeSearchError } =
+            await storeSearchQuery.or(
+              [
+                `code.ilike.%${key}%`,
+                `name.ilike.%${key}%`,
+              ].join(","),
+            );
+
+          if (!storeSearchError) {
+            destinationStoreIds = (matchingStores ?? []).map(
+              (store) => store.id,
+            );
+          }
+
+          const normalizedStatusSearch = key
+            .toLowerCase()
+            .replace(/[_-]+/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+
+          const statusAliases: Record<string, string> = {
+            draft: "DRAFT",
+            approved: "APPROVED",
+            preparation: "IN_PREPARATION",
+            "in preparation": "IN_PREPARATION",
+            completed: "COMPLETED",
+            rejected: "REJECTED",
+            cancelled: "CANCELLED",
+            canceled: "CANCELLED",
+          };
+
+          const matchedStatus =
+            statusAliases[normalizedStatusSearch];
+
+          const searchConditions = [
+            `request_no.ilike.%${key}%`,
+            `remarks.ilike.%${key}%`,
+            `status.ilike.%${key}%`,
+          ];
+
+          if (destinationStoreIds.length > 0) {
+            searchConditions.push(
+              `destination_store_id.in.(${destinationStoreIds.join(",")})`,
+            );
+          }
+
+          if (matchedStatus) {
+            searchConditions.push(
+              `status.eq.${matchedStatus}`,
+            );
+          }
+
           query = query.or(
-            [`request_no.ilike.%${key}%`, `remarks.ilike.%${key}%`].join(","),
+            searchConditions.join(","),
           );
         }
 
@@ -678,23 +928,110 @@ export function useInventoryRequests(entityId?: string | null) {
       qty_transfer: number;
     }[],
   ) => {
-    const { data, error } = await supabase.rpc("complete_inventory_request", {
-      p_request_id: requestId,
-
-      p_user_id: userId,
-
-      p_details: details,
-    });
-
-    console.log("RPC DATA :", data);
-
-    console.log("RPC ERROR:", error);
+    const { data, error } = await supabase.rpc(
+      "complete_inventory_request",
+      {
+        p_request_id: requestId,
+        p_user_id: userId,
+        p_details: details,
+      },
+    );
 
     if (error) {
       throw error;
     }
 
     return data;
+  };
+
+    /*
+   * =====================================================
+   * CANCEL INVENTORY REQUEST
+   * =====================================================
+   *
+   * Hanya APPROVED yang boleh dibatalkan.
+   * Pembatalan dilakukan melalui RPC agar validasi
+   * dan audit tetap berada di database.
+   *
+   * Setelah RPC berhasil:
+   * - update state React langsung menjadi CANCELLED
+   * - tidak perlu refresh browser
+   */
+  const cancelRequest = async (
+    requestId: string,
+    userId: string,
+    reason: string,
+  ) => {
+    setError(null);
+
+    const { data, error } = await supabase.rpc(
+      "cancel_inventory_request",
+      {
+        p_request_id: requestId,
+        p_user_id: userId,
+        p_reason: reason,
+      },
+    );
+
+    /*
+     * Error dari Supabase/RPC.
+     */
+    if (error) {
+      setError(error.message);
+
+      return {
+        success: false,
+        error,
+      };
+    }
+
+    /*
+     * RPC kita dirancang mengembalikan boolean TRUE.
+     *
+     * Jangan mengecek:
+     *
+     *   if (!data?.success)
+     *
+     * karena data bisa berupa boolean TRUE,
+     * bukan object { success: true }.
+     */
+    if (data === false) {
+      const cancelError = new Error(
+        "Inventory Request gagal dibatalkan.",
+      );
+
+      setError(cancelError.message);
+
+      return {
+        success: false,
+        error: cancelError,
+      };
+    }
+
+    /*
+     * =====================================================
+     * UPDATE STATE FRONTEND LANGSUNG
+     * =====================================================
+     *
+     * Ini yang membuat tanda X langsung hilang
+     * tanpa perlu refresh browser.
+     */
+    setRequests((current) =>
+      current.map((request) =>
+        request.id === requestId
+          ? {
+              ...request,
+              status: "CANCELLED",
+            }
+          : request,
+      ),
+    );
+
+    return {
+      success: true,
+      error: null,
+      data,
+    };
   };
 
   const update = async (
@@ -822,6 +1159,7 @@ export function useInventoryRequests(entityId?: string | null) {
 
     approve,
     completeRequest,
+    cancelRequest,
 
     update,
     updateItem,

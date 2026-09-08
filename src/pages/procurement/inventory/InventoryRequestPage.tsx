@@ -27,6 +27,7 @@ import {
   Trash2,
   ArrowRightLeft,
   Printer,
+  XCircle,
 } from "lucide-react";
 import SearchableSelect, {
   type SearchableSelectOption,
@@ -120,6 +121,7 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
 
     approve,
     completeRequest,
+    cancelRequest,
 
     storeItems,
     fetchStoreItems,
@@ -133,11 +135,12 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
 
   const [access, setAccess] = useState({
     create: false,
-     edit: false,
+    edit: false,
     delete: false,
     submit: false,
     approve: false,
     transfer: false,
+    cancel: false,
     print: false,
     export: false,
   });
@@ -195,6 +198,7 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
         submitAccess,
         approveAccess,
         transferAccess,
+        cancelAccess,
         printAccess,
         exportAccess,
       ] = await Promise.all([
@@ -204,6 +208,7 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
         hasAccess("inventory_request.submit"),
         hasAccess("inventory_request.approve"),
         hasAccess("inventory_request.transfer"),
+        hasAccess("inventory_request.cancel"),
         hasAccess("inventory_request.print"),
         hasAccess("inventory_request.export"),
       ]);
@@ -215,6 +220,7 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
         submit: submitAccess,
         approve: approveAccess,
         transfer: transferAccess,
+        cancel: cancelAccess,
         print: printAccess,
         export: exportAccess,
       });
@@ -488,7 +494,7 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
       }
     }
 
-    alert(`Inventory Request ${requestNo} berhasil disimpan.`);
+    alert(`Store Request ${requestNo} berhasil disimpan.`);
 
     await fetchRequests({
       page,
@@ -533,7 +539,7 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
 
       const wb = XLSX.utils.book_new();
 
-      XLSX.utils.book_append_sheet(wb, ws, "Inventory Request");
+      XLSX.utils.book_append_sheet(wb, ws, "Store Request");
 
       const file = XLSX.write(wb, {
         bookType: "xlsx",
@@ -543,7 +549,7 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
       saveAs(new Blob([file]), `InventoryRequest-${today()}.xlsx`);
     } catch (err) {
       alert(
-        err instanceof Error ? err.message : "Gagal export Inventory Request.",
+        err instanceof Error ? err.message : "Gagal export Store Request.",
       );
     }
   };
@@ -679,11 +685,76 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
     }
   };
 
+    /*
+   * =====================================================
+   * CANCEL APPROVED INVENTORY REQUEST
+   * =====================================================
+   */
+  const handleCancelInventoryRequest = async (
+    request: InventoryRequest,
+  ) => {
+    const reason = window.prompt(
+      `Alasan Cancel Inventory Request ${request.request_no}:`,
+    );
+
+    if (!reason?.trim()) {
+      return;
+    }
+
+    const currentUser = JSON.parse(
+      localStorage.getItem("custom_user") || "{}",
+    );
+
+    const userId = currentUser.id;
+
+    if (!userId) {
+      window.alert("User login tidak ditemukan.");
+      return;
+    }
+
+    try {
+      const result = await cancelRequest(
+        request.id,
+        userId,
+        reason.trim(),
+      );
+
+      /*
+      * HANYA dianggap gagal kalau hook benar-benar
+      * mengembalikan success:false.
+      */
+      if (!result.success) {
+        window.alert(
+          result.error?.message ??
+            "Inventory Request gagal dibatalkan.",
+        );
+
+        return;
+      }
+
+      /*
+      * State requests sudah diperbarui oleh hook.
+      * Jadi tanda X langsung hilang.
+      */
+      window.alert(
+        `Inventory Request ${request.request_no} berhasil dibatalkan.`,
+      );
+    } catch (err: unknown) {
+      window.alert(
+        err instanceof Error
+          ? err.message
+          : "Inventory Request gagal dibatalkan.",
+      );
+    }
+  };
+
   return (
     <div className="w-full pr-2 space-y-4">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between px-1">
         <div>
-          <h1 className="text-2xl font-bold">Inventory Request</h1>
+          <h1 className="text-2xl font-bold">
+
+          </h1>
 
           <p className="text-sm text-gray-500">
             Permintaan perpindahan stok antar gudang.
@@ -728,8 +799,8 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
           />
 
           <input
-            className="w-72 rounded-md border px-3 py-2"
-            placeholder="Cari Request..."
+            className="w-80 rounded-md border px-3 py-2"
+            placeholder="Cari nomor SR / status / gudang tujuan..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -1066,7 +1137,7 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
 
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
         <div className="border-b border-gray-200 px-5 py-4">
-          <h2 className="font-semibold">Daftar Inventory Request</h2>
+          <h2 className="font-semibold">Daftar Store Request</h2>
         </div>
 
         <div className="overflow-x-auto px-2">
@@ -1295,6 +1366,18 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
                           }}
                         >
                           <ArrowRightLeft size={16} />
+                        </button>
+                      )}
+
+                      {request.status === "APPROVED" && access.cancel && (
+                        <button
+                          type="button"
+                          title="Batalkan Store Request"
+                          disabled={saving}
+                          onClick={() => handleCancelInventoryRequest(request)}
+                          className="mr-3 text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <XCircle size={16} strokeWidth={2} />
                         </button>
                       )}
 
