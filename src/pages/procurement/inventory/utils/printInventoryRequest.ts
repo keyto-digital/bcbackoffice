@@ -159,6 +159,12 @@ th{
   vertical-align:middle;
 }
 
+.print-table th:nth-child(3),
+.print-table td:nth-child(3){
+  text-align:center;
+  white-space:nowrap;
+}
+
 .print-table th:nth-child(1),
 .print-table td:nth-child(1){
   width:5%;
@@ -166,21 +172,26 @@ th{
 
 .print-table th:nth-child(2),
 .print-table td:nth-child(2){
-  width:auto;
+  width:35%;
 }
 
 .print-table th:nth-child(3),
-.print-table td:nth-child(3),
+.print-table td:nth-child(3){
+  width:8%;
+}
+
 .print-table th:nth-child(4),
 .print-table td:nth-child(4),
 .print-table th:nth-child(5),
-.print-table td:nth-child(5){
-  width:12%;
-}
-
+.print-table td:nth-child(5),
 .print-table th:nth-child(6),
 .print-table td:nth-child(6){
-  width:20%;
+  width:11%;
+}
+
+.print-table th:nth-child(7),
+.print-table td:nth-child(7){
+  width:19%;
 }
 
 .header{
@@ -326,12 +337,13 @@ ${detailChunks
 
     <thead>
       <tr>
-        <th width="5%">No</th>
+        <th>No</th>
         <th>Item</th>
-        <th width="12%">Qty Request</th>
-        <th width="12%">Qty Approve</th>
-        <th width="12%">Qty Transfer</th>
-        <th width="20%">Catatan</th>
+        <th>Satuan</th>
+        <th>Qty Request</th>
+        <th>Qty Approve</th>
+        <th>Qty Transfer</th>
+        <th>Catatan</th>
       </tr>
     </thead>
 
@@ -347,6 +359,13 @@ ${detailChunks
                   (chunkIndex - 1) * 18 +
                   index;
 
+            const unitCode =
+              (
+                x as InventoryRequestLineForm & {
+                  unit_code?: string | null;
+                }
+              ).unit_code ?? "-";
+
             return `
               <tr>
 
@@ -358,6 +377,10 @@ ${detailChunks
                   ${x.item_code ?? ""} - ${x.item_name ?? ""}
                 </td>
 
+                <td class="center">
+                  ${unitCode}
+                </td>
+
                 <td class="right">
                   ${fmtQty(x.qty_request)}
                 </td>
@@ -367,7 +390,11 @@ ${detailChunks
                 </td>
 
                 <td class="right">
-                  ${fmtQty(x.qty_transfer)}
+                  ${
+                    header.status === "APPROVED"
+                      ? ""
+                      : fmtQty(x.qty_transfer)
+                  }
                 </td>
 
                 <td>

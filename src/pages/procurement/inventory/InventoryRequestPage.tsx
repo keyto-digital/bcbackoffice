@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPaginationMeta } from "@/lib/pagination/types";
+import { formatDateIndonesia } from "@/pages/procurement/utils/date";
 import { usePagination } from "@/lib/pagination/usePagination";
 import Pagination from "@/components/common/Pagination";
 import * as XLSX from "xlsx";
@@ -523,15 +524,10 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
 
       const exportRows = rows.map((x) => ({
         Nomor: x.request_no,
-
-        Tanggal: x.request_date,
-
+        Tanggal: formatDateIndonesia(x.request_date),
         "Gudang Asal": x.source_store_name,
-
         "Gudang Tujuan": x.destination_store_name,
-
         Status: statusLabels[x.status],
-
         Catatan: x.remarks ?? "",
       }));
 
@@ -999,19 +995,10 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
                         ) : (
                           <SearchableSelect
                             value={row.item_id}
-
                             options={itemOptions}
-
-                            placeholder="
-                                                                Cari atau pilih artikel...
-                                                            "
-
+                            placeholder="Cari atau pilih artikel..."
                             disabled={viewOnly || !form.source_store_id}
-
-                            emptyMessage="
-                                                                Artikel tidak ditemukan.
-                                                            "
-
+                            emptyMessage="Artikel tidak ditemukan."
                             onChange={(itemId) =>
                               handleItemChange(index, itemId)
                             }
@@ -1178,7 +1165,7 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
                       {request.request_no}
                     </td>
 
-                    <td className="px-4 py-3">{request.request_date}</td>
+                    <td className="px-4 py-3">{formatDateIndonesia(request.request_date)}</td>
 
                     <td className="px-4 py-3">
                       <div>{request.source_store_name}</div>
