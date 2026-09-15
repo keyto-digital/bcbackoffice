@@ -3,6 +3,7 @@ import type {
   InventoryRequestLineForm,
   ItemOption,
 } from "../types";
+import { formatDateIndonesia } from "@/pages/procurement/utils/date";
 
 interface Props {
   open: boolean;
@@ -30,18 +31,18 @@ export default function ApprovalDialog({
 }: Props) {
   if (!open || !request) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="w-[900px] rounded-lg bg-white shadow-lg">
-        <div className="border-b px-6 py-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/40 p-4">
+      <div className="flex w-[900px] max-w-full max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-lg bg-white shadow-lg">
+        <div className="shrink-0 border-b px-6 py-4">
           <h2 className="text-lg font-semibold">Approval Inventory Request</h2>
         </div>
-        <div className="space-y-4 p-6">
+        <div className="min-h-0 flex-1 overflow-y-auto space-y-4 p-6">
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
               <b>No Request :</b> {request.request_no}
             </div>
             <div>
-              <b>Tanggal :</b> {request.request_date}
+              <b>Tanggal :</b> {formatDateIndonesia(request.request_date)}
             </div>
             <div>
               <b>Gudang Asal :</b> {request.source_store_name}
@@ -50,7 +51,7 @@ export default function ApprovalDialog({
               <b>Gudang Tujuan :</b> {request.destination_store_name}
             </div>
           </div>
-          <div className="overflow-auto border rounded">
+          <div className="overflow-x-auto rounded border">
             <table className="min-w-full text-sm">
               <thead className="bg-gray-100">
                 <tr>
@@ -95,7 +96,7 @@ export default function ApprovalDialog({
             />
           </div>
         </div>
-        <div className="flex justify-end gap-2 border-t p-4">
+        <div className="shrink-0 flex justify-end gap-2 border-t bg-white p-4">
           <button
             type="button"
             onClick={onClose}
