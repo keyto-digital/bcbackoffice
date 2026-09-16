@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { getWIBTimestampFromUTC } from "@/utils/time";
+import { formatDateIndonesia } from "@/pages/procurement/utils/date";
 import { useStorekeeper } from "./hooks/useStorekeeper";
 import { useInventoryTransaction } from "./hooks/useInventoryTransaction";
 import { getMovementLabel } from "../utils/movement";
@@ -142,7 +143,7 @@ export default function StorekeeperPage(): JSX.Element {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
 
-    saveAs(blob, `Storekeeper-${inputDate(new Date())}.xlsx`);
+    saveAs(blob, `Persediaan_${inputDate(new Date())}.xlsx`);
   }, [tab, filteredStocks, filteredMovements]);
 
   /**
@@ -310,7 +311,9 @@ export default function StorekeeperPage(): JSX.Element {
       {/* Header */}
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Storekeeper</h1>
+          <h1 className="text-2xl font-bold">
+            Persediaan Barang
+          </h1>
           <p className="mt-1 text-sm text-gray-500">
             Monitoring stok fisik dan kartu mutasi. Saldo hanya berubah melalui
             transaksi yang diposting.
@@ -605,7 +608,7 @@ export default function StorekeeperPage(): JSX.Element {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <table className="min-w-[1500px] divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-3 py-3 text-left">Tanggal</th>
@@ -645,13 +648,13 @@ export default function StorekeeperPage(): JSX.Element {
                 ) : (
                   paginatedMovements.map((row) => (
                     <tr key={row.id}>
-                      <td className="px-3 py-3">{row.movement_date}</td>
+                      <td className="px-3 py-3">{formatDateIndonesia(row.movement_date)}</td>
 
-                      <td className="px-3 py-3">
+                      <td className="px-3 py-3 text-left">
                         {getMovementLabel(row.movement_type)}
                       </td>
 
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 text-left">
                         <div>
                           <div className="font-medium">
                             {row.items[0]?.code}

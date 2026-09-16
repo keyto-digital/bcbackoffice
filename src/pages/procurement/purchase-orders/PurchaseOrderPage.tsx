@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPaginationMeta } from "@/lib/pagination/types";
 import { usePagination } from "@/lib/pagination/usePagination";
+import { formatDateIndonesia } from "@/pages/procurement/utils/date";
 import Pagination from "@/components/common/Pagination";
 import { supabase } from "@/lib/supabaseClient";
 import * as XLSX from "xlsx";
@@ -2107,7 +2108,7 @@ export function PurchaseOrderPage() {
 
                     {/* TANGGAL */}
                     <td className="px-4 py-3 align-middle">
-                      {purchaseOrder.order_date}
+                      {formatDateIndonesia(purchaseOrder.order_date)}
                     </td>
 
                     {/* SUPPLIER */}
@@ -2132,7 +2133,7 @@ export function PurchaseOrderPage() {
 
                     {/* ESTIMASI DATANG */}
                     <td className="px-4 py-3 align-middle">
-                      {purchaseOrder.expected_delivery_date || "-"}
+                      {formatDateIndonesia(purchaseOrder.expected_delivery_date) || "-"}
                     </td>
 
                     {/* TOTAL */}

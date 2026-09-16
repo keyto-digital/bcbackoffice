@@ -5,6 +5,7 @@ import { hasAccess } from "@/lib/hasAccess";
 import { supabase } from "@/lib/supabaseClient";
 import { getCustomUserId } from "@/lib/authUser";
 import { usePagination } from "@/lib/pagination/usePagination";
+import { formatDateIndonesia } from "@/pages/procurement/utils/date";
 import { createPaginationMeta } from "@/lib/pagination/types";
 import Pagination from "@/components/common/Pagination";
 import DateInput from "@/components/common/DateInput";
@@ -931,14 +932,14 @@ export default function ReceivingPage() {
       }
 
       const rows = exportRows.map((record) => ({
-        Tanggal: record.receiving_date,
+        Tanggal: formatDateIndonesia(record.receiving_date),
         "Nomor Receiving": record.receiving_number,
         "Invoice Supplier": record.supplier_invoice_number,
         "Nomor PO": record.purchase_order_number_snapshot,
         Supplier: record.supplier_name_snapshot,
         Store: record.store_name_snapshot,
         Total: Number(record.grand_total),
-        "Jatuh Tempo": record.supplier_due_date,
+        "Jatuh Tempo": formatDateIndonesia(record.supplier_due_date),
         Status: record.status,
       }));
 
@@ -969,7 +970,7 @@ export default function ReceivingPage() {
         new Blob([file], {
           type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         }),
-        `Receiving-${today()}.xlsx`,
+        `Receiving_${formatDateIndonesia(today())}.xlsx`,
       );
     } catch (err) {
       window.alert(
@@ -1069,30 +1070,30 @@ export default function ReceivingPage() {
 
           <div class="info">
             <strong>Purchase Order</strong>
-            <span>${record.purchase_order_number_snapshot}</span>
+            <span>: ${record.purchase_order_number_snapshot}</span>
 
             <strong>No. Invoice Supplier</strong>
-            <span>${record.supplier_invoice_number || "-"}</span>
+            <span>: ${record.supplier_invoice_number || "-"}</span>
 
             <strong>Tanggal Invoice</strong>
-            <span>${record.supplier_invoice_date || "-"}</span>
+            <span>: ${formatDateIndonesia(record.supplier_invoice_date) || "-"}</span>
 
             <strong>Jatuh Tempo</strong>
-            <span>${record.supplier_due_date || "-"}</span>
+            <span>: ${formatDateIndonesia(record.supplier_due_date) || "-"}</span>
 
             <strong>Supplier</strong>
-            <span>${record.supplier_name_snapshot}</span>
+            <span>: ${record.supplier_name_snapshot}</span>
 
             <strong>Store / Gudang</strong>
-            <span>${record.store_name_snapshot}</span>
+            <span>: ${record.store_name_snapshot}</span>
           </div>
 
           <table>
             <thead>
               <tr>
                 <th>No</th>
-                <th>Kode</th>
-                <th>Artikel</th>
+                <th>Kode Barang</th>
+                <th>Nama Barang</th>
                 <th>Qty</th>
                 <th>Satuan</th>
                 <th>Harga</th>
@@ -1640,7 +1641,7 @@ export default function ReceivingPage() {
               ) : (
                 records.map((record) => (
                   <tr key={record.id}>
-                    <td className="px-4 py-3">{record.receiving_date}</td>
+                    <td className="px-4 py-3">{formatDateIndonesia(record.receiving_date)}</td>
 
                     <td className="px-4 py-3 font-medium">
                       {record.receiving_number}
@@ -1668,7 +1669,7 @@ export default function ReceivingPage() {
                     </td>
 
                     <td className="px-4 py-3">
-                      {record.supplier_due_date || "-"}
+                      {formatDateIndonesia(record.supplier_due_date) || "-"}
                     </td>
 
                     <td className="px-4 py-3">

@@ -7,6 +7,7 @@ import {
 
 import DateInput from "@/components/common/DateInput";
 import Pagination from "@/components/common/Pagination";
+import { formatDateIndonesia } from "@/pages/procurement/utils/date";
 
 import SearchableSelect, {
   type SearchableSelectOption,
@@ -846,7 +847,7 @@ export default function StockMutationPage(): JSX.Element {
                 row,
               ) => ({
                 movement_date:
-                  row.movement_date,
+                  formatDateIndonesia(row.movement_date),
 
                 reference:
                   row.reference ?? "",
@@ -1213,7 +1214,7 @@ export default function StockMutationPage(): JSX.Element {
 
           <div className="overflow-x-auto">
 
-            <table className="min-w-[1500px] w-full text-sm">
+            <table className="min-w-[1800px] w-full text-sm">
 
               <thead className="bg-gray-100 text-gray-700">
 
@@ -1231,7 +1232,7 @@ export default function StockMutationPage(): JSX.Element {
                     Artikel
                   </th>
 
-                  <th className="border-b px-3 py-3 text-left">
+                  <th className="border-b px-3 py-3">
                     Satuan
                   </th>
 
@@ -1268,13 +1269,12 @@ export default function StockMutationPage(): JSX.Element {
                       <th className="border-b px-3 py-3 text-right">
                         Nilai Mutasi
                       </th>
+
+                      <th className="border-b px-3 py-3">
+                        Keterangan
+                      </th>
                     </>
                   )}
-
-                  <th className="border-b px-3 py-3">
-                    Keterangan
-                  </th>
-
                 </tr>
 
               </thead>
@@ -1334,7 +1334,7 @@ export default function StockMutationPage(): JSX.Element {
                         </td>
 
                         <td className="border-b px-3 py-2">
-                          {row.movement_date}
+                          {formatDateIndonesia(row.movement_date)}
                         </td>
 
                         <td className="border-b px-3 py-2 text-left">
@@ -1422,13 +1422,12 @@ export default function StockMutationPage(): JSX.Element {
                                 ),
                               )}
                             </td>
+
+                            <td className="border-b px-3 py-2">
+                              {row.description ?? "-"}
+                            </td>
                           </>
                         )}
-
-                        <td className="border-b px-3 py-2">
-                          {row.description ?? "-"}
-                        </td>
-
                       </tr>
 
                     ),
