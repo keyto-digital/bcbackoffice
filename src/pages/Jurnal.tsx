@@ -65,6 +65,18 @@ function formatUpdatedAt(value?: string | null) {
 
 // ================= PAGE =================
 export default function Jurnal() {
+  /*
+   * ==========================================================
+   * CURRENT USER / ENTITY
+   * ==========================================================
+   *
+   * selectedEntity = FILTER TAMPILAN
+   * currentUser.entity_id = ENTITY PEMILIK JURNAL
+   *
+   * Jangan menggunakan selectedEntity sebagai entity_id
+   * ketika membuat jurnal baru.
+   */
+  
   const [data, setData] = useState<Journal[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
@@ -78,11 +90,19 @@ export default function Jurnal() {
   const [filterBy, setFilterBy] = useState("reference");
 
   const [selectedEntity, setSelectedEntity] = useState("");
+  const [postingEntityId, setPostingEntityId] = useState("");
+  const [isPusat, setIsPusat] = useState(false);
+
+  const getUserEntityId = () => {
+    const currentUser = getCustomUser();
+    return currentUser?.entity_id ?? "";
+  };
 
   type Entity = {
     id: string;
     kode: string;
     nama: string;
+    tipe: "pusat" | "outlet";
   };
 
   type Account = {
@@ -559,9 +579,52 @@ export default function Jurnal() {
 
   // ================= FETCH ENTITY =================
   const fetchEntities = async () => {
+    const userEntityId = getUserEntityId();
+
+    if (!userEntityId) {
+      console.error("Entity user tidak ditemukan.");
+      return;
+    }
+
+    // ==========================================================
+    // AMBIL ENTITY USER LOGIN
+    // ==========================================================
+    const { data: userEntity, error: userEntityError } = await supabase
+      .from("entities")
+      .select("id, kode, nama, tipe")
+      .eq("id", userEntityId)
+      .single();
+
+    if (userEntityError || !userEntity) {
+      console.error(
+        "Gagal memuat entity user:",
+        userEntityError?.message
+      );
+      return;
+    }
+
+    const pusat = userEntity.tipe === "pusat";
+
+    setIsPusat(pusat);
+
+    // ==========================================================
+    // USER OUTLET
+    // HANYA BOLEH MELIHAT ENTITY MILIKNYA SENDIRI
+    // ==========================================================
+    if (!pusat) {
+      setEntities([userEntity]);
+      setSelectedEntity(userEntity.id);
+      setPostingEntityId(userEntity.id);
+      return;
+    }
+
+    // ==========================================================
+    // USER PUSAT
+    // BOLEH MELIHAT DAN MEMILIH SEMUA ENTITY
+    // ==========================================================
     const { data, error } = await supabase
       .from("entities")
-      .select("id, kode, nama")
+      .select("id, kode, nama, tipe")
       .order("nama");
 
     if (error) {
@@ -569,9 +632,16 @@ export default function Jurnal() {
       return;
     }
 
-    setEntities(data || []);
+    const entityList = data || [];
 
-    // selectedEntity dibiarkan kosong agar default = Semua Cabang.
+    setEntities(entityList);
+
+    // Default FILTER tetap entity user sendiri.
+    // Jadi Pusat tidak langsung berada di "Semua Cabang".
+    setSelectedEntity(userEntity.id);
+
+    // Default POSTING juga entity user sendiri.
+    setPostingEntityId(userEntity.id);
   };
 
   useEffect(() => {
@@ -625,6 +695,7 @@ export default function Jurnal() {
       return;
     }
     setEditId(row.id); // 🔥 penting
+    setPostingEntityId(row.entity_id);
 
     setTanggal(row.tanggal);
     setReference(row.reference);
@@ -796,10 +867,22 @@ export default function Jurnal() {
       return;
     }
 
-    // Jurnal baru harus dicatat ke satu cabang,
-    // walaupun halaman awalnya menampilkan Semua Cabang.
-    if (!editId && !selectedEntity) {
-      alert("❌ Pilih cabang terlebih dahulu sebelum menambah jurnal.");
+    /*
+    * ==========================================================
+    * ENTITY POSTING JURNAL
+    * ==========================================================
+    *
+    * selectedEntity  = FILTER tampilan jurnal.
+    * postingEntityId = ENTITY TUJUAN POSTING jurnal baru.
+    *
+    * User Pusat dapat memilih entity/cabang tujuan.
+    * User Outlet hanya boleh menggunakan entity miliknya.
+    *
+    * Jangan gunakan selectedEntity untuk menentukan entity
+    * posting jurnal.
+    */
+    if (!editId && !postingEntityId) {
+      alert("❌ Cabang posting wajib dipilih.");
       return;
     }
 
@@ -854,7 +937,7 @@ export default function Jurnal() {
             tanggal,
             waktu: new Date().toISOString(),
             reference: reference.trim(),
-            entity_id: selectedEntity,
+            entity_id: postingEntityId,
             user_id: userId,
             updated_at: new Date().toISOString(),
           })
@@ -873,10 +956,7 @@ export default function Jurnal() {
             tanggal,
             waktu: new Date().toISOString(),
             reference: reference.trim(),
-
-            // User terakhir yang melakukan perubahan.
             user_id: userId,
-
             updated_at: new Date().toISOString(),
           })
           .eq("id", editId);
@@ -1131,13 +1211,13 @@ export default function Jurnal() {
                   setSelectedEntity(e.target.value);
                   resetPage();
                 }}
-                className="border px-2 py-1"
+                disabled={!isPusat}
               >
-                <option value="">Semua Cabang</option>
+                {isPusat && <option value="">Semua Cabang</option>}
 
-                {entities.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.kode} - {e.nama}
+                {entities.map((entity) => (
+                  <option key={entity.id} value={entity.id}>
+                    {entity.kode} - {entity.nama}
                   </option>
                 ))}
               </select>
@@ -1180,6 +1260,14 @@ export default function Jurnal() {
                     now.getTime() - now.getTimezoneOffset() * 60000,
                   );
                   const today = local.toISOString().split("T")[0];
+
+                  const userEntityId = getUserEntityId();
+
+                  setEditId(null);
+
+                  // Default cabang posting selalu entity user.
+                  setPostingEntityId(userEntityId);
+
                   setTanggal(today);
                   resetForm();
                   setShowForm(true);
@@ -1340,19 +1428,35 @@ export default function Jurnal() {
             <div className="flex-1 overflow-y-auto px-6 py-4">
 
               {/* HEADER */}
-              <div className="flex gap-3 mb-4">
+              <div className="flex flex-wrap gap-3 mb-4 items-center">
                 <input
                   type="date"
                   className="border px-3 py-2 rounded w-[180px]"
                   value={tanggal}
                   onChange={(e) => setTanggal(e.target.value)}
                 />
+
                 <input
                   placeholder="No Referensi"
                   className="border px-3 py-2 rounded w-[220px]"
                   value={reference}
                   onChange={(e) => setReference(e.target.value)}
                 />
+
+                <select
+                  value={postingEntityId}
+                  onChange={(e) => setPostingEntityId(e.target.value)}
+                  disabled={!!editId || !isPusat}
+                  className="border px-3 py-2 rounded w-[220px]"
+                >
+                  <option value="">-- CABANG POSTING --</option>
+
+                  {entities.map((entity) => (
+                    <option key={entity.id} value={entity.id}>
+                      {entity.kode} - {entity.nama}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* ROWS */}
@@ -1584,6 +1688,7 @@ export default function Jurnal() {
               <div className="flex justify-end gap-2 mt-4">
                 <button
                   onClick={() => {
+                    setEditId(null);
                     setShowForm(false);
                     resetForm();
                   }}
