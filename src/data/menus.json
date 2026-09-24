@@ -242,6 +242,12 @@
         "access": "receiving.export",
         "path": "/receiving-records/export",
         "component": "ReceivingPage"
+      },
+      {
+        "label": "receiving.reopen",
+        "access": "receiving.reopen",
+        "path": "/receiving-records/reopen",
+        "component": "ReceivingPage"
       }
     ]
   },
@@ -373,6 +379,12 @@
         "label": "inventory_request.cancel",
         "access": "inventory_request.cancel",
         "path": "/store-request/cancel",
+        "component": "InventoryRequestPage"
+      },
+      {
+        "label": "inventory_request.reopen",
+        "access": "inventory_request.reopen",
+        "path": "/store-request/reopen",
         "component": "InventoryRequestPage"
       },
       {
