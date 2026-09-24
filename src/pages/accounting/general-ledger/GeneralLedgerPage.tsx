@@ -1,9 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Pagination from "@/components/common/Pagination";
-import { exportReport, formatReportDateRange, formatReportDisplayDate, } from "@/utils/exportReport";
+import {
+  exportReport,
+  formatReportDateRange,
+  formatReportDisplayDate,
+} from "@/utils/exportReport";
 import { printReport } from "@/utils/printReport";
 import { getCustomUser } from "@/lib/authUser";
+import { formatDateIndonesia } from "@/pages/procurement/utils/date";
 
 type Account = {
   id: string;
@@ -72,62 +77,46 @@ export default function GeneralLedgerPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [openingBalance, setOpeningBalance] = useState(0);
+  const [pageOpeningBalance, setPageOpeningBalance] = useState(0);
+  const [pageOpeningLoading, setPageOpeningLoading] = useState(false);
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [total, setTotal] = useState(0);
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(total / pageSize)
-  );
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   useEffect(() => {
     const loadMasterData = async () => {
       setMasterLoading(true);
 
-      const [accountsResult, entitiesResult] =
-        await Promise.all([
-          supabase
-            .from("accounts")
-            .select(
-              "id, code, name, normal_balance"
-            )
-            .eq("is_active", true)
-            .eq("is_posting", true)
-            .order("code"),
+      const [accountsResult, entitiesResult] = await Promise.all([
+        supabase
+          .from("accounts")
+          .select("id, code, name, normal_balance")
+          .eq("is_active", true)
+          .eq("is_posting", true)
+          .order("code"),
 
-          supabase
-            .from("entities")
-            .select("id, kode, nama")
-            .order("nama"),
-        ]);
+        supabase.from("entities").select("id, kode, nama").order("nama"),
+      ]);
 
       if (accountsResult.error) {
-        setError(
-          `Gagal memuat COA: ${accountsResult.error.message}`
-        );
+        setError(`Gagal memuat COA: ${accountsResult.error.message}`);
       } else {
-        const accountRows =
-          (accountsResult.data ?? []) as Account[];
+        const accountRows = (accountsResult.data ?? []) as Account[];
 
         setAccounts(accountRows);
 
         if (accountRows.length > 0) {
-          setSelectedAccountId(
-            accountRows[0].id
-          );
+          setSelectedAccountId(accountRows[0].id);
         }
       }
 
       if (entitiesResult.error) {
-        setError(
-          `Gagal memuat cabang: ${entitiesResult.error.message}`
-        );
+        setError(`Gagal memuat cabang: ${entitiesResult.error.message}`);
       } else {
-        setEntities(
-          (entitiesResult.data ?? []) as Entity[]
-        );
+        setEntities((entitiesResult.data ?? []) as Entity[]);
       }
 
       setMasterLoading(false);
@@ -148,11 +137,7 @@ export default function GeneralLedgerPage() {
     let cancelled = false;
 
     const loadOpeningBalance = async () => {
-      if (
-        !selectedAccountId ||
-        !startDate ||
-        startDate > endDate
-      ) {
+      if (!selectedAccountId || !startDate || startDate > endDate) {
         setOpeningBalance(0);
         return;
       }
@@ -164,38 +149,25 @@ export default function GeneralLedgerPage() {
         while (true) {
           let query = supabase
             .from("journal_details")
-            .select(`
+            .select(
+              `
               debit,
               credit,
               journals!inner (
                 entity_id,
                 tanggal
               )
-            `)
-            .eq(
-              "account_id",
-              selectedAccountId
+            `,
             )
-            .lt(
-              "journals.tanggal",
-              startDate
-            )
-            .range(
-              offset,
-              offset + OPENING_FETCH_SIZE - 1
-            );
+            .eq("account_id", selectedAccountId)
+            .lt("journals.tanggal", startDate)
+            .range(offset, offset + OPENING_FETCH_SIZE - 1);
 
           if (selectedEntityId) {
-            query = query.eq(
-              "journals.entity_id",
-              selectedEntityId
-            );
+            query = query.eq("journals.entity_id", selectedEntityId);
           }
 
-          const {
-            data,
-            error: openingError,
-          } = await query;
+          const { data, error: openingError } = await query;
 
           if (openingError) {
             throw openingError;
@@ -207,18 +179,15 @@ export default function GeneralLedgerPage() {
           }>;
 
           for (const detail of rows) {
-            balance +=
-              getBalanceChangeForAccount(
-                detail.debit,
-                detail.credit,
-                selectedAccountId,
-                accounts
-              );
+            balance += getBalanceChangeForAccount(
+              detail.debit,
+              detail.credit,
+              selectedAccountId,
+              accounts,
+            );
           }
 
-          if (
-            rows.length < OPENING_FETCH_SIZE
-          ) {
+          if (rows.length < OPENING_FETCH_SIZE) {
             break;
           }
 
@@ -229,17 +198,14 @@ export default function GeneralLedgerPage() {
           setOpeningBalance(balance);
         }
       } catch (openingError) {
-        console.error(
-          "Gagal menghitung saldo awal:",
-          openingError
-        );
+        console.error("Gagal menghitung saldo awal:", openingError);
 
         if (!cancelled) {
           setOpeningBalance(0);
           setError(
             openingError instanceof Error
               ? `Gagal menghitung saldo awal: ${openingError.message}`
-              : "Gagal menghitung saldo awal."
+              : "Gagal menghitung saldo awal.",
           );
         }
       }
@@ -250,13 +216,7 @@ export default function GeneralLedgerPage() {
     return () => {
       cancelled = true;
     };
-  }, [
-    selectedAccountId,
-    selectedEntityId,
-    startDate,
-    endDate,
-    accounts,
-  ]);
+  }, [selectedAccountId, selectedEntityId, startDate, endDate, accounts]);
 
   /*
    * Ambil data Buku Besar yang sedang ditampilkan.
@@ -303,12 +263,9 @@ export default function GeneralLedgerPage() {
             `,
             {
               count: "exact",
-            }
+            },
           )
-          .eq(
-            "journal_details.account_id",
-            selectedAccountId
-          )
+          .eq("journal_details.account_id", selectedAccountId)
           .gte("tanggal", startDate)
           .lte("tanggal", endDate)
           .order("tanggal", {
@@ -316,48 +273,37 @@ export default function GeneralLedgerPage() {
           })
           .order("waktu", {
             ascending: true,
+          })
+          .order("id", {
+            ascending: true,
           });
 
         if (selectedEntityId) {
-          query = query.eq(
-            "entity_id",
-            selectedEntityId
-          );
+          query = query.eq("entity_id", selectedEntityId);
         }
 
-        const from =
-          (page - 1) * pageSize;
+        const from = (page - 1) * pageSize;
 
-        const to =
-          from + pageSize - 1;
+        const to = from + pageSize - 1;
 
         query = query.range(from, to);
 
-        const {
-          data,
-          error: journalError,
-          count,
-        } = await query;
+        const { data, error: journalError, count } = await query;
 
         if (journalError) {
           throw journalError;
         }
 
-        setJournals(
-          (data ?? []) as Journal[]
-        );
+        setJournals((data ?? []) as Journal[]);
 
         setTotal(count ?? 0);
       } catch (journalError) {
-        console.error(
-          "Gagal memuat Buku Besar:",
-          journalError
-        );
+        console.error("Gagal memuat Buku Besar:", journalError);
 
         setError(
           journalError instanceof Error
             ? `Gagal memuat Buku Besar: ${journalError.message}`
-            : "Gagal memuat Buku Besar."
+            : "Gagal memuat Buku Besar.",
         );
 
         setJournals([]);
@@ -383,18 +329,10 @@ export default function GeneralLedgerPage() {
    */
   useEffect(() => {
     setPage(1);
-  }, [
-    selectedAccountId,
-    selectedEntityId,
-    startDate,
-    endDate,
-  ]);
+  }, [selectedAccountId, selectedEntityId, startDate, endDate]);
 
   useEffect(() => {
-    const maxPage = Math.max(
-      1,
-      Math.ceil(total / pageSize)
-    );
+    const maxPage = Math.max(1, Math.ceil(total / pageSize));
 
     if (page > maxPage) {
       setPage(maxPage);
@@ -406,27 +344,151 @@ export default function GeneralLedgerPage() {
   }, [total, page, pageSize]);
 
   const selectedAccount = accounts.find(
-    (account) =>
-      account.id === selectedAccountId
+    (account) => account.id === selectedAccountId,
   );
 
-  const normalBalance =
-    selectedAccount?.normal_balance ?? "D";
+  const normalBalance = selectedAccount?.normal_balance ?? "D";
 
-  const getBalanceChange = (
-    debit: number,
-    credit: number
-  ) => {
-    return normalBalance === "D"
-      ? debit - credit
-      : credit - debit;
+  const getBalanceChange = (debit: number, credit: number) => {
+    return normalBalance === "D" ? debit - credit : credit - debit;
   };
 
+  /*
+   * Saldo awal halaman aktif.
+   *
+   * Halaman 1 dimulai dari saldo sebelum periode.
+   * Halaman berikutnya dimulai dari saldo setelah seluruh transaksi
+   * pada halaman-halaman sebelumnya. Dengan demikian running balance
+   * tidak kembali ke saldo awal periode ketika pagination berpindah.
+   */
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadPageOpeningBalance = async () => {
+      if (
+        !selectedAccountId ||
+        !startDate ||
+        !endDate ||
+        startDate > endDate
+      ) {
+        setPageOpeningBalance(0);
+        setPageOpeningLoading(false);
+        return;
+      }
+
+      if (page <= 1) {
+        setPageOpeningBalance(openingBalance);
+        setPageOpeningLoading(false);
+        return;
+      }
+
+      setPageOpeningLoading(true);
+
+      const rowsNeeded = (page - 1) * pageSize;
+      const FETCH_SIZE = 1000;
+      let offset = 0;
+      let balance = openingBalance;
+
+      try {
+        while (offset < rowsNeeded) {
+          const remaining = rowsNeeded - offset;
+          const rangeSize = Math.min(FETCH_SIZE, remaining);
+
+          let query = supabase
+            .from("journals")
+            .select(
+              `
+                id,
+                tanggal,
+                waktu,
+                entity_id,
+                journal_details!inner (
+                  id,
+                  debit,
+                  credit
+                )
+              `,
+            )
+            .eq("journal_details.account_id", selectedAccountId)
+            .gte("tanggal", startDate)
+            .lte("tanggal", endDate)
+            .order("tanggal", { ascending: true })
+            .order("waktu", { ascending: true })
+            .order("id", { ascending: true })
+            .range(offset, offset + rangeSize - 1);
+
+          if (selectedEntityId) {
+            query = query.eq("entity_id", selectedEntityId);
+          }
+
+          const { data, error: pageOpeningError } = await query;
+
+          if (pageOpeningError) {
+            throw pageOpeningError;
+          }
+
+          const rows = (data ?? []) as Array<{
+            journal_details?: Array<{
+              debit: number | null;
+              credit: number | null;
+            }>;
+          }>;
+
+          for (const journal of rows) {
+            for (const detail of journal.journal_details ?? []) {
+              balance += getBalanceChangeForAccount(
+                detail.debit,
+                detail.credit,
+                selectedAccountId,
+                accounts,
+              );
+            }
+          }
+
+          if (rows.length < rangeSize) {
+            break;
+          }
+
+          offset += rows.length;
+        }
+
+        if (!cancelled) {
+          setPageOpeningBalance(balance);
+          setPageOpeningLoading(false);
+        }
+      } catch (pageOpeningError) {
+        console.error("Gagal menghitung saldo awal halaman:", pageOpeningError);
+
+        if (!cancelled) {
+          setPageOpeningBalance(openingBalance);
+          setPageOpeningLoading(false);
+          setError(
+            pageOpeningError instanceof Error
+              ? `Gagal menghitung saldo awal halaman: ${pageOpeningError.message}`
+              : "Gagal menghitung saldo awal halaman.",
+          );
+        }
+      }
+    };
+
+    void loadPageOpeningBalance();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    selectedAccountId,
+    selectedEntityId,
+    startDate,
+    endDate,
+    page,
+    pageSize,
+    openingBalance,
+    accounts,
+  ]);
+
   const ledger = useMemo(() => {
-    if (
-      !selectedAccountId ||
-      startDate > endDate
-    ) {
+    if (!selectedAccountId || startDate > endDate) {
       return {
         openingBalance: 0,
         entries: [] as LedgerEntry[],
@@ -435,68 +497,47 @@ export default function GeneralLedgerPage() {
       };
     }
 
-    let runningBalance = openingBalance;
+    let runningBalance = pageOpeningBalance;
 
     const allEntries = journals
       .flatMap((journal) =>
-        (journal.journal_details ?? []).map(
-          (detail) => ({
-            id: detail.id,
-            tanggal: journal.tanggal,
-            waktu: journal.waktu,
-            reference: journal.reference,
-            description:
-              detail.description ||
-              journal.description ||
-              "-",
-            debit: Number(
-              detail.debit ?? 0
-            ),
-            credit: Number(
-              detail.credit ?? 0
-            ),
-          })
-        )
+        (journal.journal_details ?? []).map((detail) => ({
+          id: detail.id,
+          tanggal: journal.tanggal,
+          waktu: journal.waktu,
+          reference: journal.reference,
+          description: detail.description || journal.description || "-",
+          debit: Number(detail.debit ?? 0),
+          credit: Number(detail.credit ?? 0),
+        })),
       )
       .sort((a, b) => {
-        const first = `${a.tanggal} ${
-          a.waktu ?? "00:00:00"
-        }`;
+        const first = `${a.tanggal} ${a.waktu ?? "00:00:00"}`;
 
-        const second = `${b.tanggal} ${
-          b.waktu ?? "00:00:00"
-        }`;
+        const second = `${b.tanggal} ${b.waktu ?? "00:00:00"}`;
 
         return first.localeCompare(second);
       });
 
-    const entries = allEntries.map(
-      (entry) => {
-        runningBalance +=
-          getBalanceChange(
-            entry.debit,
-            entry.credit
-          );
+    const entries = allEntries.map((entry) => {
+      runningBalance += getBalanceChange(entry.debit, entry.credit);
 
-        return {
-          ...entry,
-          balance: runningBalance,
-        };
-      }
-    );
+      return {
+        ...entry,
+        balance: runningBalance,
+      };
+    });
 
     return {
-      openingBalance,
+      openingBalance: pageOpeningBalance,
       entries,
       totalDebit: entries.reduce(
-        (totalValue, entry) =>
-          totalValue + entry.debit,
-        0
+        (totalValue, entry) => totalValue + entry.debit,
+        0,
       ),
       totalCredit: entries.reduce(
-        (totalValue, entry) =>
-          totalValue + entry.credit,
-        0
+        (totalValue, entry) => totalValue + entry.credit,
+        0,
       ),
     };
   }, [
@@ -506,6 +547,7 @@ export default function GeneralLedgerPage() {
     startDate,
     endDate,
     openingBalance,
+    pageOpeningBalance,
   ]);
 
   const formatBalance = (value: number) => {
@@ -518,24 +560,11 @@ export default function GeneralLedgerPage() {
 
   const endingBalance =
     ledger.openingBalance +
-    ledger.totalDebit *
-      (normalBalance === "D"
-        ? 1
-        : -1) +
-    ledger.totalCredit *
-      (normalBalance === "D"
-        ? -1
-        : 1);
+    ledger.totalDebit * (normalBalance === "D" ? 1 : -1) +
+    ledger.totalCredit * (normalBalance === "D" ? -1 : 1);
 
-  const fetchAllFilteredLedgerEntries = async (): Promise<
-    LedgerEntry[]
-  > => {
-    if (
-      !selectedAccountId ||
-      !startDate ||
-      !endDate ||
-      startDate > endDate
-    ) {
+  const fetchAllFilteredLedgerEntries = async (): Promise<LedgerEntry[]> => {
+    if (!selectedAccountId || !startDate || !endDate || startDate > endDate) {
       return [];
     }
 
@@ -560,12 +589,9 @@ export default function GeneralLedgerPage() {
               credit,
               description
             )
-          `
+          `,
         )
-        .eq(
-          "journal_details.account_id",
-          selectedAccountId
-        )
+        .eq("journal_details.account_id", selectedAccountId)
         .gte("tanggal", startDate)
         .lte("tanggal", endDate)
         .order("tanggal", {
@@ -577,22 +603,13 @@ export default function GeneralLedgerPage() {
         .order("id", {
           ascending: true,
         })
-        .range(
-          offset,
-          offset + PAGE_SIZE - 1
-        );
+        .range(offset, offset + PAGE_SIZE - 1);
 
       if (selectedEntityId) {
-        query = query.eq(
-          "entity_id",
-          selectedEntityId
-        );
+        query = query.eq("entity_id", selectedEntityId);
       }
 
-      const {
-        data,
-        error: fetchError,
-      } = await query;
+      const { data, error: fetchError } = await query;
 
       if (fetchError) {
         throw fetchError;
@@ -607,10 +624,7 @@ export default function GeneralLedgerPage() {
             tanggal: journal.tanggal,
             waktu: journal.waktu,
             reference: journal.reference,
-            description:
-              detail.description ||
-              journal.description ||
-              "-",
+            description: detail.description || journal.description || "-",
             debit: Number(detail.debit ?? 0),
             credit: Number(detail.credit ?? 0),
             balance: 0,
@@ -626,13 +640,9 @@ export default function GeneralLedgerPage() {
     }
 
     allEntries.sort((a, b) => {
-      const first = `${a.tanggal} ${
-        a.waktu ?? "00:00:00"
-      }`;
+      const first = `${a.tanggal} ${a.waktu ?? "00:00:00"}`;
 
-      const second = `${b.tanggal} ${
-        b.waktu ?? "00:00:00"
-      }`;
+      const second = `${b.tanggal} ${b.waktu ?? "00:00:00"}`;
 
       return first.localeCompare(second);
     });
@@ -640,10 +650,7 @@ export default function GeneralLedgerPage() {
     let runningBalance = openingBalance;
 
     return allEntries.map((entry) => {
-      runningBalance += getBalanceChange(
-        entry.debit,
-        entry.credit
-      );
+      runningBalance += getBalanceChange(entry.debit, entry.credit);
 
       return {
         ...entry,
@@ -654,12 +661,24 @@ export default function GeneralLedgerPage() {
 
   const handleExportExcel = async () => {
     try {
-      const rows =
-        await fetchAllFilteredLedgerEntries();
+      const rows = await fetchAllFilteredLedgerEntries();
 
       const accountName = selectedAccount
         ? `${selectedAccount.code} - ${selectedAccount.name}`
         : "Buku Besar";
+
+      const exportTotalDebit = rows.reduce(
+        (totalValue, row) => totalValue + row.debit,
+        0,
+      );
+      const exportTotalCredit = rows.reduce(
+        (totalValue, row) => totalValue + row.credit,
+        0,
+      );
+      const exportEndingBalance =
+        openingBalance +
+        exportTotalDebit * (normalBalance === "D" ? 1 : -1) +
+        exportTotalCredit * (normalBalance === "D" ? -1 : 1);
 
       const exportRows = [
         {
@@ -670,21 +689,24 @@ export default function GeneralLedgerPage() {
           credit: 0,
           balance: openingBalance,
         },
-        ...rows,
+        ...rows.map((row) => ({
+          ...row,
+          tanggal: formatDateIndonesia(row.tanggal),
+        })),
         {
           tanggal: "",
           reference: "",
           description: "Saldo Akhir",
-          debit: ledger.totalDebit,
-          credit: ledger.totalCredit,
-          balance: endingBalance,
+          debit: exportTotalDebit,
+          credit: exportTotalCredit,
+          balance: exportEndingBalance,
         },
       ];
 
       exportReport({
         filename: `General_Ledger_${formatReportDateRange(
           new Date(`${startDate}T00:00:00`),
-          new Date(`${endDate}T00:00:00`)
+          new Date(`${endDate}T00:00:00`),
         )}.xlsx`,
 
         sheetName: "General Ledger",
@@ -706,54 +728,50 @@ export default function GeneralLedgerPage() {
             label: "Debit",
             key: "debit",
             format: (value) =>
-              Number(value ?? 0)
-                ? formatCurrency(
-                    Number(value)
-                  )
-                : "",
+              Number(value ?? 0) ? formatCurrency(Number(value)) : "",
           },
           {
             label: "Kredit",
             key: "credit",
             format: (value) =>
-              Number(value ?? 0)
-                ? formatCurrency(
-                    Number(value)
-                  )
-                : "",
+              Number(value ?? 0) ? formatCurrency(Number(value)) : "",
           },
           {
             label: "Saldo",
             key: "balance",
-            format: (value) =>
-              formatBalance(
-                Number(value ?? 0)
-              ),
+            format: (value) => formatBalance(Number(value ?? 0)),
           },
         ],
 
         rows: exportRows,
       });
     } catch (error) {
-      console.error(
-        "Export General Ledger gagal:",
-        error
-      );
+      console.error("Export General Ledger gagal:", error);
 
-      alert(
-        "Gagal melakukan export General Ledger."
-      );
+      alert("Gagal melakukan export General Ledger.");
     }
   };
 
   const handlePrint = async () => {
     try {
-      const rows =
-        await fetchAllFilteredLedgerEntries();
+      const rows = await fetchAllFilteredLedgerEntries();
 
       const accountName = selectedAccount
         ? `${selectedAccount.code} - ${selectedAccount.name}`
         : "Buku Besar";
+
+      const printTotalDebit = rows.reduce(
+        (totalValue, row) => totalValue + row.debit,
+        0,
+      );
+      const printTotalCredit = rows.reduce(
+        (totalValue, row) => totalValue + row.credit,
+        0,
+      );
+      const printEndingBalance =
+        openingBalance +
+        printTotalDebit * (normalBalance === "D" ? 1 : -1) +
+        printTotalCredit * (normalBalance === "D" ? -1 : 1);
 
       const printRows = [
         {
@@ -764,30 +782,30 @@ export default function GeneralLedgerPage() {
           credit: 0,
           balance: openingBalance,
         },
-        ...rows,
+        ...rows.map((row) => ({
+          ...row,
+          tanggal: formatDateIndonesia(row.tanggal),
+        })),
         {
           tanggal: "",
           reference: "",
           description: "Saldo Akhir",
-          debit: ledger.totalDebit,
-          credit: ledger.totalCredit,
-          balance: endingBalance,
+          debit: printTotalDebit,
+          credit: printTotalCredit,
+          balance: printEndingBalance,
         },
       ];
 
       const currentUser = getCustomUser();
 
-      const printedBy =
-        currentUser?.name || "-";
+      const printedBy = currentUser?.name || "-";
 
       printReport({
         title: "GENERAL LEDGER",
 
         period: `${formatReportDisplayDate(
-          new Date(`${startDate}T00:00:00`)
-        )} s/d ${formatReportDisplayDate(
-          new Date(`${endDate}T00:00:00`)
-        )}`,
+          new Date(`${startDate}T00:00:00`),
+        )} s/d ${formatReportDisplayDate(new Date(`${endDate}T00:00:00`))}`,
 
         orientation: "landscape",
 
@@ -811,389 +829,262 @@ export default function GeneralLedgerPage() {
             key: "debit",
             align: "right",
             format: (value) =>
-              Number(value ?? 0)
-                ? formatCurrency(
-                    Number(value)
-                  )
-                : "",
+              Number(value ?? 0) ? formatCurrency(Number(value)) : "",
           },
           {
             label: "Kredit",
             key: "credit",
             align: "right",
             format: (value) =>
-              Number(value ?? 0)
-                ? formatCurrency(
-                    Number(value)
-                  )
-                : "",
+              Number(value ?? 0) ? formatCurrency(Number(value)) : "",
           },
           {
             label: "Saldo",
             key: "balance",
             align: "right",
-            format: (value) =>
-              formatBalance(
-                Number(value ?? 0)
-              ),
+            format: (value) => formatBalance(Number(value ?? 0)),
           },
         ],
 
         rows: printRows,
       });
     } catch (error) {
-      console.error(
-        "Print General Ledger gagal:",
-        error
-      );
+      console.error("Print General Ledger gagal:", error);
 
-      alert(
-        "Gagal mencetak General Ledger."
-      );
+      alert("Gagal mencetak General Ledger.");
     }
   };
 
   return (
     <div className="w-full pr-2 space-y-4">
-      
-        <div className="grid gap-4 rounded-md border border-gray-200 bg-white p-4 md:grid-cols-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Akun COA
-            </label>
+      <div className="grid gap-4 rounded-md border border-gray-200 bg-white p-4 md:grid-cols-4">
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">
+            Akun COA
+          </label>
 
-            <select
-              value={selectedAccountId}
-              onChange={(event) =>
-                setSelectedAccountId(
-                  event.target.value
-                )
-              }
-              disabled={masterLoading}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-            >
-              <option value="">
-                Pilih akun
+          <select
+            value={selectedAccountId}
+            onChange={(event) => setSelectedAccountId(event.target.value)}
+            disabled={masterLoading}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          >
+            <option value="">Pilih akun</option>
+
+            {accounts.map((account) => (
+              <option key={account.id} value={account.id}>
+                {account.code} - {account.name}
               </option>
+            ))}
+          </select>
+        </div>
 
-              {accounts.map((account) => (
-                <option
-                  key={account.id}
-                  value={account.id}
-                >
-                  {account.code} -{" "}
-                  {account.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">
+            Cabang
+          </label>
 
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Cabang
-            </label>
+          <select
+            value={selectedEntityId}
+            onChange={(event) => setSelectedEntityId(event.target.value)}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          >
+            <option value="">Semua Cabang</option>
 
-            <select
-              value={selectedEntityId}
-              onChange={(event) =>
-                setSelectedEntityId(
-                  event.target.value
-                )
-              }
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-            >
-              <option value="">
-                Semua Cabang
+            {entities.map((entity) => (
+              <option key={entity.id} value={entity.id}>
+                {entity.kode} - {entity.nama}
               </option>
+            ))}
+          </select>
+        </div>
 
-              {entities.map((entity) => (
-                <option
-                  key={entity.id}
-                  value={entity.id}
-                >
-                  {entity.kode} -{" "}
-                  {entity.nama}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">
+            Dari Tanggal
+          </label>
 
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Dari Tanggal
-            </label>
-
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => {
-                setStartDate(e.target.value);              
-              }}
-              onClick={(e) => {
-                const input =
-                e.currentTarget as HTMLInputElement & {
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => {
+              setStartDate(e.target.value);
+            }}
+            onClick={(e) => {
+              const input = e.currentTarget as HTMLInputElement & {
                 showPicker?: () => void;
               };
-                input.showPicker?.();
-              }}
-                className="cursor-pointer w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Sampai Tanggal
-            </label>
-
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => {
-                setEndDate(e.target.value);
-              }}
-              onClick={(e) => {
-                const input =
-                e.currentTarget as HTMLInputElement & {
-                  showPicker?: () => void;
-                  };
-                  input.showPicker?.();
-              }}
-              className="cursor-pointer w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-            />
-          </div>
+              input.showPicker?.();
+            }}
+            className="cursor-pointer w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          />
         </div>
 
-        <div className="flex justify-end gap-2 mb-4 py-4">
-          <button
-            type="button"
-            onClick={handleExportExcel}
-            disabled={
-              loading ||
-              !selectedAccountId ||
-              startDate > endDate
-            }
-            className="bg-green-600 text-white px-3 py-1 rounded flex items-center gap-2"
-          >
-            Export Excel
-          </button>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">
+            Sampai Tanggal
+          </label>
 
-          <button
-            type="button"
-            onClick={handlePrint}
-            disabled={
-              loading ||
-              !selectedAccountId ||
-              startDate > endDate
-            }
-            className="bg-blue-600 text-white px-3 py-1 rounded flex items-center gap-2"
-          >
-            Cetak
-          </button>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => {
+              setEndDate(e.target.value);
+            }}
+            onClick={(e) => {
+              const input = e.currentTarget as HTMLInputElement & {
+                showPicker?: () => void;
+              };
+              input.showPicker?.();
+            }}
+            className="cursor-pointer w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          />
         </div>
+      </div>
 
-        {error && (
-          <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        )}
+      <div className="flex justify-end gap-2 mb-4 py-4">
+        <button
+          type="button"
+          onClick={handleExportExcel}
+          disabled={loading || !selectedAccountId || startDate > endDate}
+          className="bg-green-600 text-white px-3 py-1 rounded flex items-center gap-2"
+        >
+          Export Excel
+        </button>
 
-        {startDate > endDate && (
-          <div className="mt-4 rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-700">
-            Tanggal awal tidak boleh melebihi tanggal akhir.
-          </div>
-        )}
+        <button
+          type="button"
+          onClick={handlePrint}
+          disabled={loading || !selectedAccountId || startDate > endDate}
+          className="bg-blue-600 text-white px-3 py-1 rounded flex items-center gap-2"
+        >
+          Cetak
+        </button>
+      </div>
 
-        <div className="overflow-x-auto rounded-md border border-gray-200 bg-white">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-100 text-gray-700">
-              <tr>
-                <th className="px-4 py-3 text-left">
-                  Tanggal
-                </th>
+      {error && (
+        <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
-                <th className="px-4 py-3 text-left">
-                  Referensi
-                </th>
+      {startDate > endDate && (
+        <div className="mt-4 rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-700">
+          Tanggal awal tidak boleh melebihi tanggal akhir.
+        </div>
+      )}
 
-                <th className="px-4 py-3 text-left">
-                  Keterangan
-                </th>
+      <div className="overflow-x-auto rounded-md border border-gray-200 bg-white">
+        <table className="min-w-full text-sm">
+          <thead className="bg-gray-100 text-gray-700">
+            <tr>
+              <th className="px-4 py-3 text-left">Tanggal</th>
 
-                <th className="px-4 py-3 text-right">
-                  Debit
-                </th>
+              <th className="px-4 py-3 text-left">Referensi</th>
 
-                <th className="px-4 py-3 text-right">
-                  Kredit
-                </th>
+              <th className="px-4 py-3 text-left">Keterangan</th>
 
-                <th className="px-4 py-3 text-right">
-                  Saldo
-                </th>
+              <th className="px-4 py-3 text-right">Debit</th>
+
+              <th className="px-4 py-3 text-right">Kredit</th>
+
+              <th className="px-4 py-3 text-right">Saldo</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {!loading && !pageOpeningLoading && selectedAccount && (
+              <tr className="border-t bg-blue-50 font-medium text-gray-800">
+                <td className="px-4 py-3" colSpan={5}>
+                  Saldo Awal — {selectedAccount.code} - {selectedAccount.name}
+                </td>
+
+                <td className="px-4 py-3 text-right">
+                  {formatBalance(ledger.openingBalance)}
+                </td>
               </tr>
-            </thead>
+            )}
 
-            <tbody>
-              {!loading &&
-                selectedAccount && (
-                  <tr className="border-t bg-blue-50 font-medium text-gray-800">
-                    <td
-                      className="px-4 py-3"
-                      colSpan={5}
-                    >
-                      Saldo Awal —{" "}
-                      {selectedAccount.code} -{" "}
-                      {selectedAccount.name}
-                    </td>
+            {(loading || pageOpeningLoading) && (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                  Memuat Buku Besar...
+                </td>
+              </tr>
+            )}
 
-                    <td className="px-4 py-3 text-right">
-                      {formatBalance(
-                        ledger.openingBalance
-                      )}
-                    </td>
-                  </tr>
-                )}
+            {!loading && !pageOpeningLoading && ledger.entries.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                  Tidak ada mutasi pada periode ini.
+                </td>
+              </tr>
+            )}
 
-              {loading && (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-8 text-center text-gray-500"
-                  >
-                    Memuat Buku Besar...
+            {!loading &&
+              !pageOpeningLoading &&
+              ledger.entries.map((entry) => (
+                <tr key={entry.id} className="border-t">
+                  <td className="px-4 py-3">{formatDateIndonesia(entry.tanggal)}</td>
+
+                  <td className="px-4 py-3">{entry.reference || "-"}</td>
+
+                  <td className="px-4 py-3">{entry.description}</td>
+
+                  <td className="px-4 py-3 text-right">
+                    {entry.debit ? formatCurrency(entry.debit) : ""}
+                  </td>
+
+                  <td className="px-4 py-3 text-right">
+                    {entry.credit ? formatCurrency(entry.credit) : ""}
+                  </td>
+
+                  <td className="px-4 py-3 text-right font-medium">
+                    {formatBalance(entry.balance)}
                   </td>
                 </tr>
-              )}
+              ))}
 
-              {!loading &&
-                ledger.entries.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-4 py-8 text-center text-gray-500"
-                    >
-                      Tidak ada mutasi pada
-                      periode ini.
-                    </td>
-                  </tr>
-                )}
+            {!loading && !pageOpeningLoading && selectedAccount && (
+              <tr className="border-t bg-gray-100 font-semibold">
+                <td className="px-4 py-3" colSpan={3}>
+                  Saldo Akhir
+                </td>
 
-              {!loading &&
-                ledger.entries.map(
-                  (entry) => (
-                    <tr
-                      key={entry.id}
-                      className="border-t"
-                    >
-                      <td className="px-4 py-3">
-                        {entry.tanggal}
-                      </td>
+                <td className="px-4 py-3 text-right">
+                  {ledger.totalDebit ? formatCurrency(ledger.totalDebit) : ""}
+                </td>
 
-                      <td className="px-4 py-3">
-                        {entry.reference ||
-                          "-"}
-                      </td>
+                <td className="px-4 py-3 text-right">
+                  {ledger.totalCredit ? formatCurrency(ledger.totalCredit) : ""}
+                </td>
 
-                      <td className="px-4 py-3">
-                        {entry.description}
-                      </td>
+                <td className="px-4 py-3 text-right">
+                  {formatBalance(endingBalance)}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
-                      <td className="px-4 py-3 text-right">
-                        {entry.debit
-                          ? formatCurrency(
-                              entry.debit
-                            )
-                          : ""}
-                      </td>
-
-                      <td className="px-4 py-3 text-right">
-                        {entry.credit
-                          ? formatCurrency(
-                              entry.credit
-                            )
-                          : ""}
-                      </td>
-
-                      <td className="px-4 py-3 text-right font-medium">
-                        {formatBalance(
-                          entry.balance
-                        )}
-                      </td>
-                    </tr>
-                  )
-                )}
-
-              {!loading &&
-                selectedAccount && (
-                  <tr className="border-t bg-gray-100 font-semibold">
-                    <td
-                      className="px-4 py-3"
-                      colSpan={3}
-                    >
-                      Saldo Akhir
-                    </td>
-
-                    <td className="px-4 py-3 text-right">
-                      {ledger.totalDebit
-                        ? formatCurrency(
-                            ledger.totalDebit
-                          )
-                        : ""}
-                    </td>
-
-                    <td className="px-4 py-3 text-right">
-                      {ledger.totalCredit
-                        ? formatCurrency(
-                            ledger.totalCredit
-                          )
-                        : ""}
-                    </td>
-
-                    <td className="px-4 py-3 text-right">
-                      {formatBalance(
-                        endingBalance
-                      )}
-                    </td>
-                  </tr>
-                )}
-            </tbody>
-          </table>
-        </div>
-
-        <Pagination
-          meta={{
-            page,
-            pageSize,
-            total,
-            totalPages,
-            from:
-              total === 0
-                ? 0
-                : (page - 1) *
-                  pageSize,
-            to:
-              total === 0
-                ? 0
-                : Math.min(
-                    page * pageSize - 1,
-                    total - 1
-                  ),
-            hasPreviousPage:
-              page > 1,
-            hasNextPage:
-              page < totalPages,
-          }}
-          onPageChange={setPage}
-          onPageSizeChange={(
-            newPageSize
-          ) => {
-            setPageSize(
-              newPageSize
-            );
-            setPage(1);
-          }}
-        />
-      
+      <Pagination
+        meta={{
+          page,
+          pageSize,
+          total,
+          totalPages,
+          from: total === 0 ? 0 : (page - 1) * pageSize,
+          to: total === 0 ? 0 : Math.min(page * pageSize - 1, total - 1),
+          hasPreviousPage: page > 1,
+          hasNextPage: page < totalPages,
+        }}
+        onPageChange={setPage}
+        onPageSizeChange={(newPageSize) => {
+          setPageSize(newPageSize);
+          setPage(1);
+        }}
+      />
     </div>
   );
 }
@@ -1206,20 +1097,15 @@ function getBalanceChangeForAccount(
   debit: number | null,
   credit: number | null,
   accountId: string,
-  accounts: Account[]
+  accounts: Account[],
 ): number {
-  const account = accounts.find(
-    (item) => item.id === accountId
-  );
+  const account = accounts.find((item) => item.id === accountId);
 
-  const normalBalance =
-    account?.normal_balance ?? "D";
+  const normalBalance = account?.normal_balance ?? "D";
 
-  const debitValue =
-    Number(debit ?? 0);
+  const debitValue = Number(debit ?? 0);
 
-  const creditValue =
-    Number(credit ?? 0);
+  const creditValue = Number(credit ?? 0);
 
   return normalBalance === "D"
     ? debitValue - creditValue
