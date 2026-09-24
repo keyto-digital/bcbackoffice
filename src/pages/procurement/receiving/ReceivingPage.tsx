@@ -9,6 +9,7 @@ import { formatDateIndonesia } from "@/pages/procurement/utils/date";
 import { createPaginationMeta } from "@/lib/pagination/types";
 import Pagination from "@/components/common/Pagination";
 import DateInput from "@/components/common/DateInput";
+import { Eye, Printer, RotateCcw, Pencil, Send, Trash2 } from "lucide-react";
 
 type PoDetail = {
   id: string;
@@ -137,12 +138,17 @@ function getLineNumber(value: string | number): number {
 export default function ReceivingPage() {
   const [records, setRecords] = useState<ReceivingRecord[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [draftPurchaseOrderIds, setDraftPurchaseOrderIds] = useState<Set<string>>(new Set());
   const [stores, setStores] = useState<Store[]>([]);
   const [methods, setMethods] = useState<SettlementMethod[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isReopenedDraft, setIsReopenedDraft] = useState(false);
+  const [reopenedReceivingIds, setReopenedReceivingIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState(firstDayOfCurrentMonth());
@@ -157,8 +163,31 @@ export default function ReceivingPage() {
     post: false,
     print: false,
     export: false,
+    reopen: false,
   });
+
+  const [showReopenModal, setShowReopenModal] = useState(false);
+  const [reopenRecord, setReopenRecord] =
+    useState<ReceivingRecord | null>(null);
+  const [reopenReason, setReopenReason] = useState("");
+  const [reopening, setReopening] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [detailRecord, setDetailRecord] =
+    useState<ReceivingRecord | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailRows, setDetailRows] = useState<
+    Array<{
+      item_code_snapshot: string;
+      item_name_snapshot: string;
+      unit_code_snapshot: string;
+      quantity_received: number;
+      unit_cost: number;
+      line_total: number;
+      notes: string | null;
+    }>
+  >([]);
 
   const { page, pageSize, setPage, setPageSize } = usePagination();
 
@@ -268,7 +297,7 @@ export default function ReceivingPage() {
       );
     }
 
-    const [recordResult, poResult, storeResult, methodResult] =
+    const [recordResult, poResult, storeResult, methodResult, draftPoResult] =
       await Promise.all([
         recordQuery.range(from, to),
 
@@ -308,6 +337,14 @@ export default function ReceivingPage() {
           .select("id, code, name, settlement_type, requires_amount")
           .eq("is_active", true)
           .order("code"),
+
+        // PO yang masih memiliki Receiving DRAFT tidak boleh muncul
+        // sebagai pilihan Receiving baru, agar tidak terjadi double take.
+        supabase
+          .from("receiving_records")
+          .select("purchase_order_id")
+          .eq("status", "DRAFT")
+          .not("purchase_order_id", "is", null),
       ]);
 
     if (recordResult.error) {
@@ -331,6 +368,19 @@ export default function ReceivingPage() {
       setError(methodResult.error.message);
     }
 
+    if (draftPoResult.error) {
+      setError(draftPoResult.error.message);
+      setDraftPurchaseOrderIds(new Set());
+    } else {
+      setDraftPurchaseOrderIds(
+        new Set(
+          (draftPoResult.data ?? [])
+            .map((row) => row.purchase_order_id)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      );
+    }
+
     setPurchaseOrders((poResult.data ?? []) as unknown as PurchaseOrder[]);
     setStores((storeResult.data ?? []) as Store[]);
     setMethods((methodResult.data ?? []) as SettlementMethod[]);
@@ -344,15 +394,23 @@ export default function ReceivingPage() {
 
   useEffect(() => {
     async function loadAccess() {
-      const [create, editDraft, deleteDraft, post, print, exportExcel] =
-        await Promise.all([
-          hasAccess("receiving.create"),
-          hasAccess("receiving.edit_draft"),
-          hasAccess("receiving.delete_draft"),
-          hasAccess("receiving.post"),
-          hasAccess("receiving.print"),
-          hasAccess("receiving.export"),
-        ]);
+      const [
+        create,
+        editDraft,
+        deleteDraft,
+        post,
+        print,
+        exportExcel,
+        reopen,
+      ] = await Promise.all([
+        hasAccess("receiving.create"),
+        hasAccess("receiving.edit_draft"),
+        hasAccess("receiving.delete_draft"),
+        hasAccess("receiving.post"),
+        hasAccess("receiving.print"),
+        hasAccess("receiving.export"),
+        hasAccess("receiving.reopen"),
+      ]);
 
       setAccess({
         create,
@@ -361,10 +419,11 @@ export default function ReceivingPage() {
         post,
         print,
         export: exportExcel,
+        reopen,
       });
     }
 
-    loadAccess();
+    void loadAccess();
   }, []);
 
   const paginationMeta = useMemo(
@@ -374,6 +433,7 @@ export default function ReceivingPage() {
 
   const resetForm = () => {
     setEditingId(null);
+    setIsReopenedDraft(false);
     setSelectedPoId("");
     setStoreId("");
     setReceivingDate(today());
@@ -494,12 +554,56 @@ export default function ReceivingPage() {
       return;
     }
 
+    // Hanya Draft yang baru saja berhasil di-Reopen pada sesi ini
+    // yang boleh mengoreksi historical unit cost.
+    setIsReopenedDraft(reopenedReceivingIds.has(record.id));
+
+    // Draft Receiving disembunyikan dari dropdown PO untuk mencegah double-ambil.
+    // Karena itu, saat Edit Draft kita harus mengambil PO-nya secara khusus.
+    const { data: editPo, error: editPoError } = await supabase
+      .from("purchase_orders")
+      .select(
+        `
+        id,
+        entity_id,
+        po_number,
+        supplier_id,
+        supplier_name_snapshot,
+        payment_term_days,
+        store_id,
+        purchase_order_details (
+          id,
+          item_code_snapshot,
+          item_name_snapshot,
+          unit_code_snapshot,
+          quantity_ordered,
+          quantity_received,
+          unit_price
+        )
+      `,
+      )
+      .eq("id", data.purchase_order_id)
+      .single();
+
+    if (editPoError || !editPo) {
+      setError(editPoError?.message ?? "Purchase Order untuk Receiving ini tidak ditemukan.");
+      return;
+    }
+
+    setPurchaseOrders((previous) => {
+      const exists = previous.some((po) => po.id === editPo.id);
+      return exists
+        ? previous.map((po) => (po.id === editPo.id ? (editPo as unknown as PurchaseOrder) : po))
+        : [...previous, editPo as unknown as PurchaseOrder];
+    });
+
     // buka form
+    setEditingId(record.id);
+    setIsReopenedDraft(reopenedReceivingIds.has(record.id));
     setShowForm(true);
 
     // isi header
     setSelectedPoId(data.purchase_order_id);
-    setEditingId(record.id);
     setReceivingDate(data.receiving_date);
     setNotes(data.notes ?? "");
 
@@ -824,6 +928,163 @@ export default function ReceivingPage() {
     await loadData();
   };
 
+  const openDetailModal = async (record: ReceivingRecord) => {
+    setDetailRecord(record);
+    setShowDetailModal(true);
+    setDetailLoading(true);
+    setDetailRows([]);
+    setError(null);
+
+    const { data, error: detailError } = await supabase
+      .from("receiving_record_details")
+      .select(
+        `
+        item_code_snapshot,
+        item_name_snapshot,
+        unit_code_snapshot,
+        quantity_received,
+        unit_cost,
+        line_total,
+        notes
+      `,
+      )
+      .eq("receiving_record_id", record.id)
+      .order("line_number");
+
+    setDetailLoading(false);
+
+    if (detailError) {
+      setError(detailError.message);
+      return;
+    }
+
+    setDetailRows(
+      (data ?? []).map((row) => ({
+        item_code_snapshot: row.item_code_snapshot ?? "",
+        item_name_snapshot: row.item_name_snapshot ?? "",
+        unit_code_snapshot: row.unit_code_snapshot ?? "",
+        quantity_received: Number(row.quantity_received ?? 0),
+        unit_cost: Number(row.unit_cost ?? 0),
+        line_total: Number(row.line_total ?? 0),
+        notes: row.notes ?? null,
+      })),
+    );
+  };
+
+  const closeDetailModal = () => {
+    if (detailLoading) return;
+
+    setShowDetailModal(false);
+    setDetailRecord(null);
+    setDetailRows([]);
+  };
+
+  const openReopenModal = (record: ReceivingRecord) => {
+    setReopenRecord(record);
+    setReopenReason("");
+    setError(null);
+    setShowReopenModal(true);
+  };
+
+  const closeReopenModal = () => {
+    if (reopening) return;
+
+    setShowReopenModal(false);
+    setReopenRecord(null);
+    setReopenReason("");
+  };
+
+  const reopenReceiving = async () => {
+    if (!reopenRecord) return;
+
+    const reason = reopenReason.trim();
+
+    if (!reason) {
+      window.alert("Alasan Reopen wajib diisi.");
+      return;
+    }
+
+    const customUserId = getCustomUserId();
+
+    if (!customUserId) {
+      setError(
+        "User aplikasi tidak ditemukan. Silakan login kembali sebelum melakukan Reopen.",
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Reopen Receiving ${reopenRecord.receiving_number}?\n\n` +
+        "Transaksi POSTED akan dikembalikan menjadi DRAFT.\n" +
+        "Receipt inventory, PO, dan jurnal Receiving akan dikembalikan.\n" +
+        "Transaksi transfer / Surat Jalan yang sudah POSTED tetap dipertahankan.\n" +
+        "Setelah Receiving diposting kembali, inventory akan dihitung ulang mengikuti harga terbaru.\n\n" +
+        `Alasan: ${reason}`,
+    );
+
+    if (!confirmed) return;
+
+    setReopening(true);
+    setSaving(true);
+    setError(null);
+
+    const { data, error: reopenError } = await supabase.rpc(
+      "reopen_receiving_record",
+      {
+        p_receiving_record_id: reopenRecord.id,
+        p_user_id: customUserId,
+        p_reason: reason,
+      },
+    );
+
+    setReopening(false);
+    setSaving(false);
+
+    if (reopenError) {
+      setError(reopenError.message);
+      return;
+    }
+
+    const result = data as {
+      success: boolean;
+      receiving_number: string;
+      new_status: string;
+      purchase_order_status?: string;
+      inventory_movements_rolled_back?: number;
+      audit_logged?: boolean;
+    };
+
+    if (!result?.success) {
+      setError("Reopen Receiving gagal diproses.");
+      return;
+    }
+
+    // Tandai RR ini sebagai hasil Reopen pada sesi halaman saat ini.
+    // Flag ini dipakai oleh form Edit Draft untuk membuka field Harga Aktual.
+    setReopenedReceivingIds((previous) => {
+      const next = new Set(previous);
+      next.add(reopenRecord.id);
+      return next;
+    });
+    setIsReopenedDraft(true);
+
+    setShowReopenModal(false);
+    setReopenRecord(null);
+    setReopenReason("");
+
+    window.alert(
+      `Receiving ${result.receiving_number} berhasil di-Reopen.\n\n` +
+        `Status: ${result.new_status}\n` +
+        `Status PO: ${result.purchase_order_status ?? "-"}\n` +
+        `Movement rollback: ${
+          result.inventory_movements_rolled_back ?? 0
+        }\n` +
+        `Audit Log: ${result.audit_logged ? "Tersimpan" : "Tidak tersedia"}`,
+    );
+
+    await loadData();
+  };
+
   const deleteReceivingDraft = async (record: ReceivingRecord) => {
     const confirmed = window.confirm(
       `Hapus Draft Receiving ${record.receiving_number}?`,
@@ -1133,7 +1394,8 @@ export default function ReceivingPage() {
             
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            Terima barang berdasarkan Purchase Order dan simpan ke Store/Gudang.
+            Terima barang berdasarkan Purchase Order, koreksi Draft, dan kelola
+            Receiving Posted dengan proses Reopen yang tercatat.
           </p>
         </div>
 
@@ -1224,11 +1486,18 @@ export default function ReceivingPage() {
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
               >
                 <option value="">Pilih PO Open</option>
-                {purchaseOrders.map((po) => (
-                  <option key={po.id} value={po.id}>
-                    {po.po_number} - {po.supplier_name_snapshot}
-                  </option>
-                ))}
+                {purchaseOrders
+                  .filter(
+                    (po) =>
+                      !draftPurchaseOrderIds.has(po.id) ||
+                      po.id === selectedPoId,
+                  )
+                  .map((po) => (
+                    <option key={po.id} value={po.id}>
+                      {po.po_number} - {po.supplier_name_snapshot}
+                      {draftPurchaseOrderIds.has(po.id) ? " (Draft Receiving)" : ""}
+                    </option>
+                  ))}
               </select>
             </div>
 
@@ -1302,7 +1571,17 @@ export default function ReceivingPage() {
           </div>
 
           {selectedPo && (
-            <div className="overflow-x-auto rounded-lg border border-gray-200">
+            <>
+              {editingId && isReopenedDraft && (
+                <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800">
+                  <strong>Koreksi Receiving hasil Reopen:</strong> Harga Aktual
+                  dapat diubah. Setelah diposting kembali, sistem akan otomatis
+                  menghitung ulang inventory average cost dan propagasi biaya ke
+                  transaksi transfer terkait.
+                </div>
+              )}
+
+              <div className="overflow-x-auto rounded-lg border border-gray-200">
               <table className="min-w-[950px] w-full text-sm">
                 <thead className="bg-gray-50 text-left">
                   <tr>
@@ -1394,9 +1673,42 @@ export default function ReceivingPage() {
                         <td className="px-3 py-3 text-right">
                           <input
                             type="text"
+                            inputMode="decimal"
                             value={line.unit_cost}
-                            readOnly
-                            className="w-32 rounded-md border border-gray-300 bg-gray-50 px-2 py-2 text-right text-gray-700"
+                            readOnly={!isReopenedDraft}
+                            onChange={(event) => {
+                              if (!isReopenedDraft) return;
+
+                              const rawValue = event.target.value;
+
+                              if (!/^\d*[.,]?\d*$/.test(rawValue)) {
+                                return;
+                              }
+
+                              updateLine(index, "unit_cost", rawValue);
+                            }}
+                            onBlur={() => {
+                              if (!isReopenedDraft || line.unit_cost.trim() === "") {
+                                return;
+                              }
+
+                              const unitCost = getLineNumber(line.unit_cost);
+
+                              if (unitCost < 0) {
+                                updateLine(index, "unit_cost", "0");
+                              }
+                            }}
+                            className={`w-32 rounded-md border px-2 py-2 text-right ${
+                              isReopenedDraft
+                                ? "border-orange-300 bg-orange-50 focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
+                                : "border-gray-300 bg-gray-100 cursor-not-allowed"
+                            }`}
+                            placeholder="0"
+                            title={
+                              isReopenedDraft
+                                ? "Harga dapat dikoreksi karena Receiving ini hasil Reopen."
+                                : "Harga tidak dapat dikoreksi pada Draft biasa."
+                            }
                           />
                         </td>
 
@@ -1408,7 +1720,8 @@ export default function ReceivingPage() {
                   })}
                 </tbody>
               </table>
-            </div>
+              </div>
+            </>
           )}
 
           <div>
@@ -1527,6 +1840,227 @@ export default function ReceivingPage() {
             </button>
           </div>
         </form>
+      )}
+
+      {showReopenModal && reopenRecord && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
+            <div className="border-b border-gray-200 px-5 py-4">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Reopen Receiving
+              </h2>
+
+              <p className="mt-1 text-sm text-gray-500">
+                Receiving POSTED akan dikembalikan menjadi DRAFT.
+              </p>
+            </div>
+
+            <div className="space-y-4 px-5 py-5">
+              <div className="rounded-lg bg-gray-50 p-4">
+                <div className="text-xs font-medium uppercase text-gray-500">
+                  Nomor Receiving
+                </div>
+
+                <div className="mt-1 font-semibold text-gray-900">
+                  {reopenRecord.receiving_number}
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Alasan Reopen <span className="text-red-600">*</span>
+                </label>
+
+                <textarea
+                  value={reopenReason}
+                  onChange={(event) => setReopenReason(event.target.value)}
+                  rows={4}
+                  disabled={reopening}
+                  placeholder="Contoh: Koreksi qty penerimaan karena hasil pengecekan fisik tidak sesuai dokumen."
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
+                />
+
+                <p className="mt-1 text-xs text-gray-500">
+                  Alasan ini akan disimpan ke Audit Log Reopen Receiving.
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800">
+                <strong>Perhatian:</strong> Reopen mengembalikan Receiving menjadi
+                Draft. Transfer / Surat Jalan yang sudah POSTED tidak dibuka kembali.
+                Setelah Post ulang, inventory akan direcalculate mengikuti Receiving terbaru.
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-gray-200 px-5 py-4">
+              <button
+                type="button"
+                disabled={reopening}
+                onClick={closeReopenModal}
+                className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Batal
+              </button>
+
+              <button
+                type="button"
+                disabled={reopening || !reopenReason.trim()}
+                onClick={reopenReceiving}
+                className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {reopening ? "Memproses Reopen..." : "Reopen Receiving"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDetailModal && detailRecord && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-5xl rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Detail Receiving
+                </h2>
+
+                <p className="mt-1 text-sm text-gray-500">
+                  {detailRecord.receiving_number} ·{" "}
+                  {formatDateIndonesia(detailRecord.receiving_date)}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeDetailModal}
+                disabled={detailLoading}
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Tutup
+              </button>
+            </div>
+
+            <div className="px-5 py-5">
+              <div className="mb-4 grid grid-cols-1 gap-3 rounded-lg bg-gray-50 p-4 md:grid-cols-4">
+                <div>
+                  <div className="text-xs text-gray-500">No. Receiving</div>
+                  <div className="mt-1 font-medium text-gray-900">
+                    {detailRecord.receiving_number}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-gray-500">Purchase Order</div>
+                  <div className="mt-1 font-medium text-gray-900">
+                    {detailRecord.purchase_order_number_snapshot}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-gray-500">Supplier</div>
+                  <div className="mt-1 font-medium text-gray-900">
+                    {detailRecord.supplier_name_snapshot}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-gray-500">Store / Gudang</div>
+                  <div className="mt-1 font-medium text-gray-900">
+                    {detailRecord.store_name_snapshot}
+                  </div>
+                </div>
+              </div>
+
+              {detailLoading ? (
+                <div className="py-10 text-center text-sm text-gray-500">
+                  Memuat detail barang...
+                </div>
+              ) : detailRows.length === 0 ? (
+                <div className="rounded-lg border border-gray-200 py-10 text-center text-sm text-gray-500">
+                  Tidak ada detail barang.
+                </div>
+              ) : (
+                <div className="max-h-[55vh] overflow-auto rounded-lg border border-gray-200">
+                  <table className="min-w-[850px] w-full text-sm">
+                    <thead className="sticky top-0 bg-gray-50 text-left">
+                      <tr>
+                        <th className="px-3 py-3 font-medium">No</th>
+                        <th className="px-3 py-3 font-medium">Kode Barang</th>
+                        <th className="px-3 py-3 font-medium">Nama Barang</th>
+                        <th className="px-3 py-3 text-right font-medium">
+                          Qty
+                        </th>
+                        <th className="px-3 py-3 font-medium">Satuan</th>
+                        <th className="px-3 py-3 text-right font-medium">
+                          Harga
+                        </th>
+                        <th className="px-3 py-3 text-right font-medium">
+                          Total
+                        </th>
+                        <th className="px-3 py-3 font-medium">Catatan</th>
+                      </tr>
+                    </thead>
+
+                    <tbody className="divide-y divide-gray-200">
+                      {detailRows.map((row, index) => (
+                        <tr key={`${detailRecord.id}-${index}`}>
+                          <td className="px-3 py-3 text-center">
+                            {index + 1}
+                          </td>
+
+                          <td className="px-3 py-3 font-medium">
+                            {row.item_code_snapshot}
+                          </td>
+
+                          <td className="px-3 py-3">
+                            {row.item_name_snapshot}
+                          </td>
+
+                          <td className="px-3 py-3 text-right">
+                            {row.quantity_received}
+                          </td>
+
+                          <td className="px-3 py-3">
+                            {row.unit_code_snapshot}
+                          </td>
+
+                          <td className="px-3 py-3 text-right">
+                            {rupiah(row.unit_cost)}
+                          </td>
+
+                          <td className="px-3 py-3 text-right font-medium">
+                            {rupiah(row.line_total)}
+                          </td>
+
+                          <td className="px-3 py-3 text-gray-600">
+                            {row.notes || "-"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+
+                    <tfoot className="border-t border-gray-300 bg-gray-50">
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className="px-3 py-3 text-right font-semibold"
+                        >
+                          Grand Total
+                        </td>
+
+                        <td className="px-3 py-3 text-right font-bold">
+                          {rupiah(detailRecord.grand_total)}
+                        </td>
+
+                        <td />
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
@@ -1685,54 +2219,90 @@ export default function ReceivingPage() {
                         {record.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      {access.print && (
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <div className="inline-flex items-center justify-end gap-1">
+                        {/* Detail */}
                         <button
                           type="button"
                           disabled={saving}
-                          onClick={() => printReceivingA4(record)}
-                          className="mr-3 text-gray-700 hover:text-gray-900 disabled:opacity-50"
+                          onClick={() => openDetailModal(record)}
+                          title="Lihat detail Receiving"
+                          aria-label={`Lihat detail ${record.receiving_number}`}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          Print A4
+                          <Eye size={18} strokeWidth={2.25} className="!text-gray-700 !stroke-current shrink-0" />
                         </button>
-                      )}
 
-                      {record.status === "DRAFT" && (
-                        <>
-                          {access.editDraft && (
-                            <button
-                              type="button"
-                              disabled={saving}
-                              onClick={() => handleEditDraft(record)}
-                              className="mr-3 text-blue-600 hover:text-blue-800 disabled:opacity-50"
-                            >
-                              Edit
-                            </button>
-                          )}
+                        {/* Print */}
+                        {access.print && (
+                          <button
+                            type="button"
+                            disabled={saving}
+                            onClick={() => printReceivingA4(record)}
+                            title="Print A4"
+                            aria-label={`Print A4 ${record.receiving_number}`}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Printer size={18} strokeWidth={2.25} className="!text-gray-700 !stroke-current shrink-0" />
+                          </button>
+                        )}
 
-                          {access.post && (
-                            <button
-                              type="button"
-                              disabled={saving}
-                              onClick={() => postReceiving(record)}
-                              className="mr-3 text-green-600 hover:text-green-800 disabled:opacity-50"
-                            >
-                              Post
-                            </button>
-                          )}
+                        {/* Reopen */}
+                        {record.status === "POSTED" && access.reopen && (
+                          <button
+                            type="button"
+                            disabled={saving}
+                            onClick={() => openReopenModal(record)}
+                            title="Reopen Receiving"
+                            aria-label={`Reopen ${record.receiving_number}`}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-orange-600 transition-colors hover:bg-orange-50 hover:text-orange-800 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <RotateCcw size={18} strokeWidth={2.25} className="!text-orange-600 !stroke-current shrink-0" />
+                          </button>
+                        )}
 
-                          {access.deleteDraft && (
-                            <button
-                              type="button"
-                              disabled={saving}
-                              onClick={() => deleteReceivingDraft(record)}
-                              className="text-red-600 hover:text-red-800 disabled:opacity-50"
-                            >
-                              Hapus
-                            </button>
-                          )}
-                        </>
-                      )}
+                        {/* Edit */}
+                        {record.status === "DRAFT" && access.editDraft && (
+                          <button
+                            type="button"
+                            disabled={saving}
+                            onClick={() => handleEditDraft(record)}
+                            title="Edit Draft"
+                            aria-label={`Edit ${record.receiving_number}`}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Pencil size={18} strokeWidth={2.25} className="!text-blue-600 !stroke-current shrink-0" />
+                          </button>
+                        )}
+
+                        {/* Post */}
+                        {record.status === "DRAFT" && access.post && (
+                          <button
+                            type="button"
+                            disabled={saving}
+                            onClick={() => postReceiving(record)}
+                            title="Post Receiving"
+                            aria-label={`Post ${record.receiving_number}`}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-green-600 transition-colors hover:bg-green-50 hover:text-green-800 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Send size={18} strokeWidth={2.25} className="!text-green-600 !stroke-current shrink-0" />
+                          </button>
+                        )}
+
+                        {/* Hapus */}
+                        {record.status === "DRAFT" && access.deleteDraft && (
+                          <button
+                            type="button"
+                            disabled={saving}
+                            onClick={() => deleteReceivingDraft(record)}
+                            title="Hapus Draft"
+                            aria-label={`Hapus ${record.receiving_number}`}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-red-600 transition-colors hover:bg-red-50 hover:text-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Trash2 size={18} strokeWidth={2.25} className="!text-red-600 !stroke-current shrink-0" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))

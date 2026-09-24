@@ -6,6 +6,8 @@ import Pagination from "@/components/common/Pagination";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { hasAccess } from "@/lib/hasAccess";
+import { supabase } from "@/lib/supabaseClient";
+import { getCustomUserId } from "@/lib/authUser";
 import {
   getDefaultStoreId,
   hasAllStoresAccess,
@@ -18,7 +20,6 @@ import type {
   InventoryRequest,
   InventoryRequestFormData,
   InventoryRequestLineForm,
-  InventoryRequestStatus,
 } from "./types";
 
 import {
@@ -29,6 +30,7 @@ import {
   ArrowRightLeft,
   Printer,
   XCircle,
+  RotateCcw,
 } from "lucide-react";
 import SearchableSelect, {
   type SearchableSelectOption,
@@ -38,16 +40,17 @@ interface Props {
   entityId?: string | null;
 }
 
-const statusLabels: Record<InventoryRequestStatus, string> = {
+const statusLabels: Record<string, string> = {
   DRAFT: "Draft",
   APPROVED: "Approved",
   IN_PREPARATION: "Preparation",
   COMPLETED: "Completed",
   REJECTED: "Rejected",
   CANCELLED: "Cancelled",
+  REVERSED: "Reversed",
 };
 
-const statusClass: Record<InventoryRequestStatus, string> = {
+const statusClass: Record<string, string> = {
   DRAFT: "bg-gray-100 text-gray-700",
 
   APPROVED: "bg-green-100 text-green-700",
@@ -59,6 +62,7 @@ const statusClass: Record<InventoryRequestStatus, string> = {
   REJECTED: "bg-red-100 text-red-700",
 
   CANCELLED: "bg-gray-900 text-white",
+  REVERSED: "bg-slate-100 text-slate-700",
 };
 
 function today() {
@@ -142,6 +146,7 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
     approve: false,
     transfer: false,
     cancel: false,
+    reopen: false,
     print: false,
     export: false,
   });
@@ -174,6 +179,20 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
 
   const [viewOnly, setViewOnly] = useState(false);
 
+  /*
+  * REOPEN STORE REQUEST
+  * Hanya COMPLETED yang boleh dibuka kembali menjadi DRAFT.
+  * Setelah Reopen, user dapat mengoreksi isi Store Request
+  * sebelum dilakukan Approval dan Transfer kembali.
+  *
+  * Hak akses: inventory_request.reopen
+  */
+  const [showReopenRequestModal, setShowReopenRequestModal] = useState(false);
+  const [reopenRequestTarget, setReopenRequestTarget] =
+    useState<InventoryRequest | null>(null);
+  const [reopenRequestReason, setReopenRequestReason] = useState("");
+  const [reopeningRequest, setReopeningRequest] = useState(false);
+
   const [startDate, setStartDate] = useState("");
 
   const [endDate, setEndDate] = useState("");
@@ -200,6 +219,7 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
         approveAccess,
         transferAccess,
         cancelAccess,
+        reopenAccess,
         printAccess,
         exportAccess,
       ] = await Promise.all([
@@ -210,6 +230,7 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
         hasAccess("inventory_request.approve"),
         hasAccess("inventory_request.transfer"),
         hasAccess("inventory_request.cancel"),
+        hasAccess("inventory_request.reopen"),
         hasAccess("inventory_request.print"),
         hasAccess("inventory_request.export"),
       ]);
@@ -222,6 +243,7 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
         approve: approveAccess,
         transfer: transferAccess,
         cancel: cancelAccess,
+        reopen: reopenAccess,
         print: printAccess,
         export: exportAccess,
       });
@@ -244,6 +266,61 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
       endDate,
     });
   }, [fetchRequests, page, pageSize, search, startDate, endDate]);
+
+  /*
+  * =====================================================
+  * AUTO SYNC STATUS
+  * =====================================================
+  *
+  * Inventory Request dapat diubah oleh modul lain,
+  * misalnya Receiving melakukan Reopen Store Request.
+  *
+  * Saat user kembali/focus ke halaman ini,
+  * ambil ulang data dari database agar status
+  * tidak menampilkan data lama.
+  */
+  useEffect(() => {
+    const refreshRequests = () => {
+      void fetchRequests({
+        page,
+        pageSize,
+        search,
+        startDate,
+        endDate,
+      });
+    };
+
+    const handleFocus = () => {
+      refreshRequests();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshRequests();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibilityChange,
+    );
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange,
+      );
+    };
+  }, [
+    fetchRequests,
+    page,
+    pageSize,
+    search,
+    startDate,
+    endDate,
+  ]);
 
   const destinationStores = useMemo(() => {
     // User ALL_STORES dapat memilih semua store,
@@ -741,6 +818,113 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
           ? err.message
           : "Inventory Request gagal dibatalkan.",
       );
+    }
+  };
+
+  /*
+   * =====================================================
+   * REOPEN / REVERSE COMPLETED STORE REQUEST
+   * =====================================================
+   *
+   * Mekanisme:
+   * COMPLETED -> REVERSED
+   *
+   * Reversal dilakukan oleh RPC server-side:
+   * reverse_inventory_request(p_request_id, p_user_id, p_reason)
+   *
+   * Hak akses tetap mengikuti custom login:
+   * inventory_request.reopen
+   */
+  const openReopenRequestModal = (request: InventoryRequest) => {
+    if (String(request.status) !== "COMPLETED") {
+      window.alert(
+        "Store Request yang dapat di-Reopen hanya yang berstatus COMPLETED.",
+      );
+      return;
+    }
+
+    if (!access.reopen) {
+      window.alert("Anda tidak memiliki akses untuk Reopen Store Request.");
+      return;
+    }
+
+    setReopenRequestTarget(request);
+    setReopenRequestReason("");
+    setShowReopenRequestModal(true);
+  };
+
+  const closeReopenRequestModal = () => {
+    if (reopeningRequest) return;
+
+    setShowReopenRequestModal(false);
+    setReopenRequestTarget(null);
+    setReopenRequestReason("");
+  };
+
+  const handleReopenInventoryRequest = async () => {
+    if (!reopenRequestTarget) return;
+
+    const reason = reopenRequestReason.trim();
+
+    if (!reason) {
+      window.alert("Alasan Reopen wajib diisi.");
+      return;
+    }
+
+    const userId = getCustomUserId();
+
+    if (!userId) {
+      window.alert("User login tidak ditemukan.");
+      return;
+    }
+
+    setReopeningRequest(true);
+
+    try {
+      const { data, error } = await supabase.rpc("reverse_inventory_request", {
+        p_request_id: reopenRequestTarget.id,
+        p_user_id: userId,
+        p_reason: reason,
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      const result =
+        data && typeof data === "object"
+          ? (data as Record<string, unknown>)
+          : null;
+
+      if (result?.success === false) {
+        throw new Error(
+          typeof result.error === "string"
+            ? result.error
+            : "Store Request gagal di-Reopen.",
+        );
+      }
+
+      window.alert(
+        `Store Request ${reopenRequestTarget.request_no} berhasil di-Reopen.\n\nStatus: COMPLETED → REVERSED`,
+      );
+
+      closeReopenRequestModal();
+
+      await fetchRequests({
+        page,
+        pageSize,
+        search,
+        startDate,
+        endDate,
+      });
+    } catch (err: unknown) {
+      window.alert(
+        err instanceof Error
+          ? err.message
+          : "Store Request gagal di-Reopen.",
+      );
+    } finally {
+      setReopeningRequest(false);
     }
   };
 
@@ -1368,6 +1552,19 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
                         </button>
                       )}
 
+                      {String(request.status) === "COMPLETED" &&
+                        access.reopen && (
+                          <button
+                            type="button"
+                            title="Reopen Store Request"
+                            disabled={saving || reopeningRequest}
+                            onClick={() => openReopenRequestModal(request)}
+                            className="mr-3 text-amber-600 hover:text-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <RotateCcw size={16} strokeWidth={2} />
+                          </button>
+                        )}
+
                       {access.print && (
                         <button
                           type="button"
@@ -1400,6 +1597,80 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
           onPageSizeChange={setPageSize}
         />
       </div>
+
+      {showReopenRequestModal && reopenRequestTarget && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl">
+            <div className="border-b px-5 py-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Reopen Store Request
+              </h3>
+              <p className="mt-1 text-sm text-gray-500">
+                {reopenRequestTarget.request_no}
+              </p>
+            </div>
+
+            <div className="space-y-4 px-5 py-5">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                <p className="font-semibold text-amber-900">
+                  Status akan diubah
+                </p>
+                <div className="mt-2 flex items-center gap-3 text-sm">
+                  <span className="rounded-full bg-emerald-100 px-2.5 py-1 font-medium text-emerald-700">
+                    COMPLETED
+                  </span>
+                  <span className="text-gray-500">→</span>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-700">
+                    REVERSED
+                  </span>
+                </div>
+                <p className="mt-3 text-sm leading-5 text-amber-800">
+                  Stock hasil transfer Store Request akan dikembalikan ke
+                  kondisi sebelum transaksi. Riwayat transaksi tetap
+                  disimpan sebagai reversal.
+                </p>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Alasan Reopen <span className="text-red-600">*</span>
+                </label>
+                <textarea
+                  value={reopenRequestReason}
+                  onChange={(e) => setReopenRequestReason(e.target.value)}
+                  rows={4}
+                  disabled={reopeningRequest}
+                  autoFocus
+                  placeholder="Contoh: Koreksi transfer karena qty salah..."
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Alasan akan disimpan pada audit log Reopen Store Request.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 border-t bg-gray-50 px-5 py-4">
+              <button
+                type="button"
+                onClick={closeReopenRequestModal}
+                disabled={reopeningRequest}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleReopenInventoryRequest}
+                disabled={reopeningRequest || !reopenRequestReason.trim()}
+                className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {reopeningRequest ? "Memproses..." : "Konfirmasi Reopen"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ApprovalDialog
         open={showApprove}
