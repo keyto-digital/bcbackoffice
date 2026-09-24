@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import Pagination from "@/components/common/Pagination";
 import {
@@ -9,6 +10,7 @@ import {
 import { printReport } from "@/utils/printReport";
 import { getCustomUser } from "@/lib/authUser";
 import { formatDateIndonesia } from "@/pages/procurement/utils/date";
+import SearchableSelect from "@/components/common/SearchableSelect";
 
 type Account = {
   id: string;
@@ -28,6 +30,11 @@ type JournalDetail = {
   debit: number | null;
   credit: number | null;
   description: string | null;
+  account_id?: string | null;
+  account?: {
+    code: string;
+    name: string;
+  } | null;
 };
 
 type Journal = {
@@ -37,6 +44,7 @@ type Journal = {
   reference: string | null;
   description: string | null;
   entity_id: string | null;
+  user_id?: string | null;
   journal_details: JournalDetail[];
 };
 
@@ -66,6 +74,10 @@ export default function GeneralLedgerPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [entities, setEntities] = useState<Entity[]>([]);
   const [journals, setJournals] = useState<Journal[]>([]);
+  const [detailJournal, setDetailJournal] = useState<Journal | null>(null);
+  const [detailUserName, setDetailUserName] = useState<string>("");
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
   const [selectedAccountId, setSelectedAccountId] = useState("");
   const [selectedEntityId, setSelectedEntityId] = useState("");
@@ -659,6 +671,98 @@ export default function GeneralLedgerPage() {
     });
   };
 
+  const handleOpenJournalDetail = async (journalId: string) => {
+    if (!journalId) return;
+
+    setDetailLoading(true);
+    setDetailError(null);
+    setDetailJournal(null);
+    setDetailUserName("");
+
+    try {
+      const { data: journal, error: journalError } = await supabase
+        .from("journals")
+        .select(`
+          id,
+          tanggal,
+          waktu,
+          reference,
+          description,
+          entity_id,
+          user_id
+        `)
+        .eq("id", journalId)
+        .single();
+
+      if (journalError) throw journalError;
+
+      const { data: details, error: detailsError } = await supabase
+        .from("journal_details")
+        .select(`
+          id,
+          debit,
+          credit,
+          description,
+          account_id,
+          account:accounts (
+            code,
+            name
+          )
+        `)
+        .eq("journal_id", journalId)
+        .order("id", { ascending: true });
+
+      if (detailsError) throw detailsError;
+
+      const normalizedDetails: JournalDetail[] = (details ?? []).map((detail) => ({
+        id: detail.id,
+        debit: detail.debit,
+        credit: detail.credit,
+        description: detail.description,
+        account_id: detail.account_id,
+        account: Array.isArray(detail.account)
+          ? (detail.account[0] ?? null)
+          : detail.account ?? null,
+      }));
+
+      setDetailJournal({
+        id: journal.id,
+        tanggal: journal.tanggal,
+        waktu: journal.waktu,
+        reference: journal.reference,
+        description: journal.description,
+        entity_id: journal.entity_id,
+        user_id: journal.user_id,
+        journal_details: normalizedDetails,
+      });
+
+      if (journal.user_id) {
+        const { data: user } = await supabase
+          .from("custom_users")
+          .select("name")
+          .eq("user_id", journal.user_id)
+          .maybeSingle();
+
+        setDetailUserName(user?.name ?? "");
+      }
+    } catch (journalDetailError) {
+      console.error("Gagal memuat detail jurnal:", journalDetailError);
+      setDetailError(
+        journalDetailError instanceof Error
+          ? journalDetailError.message
+          : "Gagal memuat detail jurnal.",
+      );
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const handleCloseJournalDetail = () => {
+    setDetailJournal(null);
+    setDetailUserName("");
+    setDetailError(null);
+  };
+
   const handleExportExcel = async () => {
     try {
       const rows = await fetchAllFilteredLedgerEntries();
@@ -863,20 +967,18 @@ export default function GeneralLedgerPage() {
             Akun COA
           </label>
 
-          <select
+          <SearchableSelect
             value={selectedAccountId}
-            onChange={(event) => setSelectedAccountId(event.target.value)}
+            onChange={setSelectedAccountId}
             disabled={masterLoading}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-          >
-            <option value="">Pilih akun</option>
-
-            {accounts.map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.code} - {account.name}
-              </option>
-            ))}
-          </select>
+            placeholder="Pilih akun"
+            clearLabel="Pilih akun"
+            options={accounts.map((account) => ({
+              value: account.id,
+              label: `${account.code} - ${account.name}`,
+              searchText: `${account.code} ${account.name}`,
+            }))}
+          />
         </div>
 
         <div>
@@ -975,31 +1077,26 @@ export default function GeneralLedgerPage() {
       )}
 
       <div className="overflow-x-auto rounded-md border border-gray-200 bg-white">
-        <table className="min-w-full text-sm">
+        <table className="min-w-full text-sm leading-tight">
           <thead className="bg-gray-100 text-gray-700">
             <tr>
-              <th className="px-4 py-3 text-left">Tanggal</th>
-
-              <th className="px-4 py-3 text-left">Referensi</th>
-
-              <th className="px-4 py-3 text-left">Keterangan</th>
-
-              <th className="px-4 py-3 text-right">Debit</th>
-
-              <th className="px-4 py-3 text-right">Kredit</th>
-
-              <th className="px-4 py-3 text-right">Saldo</th>
+              <th className="px-4 py-2.5">Tanggal</th>
+              <th className="px-4 py-2.5 text-left">Referensi</th>
+              <th className="px-4 py-2.5 text-left">Keterangan</th>
+              <th className="px-4 py-2.5 text-right">Debit</th>
+              <th className="px-4 py-2.5 text-right">Kredit</th>
+              <th className="px-4 py-2.5 text-right">Saldo</th>
             </tr>
           </thead>
 
           <tbody>
             {!loading && !pageOpeningLoading && selectedAccount && (
               <tr className="border-t bg-blue-50 font-medium text-gray-800">
-                <td className="px-4 py-3" colSpan={5}>
+                <td className="px-4 py-2" colSpan={5}>
                   Saldo Awal — {selectedAccount.code} - {selectedAccount.name}
                 </td>
 
-                <td className="px-4 py-3 text-right">
+                <td className="px-4 py-2 text-right">
                   {formatBalance(ledger.openingBalance)}
                 </td>
               </tr>
@@ -1025,21 +1122,41 @@ export default function GeneralLedgerPage() {
               !pageOpeningLoading &&
               ledger.entries.map((entry) => (
                 <tr key={entry.id} className="border-t">
-                  <td className="px-4 py-3">{formatDateIndonesia(entry.tanggal)}</td>
+                  <td className="px-4 py-2">{formatDateIndonesia(entry.tanggal)}</td>
 
-                  <td className="px-4 py-3">{entry.reference || "-"}</td>
+                  <td className="px-4 py-2 text-left">
+                  {entry.reference ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const journal = journals.find((item) =>
+                          (item.journal_details ?? []).some(
+                            (detail) => detail.id === entry.id,
+                          ),
+                        );
+                        if (journal) void handleOpenJournalDetail(journal.id);
+                      }}
+                      disabled={detailLoading}
+                      className="text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline disabled:cursor-wait disabled:opacity-60"
+                    >
+                      {entry.reference}
+                    </button>
+                  ) : (
+                    "-"
+                  )}
+                </td>
 
-                  <td className="px-4 py-3">{entry.description}</td>
+                  <td className="px-4 py-2 text-left">{entry.description}</td>
 
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-2 text-right">
                     {entry.debit ? formatCurrency(entry.debit) : ""}
                   </td>
 
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-2 text-right">
                     {entry.credit ? formatCurrency(entry.credit) : ""}
                   </td>
 
-                  <td className="px-4 py-3 text-right font-medium">
+                  <td className="px-4 py-2 text-right font-medium">
                     {formatBalance(entry.balance)}
                   </td>
                 </tr>
@@ -1047,19 +1164,19 @@ export default function GeneralLedgerPage() {
 
             {!loading && !pageOpeningLoading && selectedAccount && (
               <tr className="border-t bg-gray-100 font-semibold">
-                <td className="px-4 py-3" colSpan={3}>
+                <td className="px-4 py-2" colSpan={3}>
                   Saldo Akhir
                 </td>
 
-                <td className="px-4 py-3 text-right">
+                <td className="px-4 py-2 text-right">
                   {ledger.totalDebit ? formatCurrency(ledger.totalDebit) : ""}
                 </td>
 
-                <td className="px-4 py-3 text-right">
+                <td className="px-4 py-2 text-right">
                   {ledger.totalCredit ? formatCurrency(ledger.totalCredit) : ""}
                 </td>
 
-                <td className="px-4 py-3 text-right">
+                <td className="px-4 py-2 text-right">
                   {formatBalance(endingBalance)}
                 </td>
               </tr>
@@ -1067,6 +1184,115 @@ export default function GeneralLedgerPage() {
           </tbody>
         </table>
       </div>
+
+      {detailJournal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) handleCloseJournalDetail();
+          }}
+        >
+          <div className="w-full max-w-4xl overflow-hidden rounded-xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b bg-gray-50 px-5 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Detail Jurnal</h2>
+                <p className="text-sm text-gray-500">
+                  {detailJournal.description || "Rincian transaksi jurnal"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseJournalDetail}
+                className="rounded-md p-1.5 text-gray-500 hover:bg-gray-200 hover:text-gray-800"
+                aria-label="Tutup detail jurnal"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="grid gap-3 border-b px-5 py-4 md:grid-cols-4">
+              <div>
+                <div className="text-xs text-gray-500">Tanggal</div>
+                <div className="font-medium text-gray-900">{formatDateIndonesia(detailJournal.tanggal)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">No. Referensi</div>
+                <div className="font-medium text-gray-900">{detailJournal.reference || "-"}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">Tanggal & Jam</div>
+                <div className="font-medium text-gray-900">
+                  {formatDateIndonesia(detailJournal.tanggal)}{detailJournal.waktu ? ` ${detailJournal.waktu}` : ""}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">Input Oleh</div>
+                <div className="font-medium text-gray-900">
+                  {detailUserName || detailJournal.user_id || "-"}
+                </div>
+              </div>
+            </div>
+
+            {detailLoading ? (
+              <div className="px-5 py-10 text-center text-gray-500">Memuat detail jurnal...</div>
+            ) : detailError ? (
+              <div className="m-5 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+                {detailError}
+              </div>
+            ) : (
+              <div className="max-h-[55vh] overflow-auto px-5 py-4">
+                <table className="min-w-full text-sm leading-tight">
+                  <thead className="sticky top-0 bg-gray-100 text-gray-700">
+                    <tr>
+                      <th className="px-3 py-2 text-left">Kode Akun</th>
+                      <th className="px-3 py-2 text-left">Nama Akun</th>
+                      <th className="px-3 py-2 text-left">Keterangan</th>
+                      <th className="px-3 py-2 text-right">Debit</th>
+                      <th className="px-3 py-2 text-right">Kredit</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detailJournal.journal_details.map((detail) => (
+                      <tr key={detail.id} className="border-t">
+                        <td className="px-3 py-2 font-medium">{detail.account?.code || "-"}</td>
+                        <td className="px-3 py-2">{detail.account?.name || "-"}</td>
+                        <td className="px-3 py-2">{detail.description || "-"}</td>
+                        <td className="px-3 py-2 text-right">
+                          {Number(detail.debit ?? 0) ? formatCurrency(Number(detail.debit)) : ""}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {Number(detail.credit ?? 0) ? formatCurrency(Number(detail.credit)) : ""}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="border-t-2 bg-gray-50 font-semibold">
+                    <tr>
+                      <td className="px-3 py-3" colSpan={3}>Total</td>
+                      <td className="px-3 py-3 text-right">
+                        {formatCurrency(detailJournal.journal_details.reduce((sum, detail) => sum + Number(detail.debit ?? 0), 0))}
+                      </td>
+                      <td className="px-3 py-3 text-right">
+                        {formatCurrency(detailJournal.journal_details.reduce((sum, detail) => sum + Number(detail.credit ?? 0), 0))}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+
+            <div className="flex justify-end border-t bg-gray-50 px-5 py-3">
+              <button
+                type="button"
+                onClick={handleCloseJournalDetail}
+                className="rounded-md bg-gray-700 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Pagination
         meta={{
