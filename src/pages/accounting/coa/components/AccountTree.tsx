@@ -119,5 +119,9 @@ export function AccountTree({
     );
   }
 
-  return <div className="space-y-1">{rootAccounts.map((account) => renderNode(account))}</div>;
+  return (
+    <div className="space-y-1">
+      {rootAccounts.map((account) => renderNode(account))}
+    </div>
+  );
 }

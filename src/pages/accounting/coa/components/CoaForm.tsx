@@ -99,7 +99,7 @@ export function CoaForm({
 
   const updateField = <Key extends keyof CoaFormData>(
     key: Key,
-    value: CoaFormData[Key]
+    value: CoaFormData[Key],
   ) => {
     setFormData((current) => ({
       ...current,
@@ -124,7 +124,10 @@ export function CoaForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-md border border-gray-200 bg-white p-4">
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-4 rounded-md border border-gray-200 bg-white p-4"
+    >
       <div>
         <h2 className="text-base font-semibold text-gray-900">
           {isEditing ? "Edit Account" : "Tambah Account"}
@@ -148,7 +151,9 @@ export function CoaForm({
         </div>
 
         <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-700">Nama Account</label>
+          <label className="text-sm font-medium text-gray-700">
+            Nama Account
+          </label>
           <input
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             value={formData.name}
@@ -171,7 +176,10 @@ export function CoaForm({
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             value={formData.category_code}
             onChange={(event) =>
-              updateField("category_code", event.target.value as AccountCategory)
+              updateField(
+                "category_code",
+                event.target.value as AccountCategory,
+              )
             }
           >
             {accountCategories.map((category) => (
@@ -183,7 +191,9 @@ export function CoaForm({
         </div>
 
         <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-700">Tipe Account</label>
+          <label className="text-sm font-medium text-gray-700">
+            Tipe Account
+          </label>
           <select
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             value={formData.account_type}
@@ -200,7 +210,9 @@ export function CoaForm({
         </div>
 
         <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-700">Normal Balance</label>
+          <label className="text-sm font-medium text-gray-700">
+            Normal Balance
+          </label>
           <select
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             value={formData.normal_balance}

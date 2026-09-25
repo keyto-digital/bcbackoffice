@@ -81,30 +81,19 @@ export default function BalanceSheetPage() {
           .eq("is_active", true)
           .eq("is_posting", true)
           .order("code"),
-        supabase
-          .from("entities")
-          .select("id, kode, nama")
-          .order("nama"),
+        supabase.from("entities").select("id, kode, nama").order("nama"),
       ]);
 
       if (accountResult.error) {
-        setError(
-          `Gagal memuat COA: ${accountResult.error.message}`
-        );
+        setError(`Gagal memuat COA: ${accountResult.error.message}`);
       } else {
-        setAccounts(
-          (accountResult.data ?? []) as Account[]
-        );
+        setAccounts((accountResult.data ?? []) as Account[]);
       }
 
       if (entityResult.error) {
-        setError(
-          `Gagal memuat cabang: ${entityResult.error.message}`
-        );
+        setError(`Gagal memuat cabang: ${entityResult.error.message}`);
       } else {
-        setEntities(
-          (entityResult.data ?? []) as Entity[]
-        );
+        setEntities((entityResult.data ?? []) as Entity[]);
       }
 
       setMasterLoading(false);
@@ -151,7 +140,8 @@ export default function BalanceSheetPage() {
         while (true) {
           let query = supabase
             .from("journal_details")
-            .select(`
+            .select(
+              `
               account_id,
               debit,
               credit,
@@ -159,42 +149,31 @@ export default function BalanceSheetPage() {
                 entity_id,
                 tanggal
               )
-            `)
+            `,
+            )
             .lte("journals.tanggal", asOfDate)
             .order("journal_id", {
               ascending: true,
             })
-            .range(
-              offset,
-              offset + FETCH_SIZE - 1
-            );
+            .range(offset, offset + FETCH_SIZE - 1);
 
           if (selectedEntityId) {
-            query = query.eq(
-              "journals.entity_id",
-              selectedEntityId
-            );
+            query = query.eq("journals.entity_id", selectedEntityId);
           }
 
-          const {
-            data,
-            error: journalError,
-          } = await query;
+          const { data, error: journalError } = await query;
 
           if (journalError) {
             throw journalError;
           }
 
-          const rows =
-            (data ?? []) as unknown as JournalDetailRow[];
+          const rows = (data ?? []) as unknown as JournalDetailRow[];
 
-          const details = rows.map(
-            (row) => ({
-              account_id: row.account_id,
-              debit: row.debit,
-              credit: row.credit,
-            })
-          );
+          const details = rows.map((row) => ({
+            account_id: row.account_id,
+            debit: row.debit,
+            credit: row.credit,
+          }));
 
           allDetails.push(...details);
 
@@ -209,20 +188,17 @@ export default function BalanceSheetPage() {
           setJournals(
             allDetails.map((detail) => ({
               journal_details: [detail],
-            }))
+            })),
           );
         }
       } catch (journalError) {
-        console.error(
-          "Gagal memuat jurnal Balance Sheet:",
-          journalError
-        );
+        console.error("Gagal memuat jurnal Balance Sheet:", journalError);
 
         if (!cancelled) {
           setError(
             journalError instanceof Error
               ? `Gagal memuat jurnal: ${journalError.message}`
-              : "Gagal memuat jurnal."
+              : "Gagal memuat jurnal.",
           );
 
           setJournals([]);
@@ -251,12 +227,8 @@ export default function BalanceSheetPage() {
           credit: 0,
         };
 
-        current.debit += Number(
-          detail.debit ?? 0
-        );
-        current.credit += Number(
-          detail.credit ?? 0
-        );
+        current.debit += Number(detail.debit ?? 0);
+        current.credit += Number(detail.credit ?? 0);
 
         mutations.set(detail.account_id, current);
       });
@@ -342,12 +314,13 @@ export default function BalanceSheetPage() {
       }
     });
 
-    const currentProfit = revenue + otherIncome - cogs - expenses - otherExpenses;
+    const currentProfit =
+      revenue + otherIncome - cogs - expenses - otherExpenses;
 
     const totalAssets = assets.reduce((sum, row) => sum + row.amount, 0);
     const totalLiabilities = liabilities.reduce(
       (sum, row) => sum + row.amount,
-      0
+      0,
     );
     const totalEquity = equities.reduce((sum, row) => sum + row.amount, 0);
     const totalEquityWithProfit = totalEquity + currentProfit;
@@ -362,17 +335,13 @@ export default function BalanceSheetPage() {
       totalEquity,
       totalEquityWithProfit,
       difference: Math.abs(
-        totalAssets - totalLiabilities - totalEquityWithProfit
+        totalAssets - totalLiabilities - totalEquityWithProfit,
       ),
     };
   }, [accounts, journals]);
 
-  const buildReportRows = (): Array<
-    Record<string, unknown>
-  > => {
-    const rows: Array<
-      Record<string, unknown>
-    > = [];
+  const buildReportRows = (): Array<Record<string, unknown>> => {
+    const rows: Array<Record<string, unknown>> = [];
 
     rows.push({
       keterangan: "ASET",
@@ -431,11 +400,8 @@ export default function BalanceSheetPage() {
     });
 
     rows.push({
-      keterangan:
-        "TOTAL KEWAJIBAN DAN EKUITAS",
-      jumlah:
-        report.totalLiabilities +
-        report.totalEquityWithProfit,
+      keterangan: "TOTAL KEWAJIBAN DAN EKUITAS",
+      jumlah: report.totalLiabilities + report.totalEquityWithProfit,
     });
 
     return rows;
@@ -447,7 +413,7 @@ export default function BalanceSheetPage() {
 
       exportReport({
         filename: `Balance_Sheet_${formatReportDate(
-          new Date(`${asOfDate}T00:00:00`)
+          new Date(`${asOfDate}T00:00:00`),
         )}.xlsx`,
 
         sheetName: "Balance Sheet",
@@ -461,27 +427,18 @@ export default function BalanceSheetPage() {
             label: "Jumlah",
             key: "jumlah",
             format: (value) =>
-              value === "" ||
-              value === null ||
-              value === undefined
+              value === "" || value === null || value === undefined
                 ? ""
-                : formatCurrency(
-                    Number(value)
-                  ),
+                : formatCurrency(Number(value)),
           },
         ],
 
         rows,
       });
     } catch (error) {
-      console.error(
-        "Export Balance Sheet gagal:",
-        error
-      );
+      console.error("Export Balance Sheet gagal:", error);
 
-      alert(
-        "Gagal melakukan export Balance Sheet."
-      );
+      alert("Gagal melakukan export Balance Sheet.");
     }
   };
 
@@ -491,14 +448,13 @@ export default function BalanceSheetPage() {
 
       const currentUser = getCustomUser();
 
-      const printedBy =
-        currentUser?.name || "-";
+      const printedBy = currentUser?.name || "-";
 
       printReport({
         title: "BALANCE SHEET",
 
         period: `Posisi per ${formatReportDisplayDate(
-          new Date(`${asOfDate}T00:00:00`)
+          new Date(`${asOfDate}T00:00:00`),
         )}`,
 
         orientation: "portrait",
@@ -515,27 +471,18 @@ export default function BalanceSheetPage() {
             key: "jumlah",
             align: "right",
             format: (value) =>
-              value === "" ||
-              value === null ||
-              value === undefined
+              value === "" || value === null || value === undefined
                 ? ""
-                : formatCurrency(
-                    Number(value)
-                  ),
+                : formatCurrency(Number(value)),
           },
         ],
 
         rows,
       });
     } catch (error) {
-      console.error(
-        "Print Balance Sheet gagal:",
-        error
-      );
+      console.error("Print Balance Sheet gagal:", error);
 
-      alert(
-        "Gagal mencetak Balance Sheet."
-      );
+      alert("Gagal mencetak Balance Sheet.");
     }
   };
 
@@ -545,9 +492,7 @@ export default function BalanceSheetPage() {
         <td className="px-4 py-2 pl-10">
           {row.code} - {row.name}
         </td>
-        <td className="px-4 py-2 text-right">
-          {formatCurrency(row.amount)}
-        </td>
+        <td className="px-4 py-2 text-right">{formatCurrency(row.amount)}</td>
       </tr>
     ));
 
@@ -638,7 +583,7 @@ export default function BalanceSheetPage() {
             <table className="min-w-full text-sm">
               <thead className="bg-gray-100 text-gray-700">
                 <tr>
-                  <th className="px-4 py-3 text-left">ASET</th>
+                  <th className="px-4 py-3">ASET</th>
                   <th className="px-4 py-3 text-right">Jumlah</th>
                 </tr>
               </thead>
@@ -646,7 +591,10 @@ export default function BalanceSheetPage() {
               <tbody>
                 {loading && (
                   <tr>
-                    <td colSpan={2} className="px-4 py-8 text-center text-gray-500">
+                    <td
+                      colSpan={2}
+                      className="px-4 py-8 text-center text-gray-500"
+                    >
                       Memuat Neraca...
                     </td>
                   </tr>
@@ -671,7 +619,7 @@ export default function BalanceSheetPage() {
               <table className="min-w-full text-sm">
                 <thead className="bg-gray-100 text-gray-700">
                   <tr>
-                    <th className="px-4 py-3 text-left">KEWAJIBAN</th>
+                    <th className="px-4 py-3">KEWAJIBAN</th>
                     <th className="px-4 py-3 text-right">Jumlah</th>
                   </tr>
                 </thead>
@@ -695,7 +643,7 @@ export default function BalanceSheetPage() {
               <table className="min-w-full text-sm">
                 <thead className="bg-gray-100 text-gray-700">
                   <tr>
-                    <th className="px-4 py-3 text-left">EKUITAS</th>
+                    <th className="px-4 py-3">EKUITAS</th>
                     <th className="px-4 py-3 text-right">Jumlah</th>
                   </tr>
                 </thead>
@@ -725,12 +673,11 @@ export default function BalanceSheetPage() {
 
                   {!loading && (
                     <tr className="border-t bg-green-100 text-base font-bold">
-                      <td className="px-4 py-4">
-                        TOTAL KEWAJIBAN DAN EKUITAS
-                      </td>
+                      <td className="px-4 py-4">TOTAL KEWAJIBAN DAN EKUITAS</td>
                       <td className="px-4 py-4 text-right">
                         {formatCurrency(
-                          report.totalLiabilities + report.totalEquityWithProfit
+                          report.totalLiabilities +
+                            report.totalEquityWithProfit,
                         )}
                       </td>
                     </tr>

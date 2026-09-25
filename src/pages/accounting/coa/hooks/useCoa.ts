@@ -43,23 +43,21 @@ export function useCoa(entityId?: string | null) {
     setSaving(true);
     setError(null);
 
-    const { error: createError } = await supabase
-      .from(TABLE_NAME)
-      .insert({
-        code: payload.code.trim(),
-        name: payload.name.trim(),
-        parent_account_id: payload.parent_account_id || null,
-        category_code: payload.category_code,
+    const { error: createError } = await supabase.from(TABLE_NAME).insert({
+      code: payload.code.trim(),
+      name: payload.name.trim(),
+      parent_account_id: payload.parent_account_id || null,
+      category_code: payload.category_code,
 
-        type: payload.account_type,
-        account_type: payload.account_type,
+      type: payload.account_type,
+      account_type: payload.account_type,
 
-        normal_balance: payload.normal_balance,
-        is_posting: payload.is_posting,
-        is_summary: payload.is_summary,
-        is_active: payload.is_active,
-        entity_id: payload.entity_id || null,
-      });
+      normal_balance: payload.normal_balance,
+      is_posting: payload.is_posting,
+      is_summary: payload.is_summary,
+      is_active: payload.is_active,
+      entity_id: payload.entity_id || null,
+    });
 
     if (createError) {
       setError(createError.message);
@@ -129,17 +127,17 @@ export function useCoa(entityId?: string | null) {
 
   const activeAccounts = useMemo(
     () => accounts.filter((account) => account.is_active),
-    [accounts]
+    [accounts],
   );
 
   const postingAccounts = useMemo(
     () => accounts.filter((account) => account.is_posting && account.is_active),
-    [accounts]
+    [accounts],
   );
 
   const summaryAccounts = useMemo(
     () => accounts.filter((account) => account.is_summary && account.is_active),
-    [accounts]
+    [accounts],
   );
 
   return {

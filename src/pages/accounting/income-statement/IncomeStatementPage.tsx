@@ -1,4 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
+import {
+  Building2,
+  CalendarDays,
+  FileSpreadsheet,
+  Filter,
+  Printer,
+  RefreshCw,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
+
 import { supabase } from "@/lib/supabaseClient";
 import { getCustomUser } from "@/lib/authUser";
 import {
@@ -7,7 +18,6 @@ import {
   formatReportDateRange,
 } from "@/utils/exportReport";
 import { printReport } from "@/utils/printReport";
-
 
 type AccountCategory =
   | "REVENUE"
@@ -71,7 +81,7 @@ function getNormalBalance(account: Account): "D" | "C" {
   }
 
   return ["COGS", "EXPENSE", "OTHER_EXPENSE"].includes(
-    account.category_code ?? ""
+    account.category_code ?? "",
   )
     ? "D"
     : "C";
@@ -80,9 +90,7 @@ function getNormalBalance(account: Account): "D" | "C" {
 export default function IncomeStatementPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [entities, setEntities] = useState<Entity[]>([]);
-  const [journalDetails, setJournalDetails] = useState<
-    JournalDetail[]
-  >([]);
+  const [journalDetails, setJournalDetails] = useState<JournalDetail[]>([]);
 
   const [selectedEntityId, setSelectedEntityId] = useState("");
   const [startDate, setStartDate] = useState(firstDayOfMonth);
@@ -110,10 +118,8 @@ export default function IncomeStatementPage() {
             "OTHER_EXPENSE",
           ])
           .order("code"),
-        supabase
-          .from("entities")
-          .select("id, kode, nama")
-          .order("nama"),
+
+        supabase.from("entities").select("id, kode, nama").order("nama"),
       ]);
 
       if (accountResult.error) {
@@ -159,29 +165,28 @@ export default function IncomeStatementPage() {
         while (true) {
           let query = supabase
             .from("journal_details")
-            .select(`
-              account_id,
-              debit,
-              credit,
-              journals!inner (
-                entity_id,
-                tanggal
-              )
-            `)
+            .select(
+              `
+                account_id,
+                debit,
+                credit,
+                journals!inner (
+                  entity_id,
+                  tanggal
+                )
+              `,
+            )
             .gte("journals.tanggal", startDate)
             .lte("journals.tanggal", endDate)
             .order("id", {
               ascending: true,
             })
-            .range(
-              offset,
-              offset + FETCH_SIZE - 1
-            );
+            .range(offset, offset + FETCH_SIZE - 1);
 
           if (selectedEntityId) {
             query = query.eq(
               "journals.entity_id",
-              selectedEntityId
+              selectedEntityId,
             );
           }
 
@@ -202,7 +207,7 @@ export default function IncomeStatementPage() {
               account_id: row.account_id,
               debit: row.debit,
               credit: row.credit,
-            }))
+            })),
           );
 
           if (rows.length < FETCH_SIZE) {
@@ -218,15 +223,16 @@ export default function IncomeStatementPage() {
       } catch (journalError) {
         console.error(
           "Gagal memuat jurnal Income Statement:",
-          journalError
+          journalError,
         );
 
         if (!cancelled) {
           setJournalDetails([]);
+
           setError(
             journalError instanceof Error
               ? `Gagal memuat jurnal: ${journalError.message}`
-              : "Gagal memuat jurnal."
+              : "Gagal memuat jurnal.",
           );
         }
       } finally {
@@ -249,7 +255,13 @@ export default function IncomeStatementPage() {
   ]);
 
   const report = useMemo(() => {
-    const mutations = new Map<string, { debit: number; credit: number }>();
+    const mutations = new Map<
+      string,
+      {
+        debit: number;
+        credit: number;
+      }
+    >();
 
     journalDetails.forEach((detail) => {
       const current =
@@ -258,18 +270,10 @@ export default function IncomeStatementPage() {
           credit: 0,
         };
 
-      current.debit += Number(
-        detail.debit ?? 0
-      );
+      current.debit += Number(detail.debit ?? 0);
+      current.credit += Number(detail.credit ?? 0);
 
-      current.credit += Number(
-        detail.credit ?? 0
-      );
-
-      mutations.set(
-        detail.account_id,
-        current
-      );
+      mutations.set(detail.account_id, current);
     });
 
     const grouped: Record<AccountCategory, ReportRow[]> = {
@@ -285,12 +289,14 @@ export default function IncomeStatementPage() {
 
       if (!category) return;
 
-      const mutation = mutations.get(account.id) ?? {
-        debit: 0,
-        credit: 0,
-      };
+      const mutation =
+        mutations.get(account.id) ?? {
+          debit: 0,
+          credit: 0,
+        };
 
-      const normalBalance = getNormalBalance(account);
+      const normalBalance =
+        getNormalBalance(account);
 
       const amount =
         normalBalance === "D"
@@ -308,18 +314,26 @@ export default function IncomeStatementPage() {
     });
 
     const total = (category: AccountCategory) =>
-      grouped[category].reduce((sum, row) => sum + row.amount, 0);
+      grouped[category].reduce(
+        (sum, row) => sum + row.amount,
+        0,
+      );
 
     const revenue = total("REVENUE");
     const cogs = total("COGS");
     const grossProfit = revenue - cogs;
 
     const operatingExpense = total("EXPENSE");
-    const operatingProfit = grossProfit - operatingExpense;
+    const operatingProfit =
+      grossProfit - operatingExpense;
 
     const otherIncome = total("OTHER_INCOME");
     const otherExpense = total("OTHER_EXPENSE");
-    const netProfit = operatingProfit + otherIncome - otherExpense;
+
+    const netProfit =
+      operatingProfit +
+      otherIncome -
+      otherExpense;
 
     return {
       grouped,
@@ -341,7 +355,7 @@ export default function IncomeStatementPage() {
       title: string,
       sectionRows: ReportRow[],
       totalLabel: string,
-      totalAmount: number
+      totalAmount: number,
     ) => {
       rows.push({
         keterangan: title,
@@ -365,14 +379,14 @@ export default function IncomeStatementPage() {
       "PENDAPATAN",
       report.grouped.REVENUE,
       "Total Pendapatan",
-      report.revenue
+      report.revenue,
     );
 
     addSection(
       "HARGA POKOK PENJUALAN",
       report.grouped.COGS,
       "Total Harga Pokok Penjualan",
-      report.cogs
+      report.cogs,
     );
 
     rows.push({
@@ -384,7 +398,7 @@ export default function IncomeStatementPage() {
       "BEBAN OPERASIONAL",
       report.grouped.EXPENSE,
       "Total Beban Operasional",
-      report.operatingExpense
+      report.operatingExpense,
     );
 
     rows.push({
@@ -396,19 +410,18 @@ export default function IncomeStatementPage() {
       "PENDAPATAN LAIN-LAIN",
       report.grouped.OTHER_INCOME,
       "Total Pendapatan Lain-lain",
-      report.otherIncome
+      report.otherIncome,
     );
 
     addSection(
       "BEBAN LAIN-LAIN",
       report.grouped.OTHER_EXPENSE,
       "Total Beban Lain-lain",
-      report.otherExpense
+      report.otherExpense,
     );
 
     rows.push({
-      keterangan:
-        "LABA BERSIH PERIODE BERJALAN",
+      keterangan: "LABA BERSIH PERIODE BERJALAN",
       jumlah: report.netProfit,
     });
 
@@ -422,7 +435,7 @@ export default function IncomeStatementPage() {
       exportReport({
         filename: `Income_Statement_${formatReportDateRange(
           new Date(`${startDate}T00:00:00`),
-          new Date(`${endDate}T00:00:00`)
+          new Date(`${endDate}T00:00:00`),
         )}.xlsx`,
 
         sheetName: "Income Statement",
@@ -440,9 +453,7 @@ export default function IncomeStatementPage() {
               value === null ||
               value === undefined
                 ? ""
-                : formatCurrency(
-                    Number(value)
-                  ),
+                : formatCurrency(Number(value)),
           },
         ],
 
@@ -451,12 +462,10 @@ export default function IncomeStatementPage() {
     } catch (error) {
       console.error(
         "Export Income Statement gagal:",
-        error
+        error,
       );
 
-      alert(
-        "Gagal melakukan export Income Statement."
-      );
+      alert("Gagal melakukan export Income Statement.");
     }
   };
 
@@ -466,16 +475,15 @@ export default function IncomeStatementPage() {
 
       const currentUser = getCustomUser();
 
-      const printedBy =
-        currentUser?.name || "-";
+      const printedBy = currentUser?.name || "-";
 
       printReport({
         title: "INCOME STATEMENT",
 
         period: `${formatReportDisplayDate(
-          new Date(`${startDate}T00:00:00`)
+          new Date(`${startDate}T00:00:00`),
         )} s/d ${formatReportDisplayDate(
-          new Date(`${endDate}T00:00:00`)
+          new Date(`${endDate}T00:00:00`),
         )}`,
 
         orientation: "portrait",
@@ -496,9 +504,7 @@ export default function IncomeStatementPage() {
               value === null ||
               value === undefined
                 ? ""
-                : formatCurrency(
-                    Number(value)
-                  ),
+                : formatCurrency(Number(value)),
           },
         ],
 
@@ -507,209 +513,685 @@ export default function IncomeStatementPage() {
     } catch (error) {
       console.error(
         "Print Income Statement gagal:",
-        error
+        error,
       );
 
-      alert(
-        "Gagal mencetak Income Statement."
-      );
+      alert("Gagal mencetak Income Statement.");
     }
   };
 
   const renderRows = (rows: ReportRow[]) =>
     rows.map((row) => (
-      <tr key={row.id} className="border-t">
-        <td className="px-4 py-2 pl-10">
-          {row.code} - {row.name}
+      <tr
+        key={row.id}
+        className="border-b border-slate-100 transition-colors hover:bg-slate-50"
+      >
+        <td className="px-6 py-3 align-middle">
+          <div className="mx-auto w-full max-w-[520px] text-left">
+            <div className="font-medium text-slate-700">
+              {row.code} - {row.name}
+            </div>           
+          </div>
         </td>
-        <td className="px-4 py-2 text-right">
+
+        <td className="whitespace-nowrap px-5 py-2.5 text-right text-sm font-medium tabular-nums text-slate-700">
           {formatCurrency(row.amount)}
         </td>
       </tr>
     ));
 
+  const selectedEntity = entities.find(
+    (entity) => entity.id === selectedEntityId,
+  );
+
+  const periodLabel =
+    startDate && endDate
+      ? `${formatReportDisplayDate(
+          new Date(`${startDate}T00:00:00`),
+        )} s/d ${formatReportDisplayDate(
+          new Date(`${endDate}T00:00:00`),
+        )}`
+      : "-";
+
+  const resetFilters = () => {
+    setSelectedEntityId("");
+    setStartDate(firstDayOfMonth);
+    setEndDate(today);
+  };
+
   return (
-    <div className="p-4 bg-white rounded shadow max-w-[1600px] mx-auto">
-      <div className="w-full space-y-4">
-        <div className="grid gap-4 rounded-md border border-gray-200 bg-white p-4 md:grid-cols-3">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Cabang
-            </label>
+    <div className="min-h-full bg-slate-50 p-4 md:p-6">
+      <div className="mx-auto w-full max-w-[1600px] space-y-5">
 
-            <select
-              value={selectedEntityId}
-              onChange={(event) => setSelectedEntityId(event.target.value)}
-              disabled={masterLoading}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+        {/* =========================================================
+            HEADER
+        ========================================================= */}
+        <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white px-5 py-5 shadow-sm md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                <TrendingUp size={22} />
+              </div>
+
+              <div>
+                <h1 className="text-xl font-bold tracking-tight text-slate-800 md:text-2xl">
+                  Income Statement
+                </h1>
+
+                <p className="mt-0.5 text-sm text-slate-500">
+                  Laporan laba rugi berdasarkan transaksi jurnal
+                  pada periode yang dipilih.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5">
+            <div className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+              Periode Laporan
+            </div>
+
+            <div className="mt-0.5 text-sm font-semibold text-slate-700">
+              {periodLabel}
+            </div>
+
+            {selectedEntity && (
+              <div className="mt-0.5 text-xs text-slate-500">
+                {selectedEntity.kode} - {selectedEntity.nama}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* =========================================================
+            FILTER
+        ========================================================= */}
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-slate-600 shadow-sm ring-1 ring-slate-200">
+                <Filter size={16} />
+              </div>
+
+              <div>
+                <h2 className="text-sm font-semibold text-slate-800">
+                  Filter Laporan
+                </h2>
+
+                <p className="text-xs text-slate-500">
+                  Tentukan cabang dan periode laporan.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={resetFilters}
+              disabled={masterLoading || loading}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <option value="">Semua Cabang</option>
+              <RefreshCw size={14} />
+              Reset Filter
+            </button>
+          </div>
 
-              {entities.map((entity) => (
-                <option key={entity.id} value={entity.id}>
-                  {entity.kode} - {entity.nama}
+          <div className="grid grid-cols-1 gap-4 p-5 md:grid-cols-3">
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+                <Building2 size={14} />
+                Cabang
+              </label>
+
+              <select
+                value={selectedEntityId}
+                onChange={(event) =>
+                  setSelectedEntityId(event.target.value)
+                }
+                disabled={masterLoading}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+              >
+                <option value="">
+                  Semua Cabang
                 </option>
-              ))}
-            </select>
-          </div>
 
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Dari Tanggal
-            </label>
+                {entities.map((entity) => (
+                  <option
+                    key={entity.id}
+                    value={entity.id}
+                  >
+                    {entity.kode} - {entity.nama}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-            <input
-              type="date"
-              value={startDate}
-              onChange={(event) => setStartDate(event.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-            />
-          </div>
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+                <CalendarDays size={14} />
+                Dari Tanggal
+              </label>
 
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Sampai Tanggal
-            </label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(event) =>
+                  setStartDate(event.target.value)
+                }
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
 
-            <input
-              type="date"
-              value={endDate}
-              onChange={(event) => setEndDate(event.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-            />
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+                <CalendarDays size={14} />
+                Sampai Tanggal
+              </label>
+
+              <input
+                type="date"
+                value={endDate}
+                onChange={(event) =>
+                  setEndDate(event.target.value)
+                }
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 mb-4 py-4">
-          <button
-            type="button"
-            onClick={handleExportExcel}
-            disabled={
-              loading ||
-              startDate > endDate
-            }
-            className="bg-green-600 text-white px-3 py-1 rounded flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Export Excel
-          </button>
-
-          <button
-            type="button"
-            onClick={handlePrint}
-            disabled={
-              loading ||
-              startDate > endDate
-            }
-            className="bg-blue-600 text-white px-3 py-1 rounded flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Cetak
-          </button>
-        </div>
-
+        {/* =========================================================
+            VALIDATION / ERROR
+        ========================================================= */}
         {startDate > endDate && (
-          <div className="rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-700">
-            Tanggal awal tidak boleh melebihi tanggal akhir.
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            <div className="font-semibold">
+              Periode tidak valid
+            </div>
+
+            <div className="mt-0.5 text-xs">
+              Tanggal awal tidak boleh melebihi tanggal akhir.
+            </div>
           </div>
         )}
 
         {error && (
-          <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="font-semibold">
+              Terjadi kesalahan
+            </div>
+
+            <div className="mt-0.5">
+              {error}
+            </div>
           </div>
         )}
 
-        <div className="overflow-x-auto rounded-md border border-gray-200 bg-white">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-100 text-gray-700">
-              <tr>
-                <th className="px-4 py-3 text-left">Keterangan</th>
-                <th className="px-4 py-3 text-right">Jumlah</th>
-              </tr>
-            </thead>
+        {/* =========================================================
+            SUMMARY CARDS
+        ========================================================= */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
 
-            <tbody>
-              {loading && (
+          {/* Pendapatan */}
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  Total Pendapatan
+                </p>
+
+                <p className="mt-2 text-xl font-bold text-slate-800">
+                  Rp {formatCurrency(report.revenue)}
+                </p>
+              </div>
+
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                <TrendingUp size={19} />
+              </div>
+            </div>
+
+            <div className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
+              Pendapatan selama periode laporan
+            </div>
+          </div>
+
+          {/* Laba Kotor */}
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  Laba Kotor
+                </p>
+
+                <p className="mt-2 text-xl font-bold text-slate-800">
+                  Rp {formatCurrency(report.grossProfit)}
+                </p>
+              </div>
+
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                <TrendingUp size={19} />
+              </div>
+            </div>
+
+            <div className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
+              Pendapatan dikurangi harga pokok penjualan
+            </div>
+          </div>
+
+          {/* Laba Bersih */}
+          <div
+            className={`rounded-xl border p-5 shadow-sm ${
+              report.netProfit >= 0
+                ? "border-emerald-200 bg-emerald-50/50"
+                : "border-red-200 bg-red-50/50"
+            }`}
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                  Laba Bersih
+                </p>
+
+                <p
+                  className={`mt-2 text-xl font-bold ${
+                    report.netProfit >= 0
+                      ? "text-emerald-700"
+                      : "text-red-700"
+                  }`}
+                >
+                  Rp {formatCurrency(report.netProfit)}
+                </p>
+              </div>
+
+              <div
+                className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+                  report.netProfit >= 0
+                    ? "bg-emerald-100 text-emerald-600"
+                    : "bg-red-100 text-red-600"
+                }`}
+              >
+                {report.netProfit >= 0 ? (
+                  <TrendingUp size={19} />
+                ) : (
+                  <TrendingDown size={19} />
+                )}
+              </div>
+            </div>
+
+            <div className="mt-3 border-t border-current/10 pt-3 text-xs text-slate-500">
+              Laba bersih periode berjalan
+            </div>
+          </div>
+        </div>
+
+        {/* =========================================================
+            REPORT CARD
+        ========================================================= */}
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+
+          {/* Report Header */}
+          <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                  <TrendingUp size={16} />
+                </div>
+
+                <h2 className="text-sm font-bold text-slate-800">
+                  Rincian Income Statement
+                </h2>
+              </div>
+
+              <p className="mt-1 text-xs text-slate-500">
+                {periodLabel}
+                {selectedEntity
+                  ? ` • ${selectedEntity.kode} - ${selectedEntity.nama}`
+                  : " • Semua Cabang"}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleExportExcel}
+                disabled={
+                  loading ||
+                  masterLoading ||
+                  startDate > endDate
+                }
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3.5 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <FileSpreadsheet size={15} />
+                Export Excel
+              </button>
+
+              <button
+                type="button"
+                onClick={handlePrint}
+                disabled={
+                  loading ||
+                  masterLoading ||
+                  startDate > endDate
+                }
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Printer size={15} />
+                Cetak
+              </button>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="max-h-[calc(100vh-360px)] min-h-[400px] overflow-auto">
+            <table className="min-w-full text-sm">
+
+              <thead className="sticky top-0 z-10 bg-slate-100 text-slate-600 shadow-sm">
                 <tr>
-                  <td colSpan={2} className="px-4 py-8 text-center text-gray-500">
-                    Memuat Laba Rugi...
-                  </td>
+                  <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-wide">
+                    Keterangan
+                  </th>
+
+                  <th className="w-[260px] px-5 py-3 text-right text-xs font-bold uppercase tracking-wide">
+                    Jumlah
+                  </th>
                 </tr>
-              )}
+              </thead>
 
-              {!loading && (
-                <>
-                  <tr className="border-t bg-blue-50 font-semibold">
-                    <td className="px-4 py-3">Pendapatan</td>
-                    <td className="px-4 py-3 text-right" />
-                  </tr>
-                  {renderRows(report.grouped.REVENUE)}
-                  <tr className="border-t font-semibold">
-                    <td className="px-4 py-3">Total Pendapatan</td>
-                    <td className="px-4 py-3 text-right">
-                      {formatCurrency(report.revenue)}
+              <tbody>
+                {loading && (
+                  <tr>
+                    <td
+                      colSpan={2}
+                      className="px-5 py-14 text-center"
+                    >
+                      <div className="flex flex-col items-center justify-center gap-3">
+                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600" />
+
+                        <div className="text-sm font-medium text-slate-600">
+                          Memuat Income Statement...
+                        </div>
+
+                        <div className="text-xs text-slate-400">
+                          Mengambil transaksi jurnal pada periode yang dipilih.
+                        </div>
+                      </div>
                     </td>
                   </tr>
+                )}
 
-                  <tr className="border-t bg-blue-50 font-semibold">
-                    <td className="px-4 py-3">Harga Pokok Penjualan</td>
-                    <td className="px-4 py-3 text-right" />
-                  </tr>
-                  {renderRows(report.grouped.COGS)}
-                  <tr className="border-t font-semibold">
-                    <td className="px-4 py-3">Total Harga Pokok Penjualan</td>
-                    <td className="px-4 py-3 text-right">
-                      {formatCurrency(report.cogs)}
-                    </td>
-                  </tr>
+                {!loading && (
+                  <>
+                    {/* =================================================
+                        PENDAPATAN
+                    ================================================= */}
+                    <tr className="border-b border-blue-100 bg-blue-50/70">
+                      <td
+                        colSpan={2}
+                        className="px-5 py-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-blue-900">
+                            Pendapatan
+                          </span>
 
-                  <tr className="border-t bg-gray-100 font-bold">
-                    <td className="px-4 py-3">Laba Kotor</td>
-                    <td className="px-4 py-3 text-right">
-                      {formatCurrency(report.grossProfit)}
-                    </td>
-                  </tr>
+                          <span className="text-xs font-medium text-blue-600">
+                            REVENUE
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
 
-                  <tr className="border-t bg-blue-50 font-semibold">
-                    <td className="px-4 py-3">Beban Operasional</td>
-                    <td className="px-4 py-3 text-right" />
-                  </tr>
-                  {renderRows(report.grouped.EXPENSE)}
-                  <tr className="border-t font-semibold">
-                    <td className="px-4 py-3">Total Beban Operasional</td>
-                    <td className="px-4 py-3 text-right">
-                      {formatCurrency(report.operatingExpense)}
-                    </td>
-                  </tr>
+                    {renderRows(
+                      report.grouped.REVENUE,
+                    )}
 
-                  <tr className="border-t bg-gray-100 font-bold">
-                    <td className="px-4 py-3">Laba Usaha</td>
-                    <td className="px-4 py-3 text-right">
-                      {formatCurrency(report.operatingProfit)}
-                    </td>
-                  </tr>
+                    <tr className="border-b border-slate-200 bg-slate-50">
+                      <td className="px-5 py-3 pl-8 font-semibold text-slate-700">
+                        Total Pendapatan
+                      </td>
 
-                  <tr className="border-t bg-blue-50 font-semibold">
-                    <td className="px-4 py-3">Pendapatan Lain-lain</td>
-                    <td className="px-4 py-3 text-right" />
-                  </tr>
-                  {renderRows(report.grouped.OTHER_INCOME)}
+                      <td className="px-5 py-3 text-right font-bold tabular-nums text-slate-800">
+                        {formatCurrency(report.revenue)}
+                      </td>
+                    </tr>
 
-                  <tr className="border-t bg-blue-50 font-semibold">
-                    <td className="px-4 py-3">Beban Lain-lain</td>
-                    <td className="px-4 py-3 text-right" />
-                  </tr>
-                  {renderRows(report.grouped.OTHER_EXPENSE)}
+                    {/* =================================================
+                        HPP
+                    ================================================= */}
+                    <tr className="border-b border-blue-100 bg-blue-50/70">
+                      <td
+                        colSpan={2}
+                        className="px-5 py-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-blue-900">
+                            Harga Pokok Penjualan
+                          </span>
 
-                  <tr className="border-t bg-green-100 text-base font-bold">
-                    <td className="px-4 py-4">Laba Bersih Periode Berjalan</td>
-                    <td className="px-4 py-4 text-right">
-                      {formatCurrency(report.netProfit)}
-                    </td>
-                  </tr>
-                </>
-              )}
-            </tbody>
-          </table>
+                          <span className="text-xs font-medium text-blue-600">
+                            COGS
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {renderRows(
+                      report.grouped.COGS,
+                    )}
+
+                    <tr className="border-b border-slate-200 bg-slate-50">
+                      <td className="px-5 py-3 pl-8 font-semibold text-slate-700">
+                        Total Harga Pokok Penjualan
+                      </td>
+
+                      <td className="px-5 py-3 text-right font-bold tabular-nums text-slate-800">
+                        {formatCurrency(report.cogs)}
+                      </td>
+                    </tr>
+
+                    {/* =================================================
+                        LABA KOTOR
+                    ================================================= */}
+                    <tr className="border-b border-blue-200 bg-blue-100/70">
+                      <td className="px-5 py-3 font-bold text-blue-900">
+                        Laba Kotor
+                      </td>
+
+                      <td className="px-5 py-3 text-right text-base font-bold tabular-nums text-blue-900">
+                        {formatCurrency(
+                          report.grossProfit,
+                        )}
+                      </td>
+                    </tr>
+
+                    {/* =================================================
+                        BEBAN OPERASIONAL
+                    ================================================= */}
+                    <tr className="border-b border-blue-100 bg-blue-50/70">
+                      <td
+                        colSpan={2}
+                        className="px-5 py-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-blue-900">
+                            Beban Operasional
+                          </span>
+
+                          <span className="text-xs font-medium text-blue-600">
+                            EXPENSE
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {renderRows(
+                      report.grouped.EXPENSE,
+                    )}
+
+                    <tr className="border-b border-slate-200 bg-slate-50">
+                      <td className="px-5 py-3 pl-8 font-semibold text-slate-700">
+                        Total Beban Operasional
+                      </td>
+
+                      <td className="px-5 py-3 text-right font-bold tabular-nums text-slate-800">
+                        {formatCurrency(
+                          report.operatingExpense,
+                        )}
+                      </td>
+                    </tr>
+
+                    {/* =================================================
+                        LABA USAHA
+                    ================================================= */}
+                    <tr className="border-b border-blue-200 bg-blue-100/70">
+                      <td className="px-5 py-3 font-bold text-blue-900">
+                        Laba Usaha
+                      </td>
+
+                      <td className="px-5 py-3 text-right text-base font-bold tabular-nums text-blue-900">
+                        {formatCurrency(
+                          report.operatingProfit,
+                        )}
+                      </td>
+                    </tr>
+
+                    {/* =================================================
+                        PENDAPATAN LAIN-LAIN
+                    ================================================= */}
+                    <tr className="border-b border-blue-100 bg-blue-50/70">
+                      <td
+                        colSpan={2}
+                        className="px-5 py-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-blue-900">
+                            Pendapatan Lain-lain
+                          </span>
+
+                          <span className="text-xs font-medium text-blue-600">
+                            OTHER INCOME
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {renderRows(
+                      report.grouped.OTHER_INCOME,
+                    )}
+
+                    <tr className="border-b border-slate-200 bg-slate-50">
+                      <td className="px-5 py-3 pl-8 font-semibold text-slate-700">
+                        Total Pendapatan Lain-lain
+                      </td>
+
+                      <td className="px-5 py-3 text-right font-bold tabular-nums text-slate-800">
+                        {formatCurrency(
+                          report.otherIncome,
+                        )}
+                      </td>
+                    </tr>
+
+                    {/* =================================================
+                        BEBAN LAIN-LAIN
+                    ================================================= */}
+                    <tr className="border-b border-blue-100 bg-blue-50/70">
+                      <td
+                        colSpan={2}
+                        className="px-5 py-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-blue-900">
+                            Beban Lain-lain
+                          </span>
+
+                          <span className="text-xs font-medium text-blue-600">
+                            OTHER EXPENSE
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {renderRows(
+                      report.grouped.OTHER_EXPENSE,
+                    )}
+
+                    <tr className="border-b border-slate-200 bg-slate-50">
+                      <td className="px-5 py-3 pl-8 font-semibold text-slate-700">
+                        Total Beban Lain-lain
+                      </td>
+
+                      <td className="px-5 py-3 text-right font-bold tabular-nums text-slate-800">
+                        {formatCurrency(
+                          report.otherExpense,
+                        )}
+                      </td>
+                    </tr>
+
+                    {/* =================================================
+                        NET PROFIT
+                    ================================================= */}
+                    <tr
+                      className={`border-t-2 ${
+                        report.netProfit >= 0
+                          ? "border-emerald-300 bg-emerald-100/80"
+                          : "border-red-300 bg-red-100/80"
+                      }`}
+                    >
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          {report.netProfit >= 0 ? (
+                            <TrendingUp
+                              size={18}
+                              className="text-emerald-700"
+                            />
+                          ) : (
+                            <TrendingDown
+                              size={18}
+                              className="text-red-700"
+                            />
+                          )}
+
+                          <span
+                            className={`text-base font-bold ${
+                              report.netProfit >= 0
+                                ? "text-emerald-900"
+                                : "text-red-900"
+                            }`}
+                          >
+                            Laba Bersih Periode Berjalan
+                          </span>
+                        </div>
+                      </td>
+
+                      <td
+                        className={`px-5 py-4 text-right text-lg font-bold tabular-nums ${
+                          report.netProfit >= 0
+                            ? "text-emerald-800"
+                            : "text-red-800"
+                        }`}
+                      >
+                        {formatCurrency(
+                          report.netProfit,
+                        )}
+                      </td>
+                    </tr>
+                  </>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Footer */}
+          {!loading && (
+            <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+              <span>
+                Laporan berdasarkan jurnal yang telah diposting.
+              </span>
+
+              <span className="font-medium text-slate-600">
+                {periodLabel}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>

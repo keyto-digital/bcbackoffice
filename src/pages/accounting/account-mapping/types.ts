@@ -1,10 +1,5 @@
 export type MappingModuleCode =
-  | "CASH_DAILY"
-  | "SALES"
-  | "PURCHASE"
-  | "RECEIVING"
-  | "PAYMENT"
-  | "ADJUSTMENT";
+  "CASH_DAILY" | "SALES" | "PURCHASE" | "RECEIVING" | "PAYMENT" | "ADJUSTMENT";
 
 export type MappingTransactionCode =
   | "CASH_RECEIPT"

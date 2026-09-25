@@ -55,7 +55,11 @@ export function CoaTable({
                 </td>
 
                 <td className="px-4 py-3 text-gray-700">
-                  <div style={{ paddingLeft: `${Math.max(account.account_level - 1, 0) * 16}px` }}>
+                  <div
+                    style={{
+                      paddingLeft: `${Math.max(account.account_level - 1, 0) * 16}px`,
+                    }}
+                  >
                     {account.name}
                   </div>
                 </td>

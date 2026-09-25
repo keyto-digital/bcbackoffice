@@ -414,10 +414,18 @@ export function SupplierInvoicePage() {
     }
 
     setSelectedInvoiceIds(new Set<string>());
-
     setSelectedInvoiceMap(new Map<string, ApInvoice>());
-
     setShowRequestForm(false);
+
+    // Reset halaman Proses Bayar
+    setPaymentRequestPage(1);
+
+    // Refresh setelah pengajuan berhasil
+    await fetchPaymentRequests(
+      paymentSearch,
+      1,
+      PAGE_SIZE,
+    );
 
     setTab("PROSES_BAYAR");
 
@@ -2130,7 +2138,7 @@ export function SupplierInvoicePage() {
 
       {detailTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-3xl rounded-lg bg-white shadow-xl">
+          <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
             <div className="flex items-center justify-between border-b px-6 py-4">
               <h2 className="text-lg font-semibold">Detail Transaksi</h2>
 
@@ -2143,7 +2151,7 @@ export function SupplierInvoicePage() {
               </button>
             </div>
 
-            <div className="p-6">
+            <div className="min-h-0 flex-1 overflow-y-auto p-6">
               {"invoice_number" in detailTarget ? (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>

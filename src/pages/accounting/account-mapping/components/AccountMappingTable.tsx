@@ -61,7 +61,9 @@ export function AccountMappingTable({
                 </td>
 
                 <td className="px-4 py-3 text-gray-700">
-                  <div className="font-medium text-gray-900">{mapping.name}</div>
+                  <div className="font-medium text-gray-900">
+                    {mapping.name}
+                  </div>
                   {mapping.description && (
                     <div className="mt-1 text-xs text-gray-500">
                       {mapping.description}
@@ -72,7 +74,9 @@ export function AccountMappingTable({
                 <td className="whitespace-nowrap px-4 py-3 text-gray-700">
                   {mapping.account ? (
                     <span>
-                      <span className="font-medium">{mapping.account.code}</span>
+                      <span className="font-medium">
+                        {mapping.account.code}
+                      </span>
                       <span className="ml-1">{mapping.account.name}</span>
                     </span>
                   ) : (

@@ -106,7 +106,7 @@ export function AccountMappingForm({
 
   const updateField = <Key extends keyof AccountMappingFormData>(
     key: Key,
-    value: AccountMappingFormData[Key]
+    value: AccountMappingFormData[Key],
   ) => {
     setFormData((current) => ({
       ...current,
@@ -152,7 +152,10 @@ export function AccountMappingForm({
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             value={formData.module_code}
             onChange={(event) =>
-              updateField("module_code", event.target.value as MappingModuleCode)
+              updateField(
+                "module_code",
+                event.target.value as MappingModuleCode,
+              )
             }
           >
             {moduleOptions.map((moduleCode) => (
@@ -173,7 +176,7 @@ export function AccountMappingForm({
             onChange={(event) =>
               updateField(
                 "transaction_code",
-                event.target.value as MappingTransactionCode
+                event.target.value as MappingTransactionCode,
               )
             }
           >

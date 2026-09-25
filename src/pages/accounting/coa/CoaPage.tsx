@@ -4,7 +4,7 @@ import { CoaTable } from "./components/CoaTable";
 import { useCoa } from "./hooks/useCoa";
 import type { CoaFormData, CoaNode } from "./types";
 import { scrollToElement } from "@/utils/scrollToElement";
-import { exportReport, type ExportColumn, } from "@/utils/exportReport";
+import { exportReport, type ExportColumn } from "@/utils/exportReport";
 
 interface CoaPageProps {
   entityId?: string | null;
@@ -66,7 +66,7 @@ export function CoaPage({ entityId = null }: CoaPageProps) {
 
   const handleDelete = async (account: CoaNode) => {
     const confirmed = window.confirm(
-      `Hapus akun ${account.code} - ${account.name}?`
+      `Hapus akun ${account.code} - ${account.name}?`,
     );
 
     if (!confirmed) {
@@ -107,35 +107,29 @@ export function CoaPage({ entityId = null }: CoaPageProps) {
       {
         label: "Posting Account",
         key: "is_posting",
-        format: (value: unknown) =>
-          value ? "Ya" : "Tidak",
+        format: (value: unknown) => (value ? "Ya" : "Tidak"),
       },
       {
         label: "Summary Account",
         key: "is_summary",
-        format: (value: unknown) =>
-          value ? "Ya" : "Tidak",
+        format: (value: unknown) => (value ? "Ya" : "Tidak"),
       },
       {
         label: "Aktif",
         key: "is_active",
-        format: (value: unknown) =>
-          value ? "Ya" : "Tidak",
+        format: (value: unknown) => (value ? "Ya" : "Tidak"),
       },
     ];
 
     const rows = filteredAccounts.map((account) => {
       const parent = accounts.find(
-        (parentAccount) =>
-          parentAccount.id === account.parent_account_id
+        (parentAccount) => parentAccount.id === account.parent_account_id,
       );
 
       return {
         code: account.code,
         name: account.name,
-        parent_account: parent
-          ? `${parent.code} - ${parent.name}`
-          : "",
+        parent_account: parent ? `${parent.code} - ${parent.name}` : "",
         category_code: account.category_code ?? "",
         account_type: account.account_type ?? "",
         normal_balance: account.normal_balance ?? "",
@@ -197,11 +191,7 @@ export function CoaPage({ entityId = null }: CoaPageProps) {
           entityId={entityId}
           saving={saving}
           onSubmit={handleSubmit}
-          onCancel={
-            editingAccount
-              ? () => setEditingAccount(null)
-              : undefined
-          }
+          onCancel={editingAccount ? () => setEditingAccount(null) : undefined}
         />
       </div>
 

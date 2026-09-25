@@ -38,27 +38,14 @@ export function AccountMappingPage({
     setSearch,
   } = useAccountMapping(entityId);
 
-  const {
-    accounts,
-    loading: loadingAccounts,
-  } = useCoa(entityId);
+  const { accounts, loading: loadingAccounts } = useCoa(entityId);
 
-  const [
-    editingMapping,
-    setEditingMapping,
-  ] = useState<AccountMappingWithAccount | null>(
-    null
-  );
+  const [editingMapping, setEditingMapping] =
+    useState<AccountMappingWithAccount | null>(null);
 
-  const handleSubmit = async (
-    payload: AccountMappingFormData
-  ) => {
+  const handleSubmit = async (payload: AccountMappingFormData) => {
     if (editingMapping) {
-      const success =
-        await updateMapping(
-          editingMapping.id,
-          payload
-        );
+      const success = await updateMapping(editingMapping.id, payload);
 
       if (success) {
         setEditingMapping(null);
@@ -70,16 +57,12 @@ export function AccountMappingPage({
     return createMapping(payload);
   };
 
-  const handleDelete = async (
-    mapping: AccountMappingWithAccount
-  ) => {
-    const confirmed =
-      window.confirm(
-        `Hapus mapping ${mapping.module_code} - ${
-          mapping.mapping_key ??
-          mapping.name
-        }?`
-      );
+  const handleDelete = async (mapping: AccountMappingWithAccount) => {
+    const confirmed = window.confirm(
+      `Hapus mapping ${mapping.module_code} - ${
+        mapping.mapping_key ?? mapping.name
+      }?`,
+    );
 
     if (!confirmed) {
       return;
@@ -105,11 +88,7 @@ export function AccountMappingPage({
           <input
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             value={search}
-            onChange={(event) =>
-              setSearch(
-                event.target.value
-              )
-            }
+            onChange={(event) => setSearch(event.target.value)}
             placeholder="Cari module, transaksi, akun..."
           />
         </div>
@@ -133,14 +112,7 @@ export function AccountMappingPage({
         entityId={entityId}
         saving={saving}
         onSubmit={handleSubmit}
-        onCancel={
-          editingMapping
-            ? () =>
-                setEditingMapping(
-                  null
-                )
-            : undefined
-        }
+        onCancel={editingMapping ? () => setEditingMapping(null) : undefined}
       />
 
       <AccountMappingTable
@@ -156,28 +128,13 @@ export function AccountMappingPage({
           pageSize,
           total,
           totalPages,
-          from:
-            total === 0
-              ? 0
-              : (page - 1) *
-                  pageSize +
-                1,
-          to:
-            total === 0
-              ? 0
-              : Math.min(
-                  page * pageSize,
-                  total
-                ),
-          hasPreviousPage:
-            page > 1,
-          hasNextPage:
-            page < totalPages,
+          from: total === 0 ? 0 : (page - 1) * pageSize + 1,
+          to: total === 0 ? 0 : Math.min(page * pageSize, total),
+          hasPreviousPage: page > 1,
+          hasNextPage: page < totalPages,
         }}
         onPageChange={setPage}
-        onPageSizeChange={
-          setPageSize
-        }
+        onPageSizeChange={setPageSize}
       />
     </div>
   );

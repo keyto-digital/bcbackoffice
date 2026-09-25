@@ -50,9 +50,7 @@ function getNormalBalance(account: Account): "D" | "C" {
     return account.normal_balance;
   }
 
-  return ["ASSET", "COGS", "EXPENSE"].includes(
-    account.category_code ?? ""
-  )
+  return ["ASSET", "COGS", "EXPENSE"].includes(account.category_code ?? "")
     ? "D"
     : "C";
 }
@@ -80,10 +78,7 @@ export default function TrialBalancePage() {
           .eq("is_active", true)
           .eq("is_posting", true)
           .order("code"),
-        supabase
-          .from("entities")
-          .select("id, kode, nama")
-          .order("nama"),
+        supabase.from("entities").select("id, kode, nama").order("nama"),
       ]);
 
       if (accountResult.error) {
@@ -124,7 +119,8 @@ export default function TrialBalancePage() {
         while (true) {
           let query = supabase
             .from("journal_details")
-            .select(`
+            .select(
+              `
               account_id,
               debit,
               credit,
@@ -132,39 +128,30 @@ export default function TrialBalancePage() {
                 entity_id,
                 tanggal
               )
-            `)
+            `,
+            )
             .lte("journals.tanggal", asOfDate)
             .order("id", { ascending: true })
-            .range(
-              offset,
-              offset + batchSize - 1
-            );
+            .range(offset, offset + batchSize - 1);
 
           if (selectedEntityId) {
-            query = query.eq(
-              "journals.entity_id",
-              selectedEntityId
-            );
+            query = query.eq("journals.entity_id", selectedEntityId);
           }
 
-          const {
-            data,
-            error: journalError,
-          } = await query;
+          const { data, error: journalError } = await query;
 
           if (journalError) {
             throw journalError;
           }
 
-          const rows =
-            (data ?? []) as unknown as JournalDetailRow[];
+          const rows = (data ?? []) as unknown as JournalDetailRow[];
 
           allDetails.push(
             ...rows.map((row) => ({
               account_id: row.account_id,
               debit: row.debit,
               credit: row.credit,
-            }))
+            })),
           );
 
           if (rows.length < batchSize) {
@@ -178,17 +165,14 @@ export default function TrialBalancePage() {
           setJournalDetails(allDetails);
         }
       } catch (journalError) {
-        console.error(
-          "Gagal memuat jurnal Trial Balance:",
-          journalError
-        );
+        console.error("Gagal memuat jurnal Trial Balance:", journalError);
 
         if (!cancelled) {
           setJournalDetails([]);
           setError(
             journalError instanceof Error
               ? `Gagal memuat jurnal: ${journalError.message}`
-              : "Gagal memuat jurnal."
+              : "Gagal memuat jurnal.",
           );
         }
       } finally {
@@ -203,12 +187,7 @@ export default function TrialBalancePage() {
     return () => {
       cancelled = true;
     };
-  }, [
-    asOfDate,
-    selectedEntityId,
-    masterLoading,
-  ]);
-
+  }, [asOfDate, selectedEntityId, masterLoading]);
 
   const report = useMemo(() => {
     const mutations = new Map<string, { debit: number; credit: number }>();
@@ -239,31 +218,30 @@ export default function TrialBalancePage() {
         code: account.code,
         name: account.name,
         category: account.category_code ?? "-",
-        debit: netBalance >= 0 && normalBalance === "D"
-          ? netBalance
-          : netBalance < 0 && normalBalance === "C"
-            ? Math.abs(netBalance)
-            : 0,
-        credit: netBalance >= 0 && normalBalance === "C"
-          ? netBalance
-          : netBalance < 0 && normalBalance === "D"
-            ? Math.abs(netBalance)
-            : 0,
+        debit:
+          netBalance >= 0 && normalBalance === "D"
+            ? netBalance
+            : netBalance < 0 && normalBalance === "C"
+              ? Math.abs(netBalance)
+              : 0,
+        credit:
+          netBalance >= 0 && normalBalance === "C"
+            ? netBalance
+            : netBalance < 0 && normalBalance === "D"
+              ? Math.abs(netBalance)
+              : 0,
       };
     });
 
     const visibleRows = rows.filter(
-      (row) => row.debit !== 0 || row.credit !== 0
+      (row) => row.debit !== 0 || row.credit !== 0,
     );
 
-    const totalDebit = visibleRows.reduce(
-      (total, row) => total + row.debit,
-      0
-    );
+    const totalDebit = visibleRows.reduce((total, row) => total + row.debit, 0);
 
     const totalCredit = visibleRows.reduce(
       (total, row) => total + row.credit,
-      0
+      0,
     );
 
     return {
@@ -332,14 +310,13 @@ export default function TrialBalancePage() {
           </div>
         )}
 
-        
         <div className="overflow-x-auto rounded-md border border-gray-200 bg-white">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-100 text-gray-700">
               <tr>
-                <th className="px-4 py-3 text-left">Kode</th>
+                <th className="px-4 py-3">Kode</th>
                 <th className="px-4 py-3 text-left">Nama Akun</th>
-                <th className="px-4 py-3 text-left">Kategori</th>
+                <th className="px-4 py-3">Kategori</th>
                 <th className="px-4 py-3 text-right">Debit</th>
                 <th className="px-4 py-3 text-right">Kredit</th>
               </tr>
@@ -348,7 +325,10 @@ export default function TrialBalancePage() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                  <td
+                    colSpan={5}
+                    className="px-4 py-8 text-center text-gray-500"
+                  >
                     Memuat Trial Balance...
                   </td>
                 </tr>
@@ -356,7 +336,10 @@ export default function TrialBalancePage() {
 
               {!loading && report.rows.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                  <td
+                    colSpan={5}
+                    className="px-4 py-8 text-center text-gray-500"
+                  >
                     Belum ada saldo akun sampai tanggal laporan.
                   </td>
                 </tr>
@@ -366,7 +349,7 @@ export default function TrialBalancePage() {
                 report.rows.map((row) => (
                   <tr key={row.id} className="border-t">
                     <td className="px-4 py-3">{row.code}</td>
-                    <td className="px-4 py-3">{row.name}</td>
+                    <td className="px-4 py-3 text-left">{row.name}</td>
                     <td className="px-4 py-3">{row.category}</td>
                     <td className="px-4 py-3 text-right">
                       {row.debit ? formatCurrency(row.debit) : ""}

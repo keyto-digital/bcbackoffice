@@ -54,7 +54,6 @@ export interface CoaNode {
 }
 
 export interface CoaFormData {
-
   id?: string;
 
   code: string;
