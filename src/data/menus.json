@@ -476,6 +476,12 @@
         "access": "Laporan -> Log Transaksi",
         "path": "/log-transaksi",
         "component": "DashboardLog"
+      },
+      {
+        "label": "MIS Report",
+        "access": "Laporan -> MIS Report",
+        "path": "/mis-report",
+        "component": "MisMacroPage"
       }
     ]
   },
@@ -499,7 +505,13 @@
         "label": "Account Mapping",
         "access": "Accounting -> Akun Mapping",
         "path": "/account-mapping",
-        "component": "AccountMappingPage"
+        "component": "AccountMappingPage" 
+      },
+      {
+        "label": "Budget MIS",
+        "access": "Accounting -> Budget MIS",
+        "path": "/budget-mis",
+        "component": "MisBudgetPage"
       },
       {
         "label": "Buku Besar",

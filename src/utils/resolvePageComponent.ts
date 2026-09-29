@@ -18,6 +18,8 @@ export function resolvePageComponent(name: string): () => Promise<PageModule> {
     CoaPage: "/src/pages/accounting/coa/CoaPage.tsx",
     AccountMappingPage:
       "/src/pages/accounting/account-mapping/AccountMappingPage.tsx",
+    MisBudgetPage:
+      "/src/pages/accounting/budget/MisBudgetPage.tsx",
     GeneralLedgerPage:
       "/src/pages/accounting/general-ledger/GeneralLedgerPage.tsx",
     TrialBalancePage:
@@ -57,6 +59,8 @@ export function resolvePageComponent(name: string): () => Promise<PageModule> {
     PaymentPage: "/src/pages/procurement/account-payable/PaymentPage.tsx",
     OpeningBalancePage:
       "/src/pages/procurement/inventory/OpeningBalancePage.tsx",
+    MisMacroPage:
+      "/src/pages/accounting/mis/MisMacroPage.tsx",
   };
 
   const aliasPath = aliases[normalized];

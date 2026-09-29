@@ -3,11 +3,12 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 
 export default defineConfig({
-  base: '/',
+  base: "/",
   plugins: [react()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
+      "xlsx-js-style": "xlsx-js-style/dist/xlsx.bundle.js",
     },
   },
   build: {
@@ -27,6 +28,7 @@ export default defineConfig({
     },
   },
   server: {
+    host: "0.0.0.0", // buka ke semua IP
     port: 5173,
     open: true,
   },

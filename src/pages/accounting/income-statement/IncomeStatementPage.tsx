@@ -529,7 +529,7 @@ export default function IncomeStatementPage() {
         <td className="px-6 py-3 align-middle">
           <div className="mx-auto w-full max-w-[520px] text-left">
             <div className="font-medium text-slate-700">
-              {row.code} - {row.name}
+              {row.code} -{row.name}
             </div>           
           </div>
         </td>
