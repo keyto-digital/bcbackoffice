@@ -1,58 +1,7 @@
-import type * as XLSX from "xlsx-js-style";
+import * as XLSX from "xlsx-js-style";
 import type { MisBsDetailRow } from "../mis/types";
 import type { MisBalanceSheetRow } from "../mis/useMisBalanceSheet";
 
-type XlsxModule = typeof import("xlsx-js-style");
-
-let XLSXRuntime: XlsxModule | null = null;
-
-async function loadXlsx(): Promise<XlsxModule> {
-  if (XLSXRuntime) {
-    return XLSXRuntime;
-  }
-
-  const existing = (
-    window as Window & {
-      XLSX?: XlsxModule;
-    }
-  ).XLSX;
-
-  if (existing) {
-    XLSXRuntime = existing;
-    return existing;
-  }
-
-  const script = document.createElement("script");
-  script.src = "/xlsx-js-style/xlsx.bundle.js";
-  script.async = true;
-
-  await new Promise<void>((resolve, reject) => {
-    script.onload = () => resolve();
-    script.onerror = () =>
-      reject(
-        new Error(
-          "Gagal memuat library Excel xlsx-js-style.",
-        ),
-      );
-
-    document.head.appendChild(script);
-  });
-
-  const module = (
-    window as Window & {
-      XLSX?: XlsxModule;
-    }
-  ).XLSX;
-
-  if (!module) {
-    throw new Error(
-      "Library xlsx-js-style tidak tersedia setelah dimuat.",
-    );
-  }
-
-  XLSXRuntime = module;
-  return module;
-}
 
 export type MisWorkbookParams = {
   entityId: string;
@@ -192,7 +141,7 @@ function buildBsDetailSheet(
     ]);
   }
 
-  const ws = XLSXRuntime!.utils.aoa_to_sheet(data);
+  const ws = XLSX.utils.aoa_to_sheet(data);
 
   /*
    * Column width
@@ -236,7 +185,7 @@ function buildBsDetailSheet(
    * Header berada di row 4
    */
   for (let col = 0; col < headers.length; col++) {
-    const cellAddress = XLSXRuntime!.utils.encode_cell({
+    const cellAddress = XLSX.utils.encode_cell({
       r: 3,
       c: col,
     });
@@ -283,7 +232,7 @@ function buildBsDetailSheet(
    */
   for (let rowIndex = 4; rowIndex < data.length; rowIndex++) {
     for (const colIndex of [4, 5, 6]) {
-      const cellAddress = XLSXRuntime!.utils.encode_cell({
+      const cellAddress = XLSX.utils.encode_cell({
         r: rowIndex,
         c: colIndex,
       });
@@ -306,7 +255,7 @@ function buildBsDetailSheet(
    */
   for (let rowIndex = 4; rowIndex < data.length; rowIndex++) {
     const firstCell = ws[
-      XLSXRuntime!.utils.encode_cell({
+      XLSX.utils.encode_cell({
         r: rowIndex,
         c: 0,
       })
@@ -372,7 +321,7 @@ function createSheet(
   rows: unknown[][],
   widths: number[],
 ): XLSX.WorkSheet {
-  const worksheet = XLSXRuntime!.utils.aoa_to_sheet(rows);
+  const worksheet = XLSX.utils.aoa_to_sheet(rows);
 
   worksheet["!cols"] = widths.map((width) => ({
     wch: width,
@@ -387,7 +336,7 @@ function styleHeader(
   columnCount: number,
 ): void {
   for (let column = 0; column < columnCount; column += 1) {
-    const address = XLSXRuntime!.utils.encode_cell({
+    const address = XLSX.utils.encode_cell({
       r: rowNumber,
       c: column,
     });
@@ -451,7 +400,7 @@ function styleTitle(
   columnCount: number,
 ): void {
   for (let column = 0; column < columnCount; column += 1) {
-    const address = XLSXRuntime!.utils.encode_cell({
+    const address = XLSX.utils.encode_cell({
       r: rowNumber,
       c: column,
     });
@@ -497,7 +446,7 @@ function styleNumberColumns(
 ): void {
   for (let row = startRow; row <= endRow; row += 1) {
     for (const column of columns) {
-      const address = XLSXRuntime!.utils.encode_cell({
+      const address = XLSX.utils.encode_cell({
         r: row,
         c: column,
       });
@@ -524,7 +473,7 @@ function applyFullGrid(
 
   for (let row = startRow; row <= endRow; row += 1) {
     for (let column = startColumn; column <= endColumn; column += 1) {
-      const address = XLSXRuntime!.utils.encode_cell({
+      const address = XLSX.utils.encode_cell({
         r: row - 1,
         c: column - 1,
       });
@@ -553,7 +502,7 @@ function addAutoFilter(
   lastColumn: number,
 ): void {
   worksheet["!autofilter"] = {
-    ref: `A${headerRow + 1}:${XLSXRuntime!.utils.encode_col(lastColumn)}${
+    ref: `A${headerRow + 1}:${XLSX.utils.encode_col(lastColumn)}${
       lastRow + 1
     }`,
   };
@@ -567,7 +516,7 @@ function addFreezePane(
   worksheet["!freeze"] = {
     xSplit: column,
     ySplit: row,
-    topLeftCell: XLSXRuntime!.utils.encode_cell({
+    topLeftCell: XLSX.utils.encode_cell({
       r: row,
       c: column,
     }),
@@ -1023,7 +972,7 @@ function buildMacroSheet(
   // Title area mengikuti master: hanya A:B yang hijau dan tanpa border.
   for (const rowNumber of [1, 2]) {
     for (let col = 1; col <= 50; col += 1) {
-      const address = XLSXRuntime!.utils.encode_cell({
+      const address = XLSX.utils.encode_cell({
         r: rowNumber - 1,
         c: col - 1,
       });
@@ -1145,7 +1094,7 @@ function buildMacroSheet(
 
   // K4:K99 = separator
   for (let row = 4; row <= rows.length; row += 1) {
-    const address = XLSXRuntime!.utils.encode_cell({
+    const address = XLSX.utils.encode_cell({
       r: row - 1,
       c: 10,
     });
@@ -1270,7 +1219,7 @@ function buildMacroSheet(
     // K adalah separator dan harus tetap kosong, termasuk pada row 93:99.
     if (col === 10) continue;
 
-    const colLetter = XLSXRuntime!.utils.encode_col(col);
+    const colLetter = XLSX.utils.encode_col(col);
 
     worksheet[`${colLetter}${dynamicStatisticRows.turnoverPerHour}`] =
       formulaCell(
@@ -1317,7 +1266,7 @@ function buildMacroSheet(
     for (let col = 1; col <= 49; col += 1) {
       const cell =
         worksheet[
-          XLSXRuntime!.utils.encode_cell({
+          XLSX.utils.encode_cell({
             r: rowNumber - 1,
             c: col,
           })
@@ -1375,7 +1324,7 @@ function buildMacroSheet(
     row += 1
   ) {
     for (let col = 4; col <= 10; col += 1) {
-      const address = XLSXRuntime!.utils.encode_cell({
+      const address = XLSX.utils.encode_cell({
         r: row - 1,
         c: col - 1,
       });
@@ -1406,7 +1355,7 @@ function buildMacroSheet(
     row += 1
   ) {
     for (let col = 12; col <= 50; col += 1) {
-      const address = XLSXRuntime!.utils.encode_cell({
+      const address = XLSX.utils.encode_cell({
         r: row - 1,
         c: col - 1,
       });
@@ -1434,7 +1383,7 @@ function buildMacroSheet(
   // Hanya kiri + kanan.
   // Tidak ada border atas/bawah.
   for (let row = 4; row <= rows.length; row += 1) {
-    const address = XLSXRuntime!.utils.encode_cell({
+    const address = XLSX.utils.encode_cell({
       r: row - 1,
       c: 10, // K
     });
@@ -1546,7 +1495,7 @@ function buildCoaSheet(
   // Pada master, judul COA hanya berada di B1.
   for (const col of [1, 3, 4, 5, 6]) {
     const cell = worksheet[
-      XLSXRuntime!.utils.encode_cell({ r: 0, c: col - 1 })
+      XLSX.utils.encode_cell({ r: 0, c: col - 1 })
     ];
     if (!cell) continue;
     cell.s = {
@@ -1668,7 +1617,7 @@ function buildPeriodSheet(
   // Master workbook memakai kotak tebal hanya pada area A3:E13.
   for (let r = 3; r <= 13; r += 1) {
     for (let c = 1; c <= 5; c += 1) {
-      const address = XLSXRuntime!.utils.encode_cell({
+      const address = XLSX.utils.encode_cell({
         r: r - 1,
         c: c - 1,
       });
@@ -2183,7 +2132,7 @@ function buildYearSummarySheet(
    * Tambahkan satu kolom spacer setelah Desember.
    */
   for (let row = 0; row < rows.length; row += 1) {
-    const address = XLSXRuntime!.utils.encode_cell({
+    const address = XLSX.utils.encode_cell({
       r: row,
       c: 27,
     });
@@ -2243,7 +2192,7 @@ function buildYearSummarySheet(
    */
   for (let r = 1; r <= rows.length; r += 1) {
     for (let c = 1; c <= 28; c += 1) {
-      const address = XLSXRuntime!.utils.encode_cell({
+      const address = XLSX.utils.encode_cell({
         r: r - 1,
         c: c - 1,
       });
@@ -2359,7 +2308,7 @@ function buildYearSummarySheet(
    * Group header bulanan mengikuti merge persis workbook referensi.
    */
   for (let c = 1; c <= 28; c += 1) {
-    const address = XLSXRuntime!.utils.encode_cell({
+    const address = XLSX.utils.encode_cell({
       r: 0,
       c: c - 1,
     });
@@ -2434,7 +2383,7 @@ function buildYearSummarySheet(
    */
   for (const rowNumber of specialRows.keys()) {
     for (let c = 1; c <= 27; c += 1) {
-      const address = XLSXRuntime!.utils.encode_cell({
+      const address = XLSX.utils.encode_cell({
         r: rowNumber - 1,
         c: c - 1,
       });
@@ -2470,7 +2419,7 @@ function buildYearSummarySheet(
    */
   for (let r = 1; r <= rows.length; r += 1) {
     const cell = worksheet[
-      XLSXRuntime!.utils.encode_cell({
+      XLSX.utils.encode_cell({
         r: r - 1,
         c: 27,
       })
@@ -2711,7 +2660,7 @@ function buildIncomeStatementSheet(
     formulaCell(`IF(A${revenueTotalRow}=0,0,A${grossProfitRow}/A${revenueTotalRow})`),
     formulaCell(`C${revenueTotalRow}-C15-C26`),
     formulaCell(`IF(C${revenueTotalRow}=0,0,C${grossProfitRow}/C${revenueTotalRow})`),
-    formulaCell(`E${revenueTotalRow}-E15E-26`),
+    formulaCell(`E${revenueTotalRow}-E15-E26`),
     formulaCell(`IF(E${revenueTotalRow}=0,0,E${grossProfitRow}/E${revenueTotalRow})`),
     formulaCell(`G${revenueTotalRow}-G15-G26`),
     formulaCell(`IF(G${revenueTotalRow}=0,0,G${grossProfitRow}/G${revenueTotalRow})`),
@@ -2779,7 +2728,7 @@ function buildIncomeStatementSheet(
 
   for (let r = 1; r <= rows.length; r += 1) {
     for (let c = 1; c <= 15; c += 1) {
-      const address = XLSXRuntime!.utils.encode_cell({ r: r - 1, c: c - 1 });
+      const address = XLSX.utils.encode_cell({ r: r - 1, c: c - 1 });
       const cell = worksheet[address] ?? ({ v: "", t: "s" } as XLSX.CellObject);
       worksheet[address] = cell;
       const isNumeric = c !== 9;
@@ -2812,7 +2761,7 @@ function buildIncomeStatementSheet(
   // Header: seluruh header seragam hijau, DESCRIPTION biru.
   for (let r = 1; r <= 2; r += 1) {
     for (let c = 1; c <= 15; c += 1) {
-      const address = XLSXRuntime!.utils.encode_cell({ r: r - 1, c: c - 1 });
+      const address = XLSX.utils.encode_cell({ r: r - 1, c: c - 1 });
       const cell = worksheet[address]!;
       cell.s = {
         ...(cell.s ?? {}),
@@ -2827,7 +2776,7 @@ function buildIncomeStatementSheet(
   // Section: blue only on DESCRIPTION cell, as in the corrected workbook.
   for (const r of sectionRows) {
     for (let c = 1; c <= 15; c += 1) {
-      const cell = worksheet[XLSXRuntime!.utils.encode_cell({ r: r - 1, c: c - 1 })]!;
+      const cell = worksheet[XLSX.utils.encode_cell({ r: r - 1, c: c - 1 })]!;
       cell.s = {
         ...(cell.s ?? {}),
         font: { name: "Calibri", sz: 11, bold: true, color: "000000" },
@@ -2839,7 +2788,7 @@ function buildIncomeStatementSheet(
 
   // Summary account label cells are green.
   for (let r = 1; r <= rows.length; r += 1) {
-    const label = worksheet[XLSXRuntime!.utils.encode_cell({ r: r - 1, c: 8 })];
+    const label = worksheet[XLSX.utils.encode_cell({ r: r - 1, c: 8 })];
     if (label && typeof label.v === "string" &&
         !sectionRows.includes(r) &&
         !totalRows.includes(r) &&
@@ -2855,7 +2804,7 @@ function buildIncomeStatementSheet(
 
   // Totals: yellow fill only on DESCRIPTION; numeric totals stay white.
   for (const r of greenTotalRows) {
-    const label = worksheet[XLSXRuntime!.utils.encode_cell({ r: r - 1, c: 8 })];
+    const label = worksheet[XLSX.utils.encode_cell({ r: r - 1, c: 8 })];
     if (label) {
       label.s = {
         ...(label.s ?? {}),
@@ -2868,7 +2817,7 @@ function buildIncomeStatementSheet(
 
   for (const r of blueTotalRows) {
     for (let c = 1; c <= 15; c += 1) {
-      const cell = worksheet[XLSXRuntime!.utils.encode_cell({ r: r - 1, c: c - 1 })]!;
+      const cell = worksheet[XLSX.utils.encode_cell({ r: r - 1, c: c - 1 })]!;
       cell.s = {
         ...(cell.s ?? {}),
         font: { name: "Calibri", sz: 11, bold: true, color: { rgb: "FF0000FF" } },
@@ -2881,7 +2830,7 @@ function buildIncomeStatementSheet(
   // Total rows that are not blue: border + black font, green DESCRIPTION.
   for (const r of greenTotalRows) {
     for (let c = 1; c <= 15; c += 1) {
-      const cell = worksheet[XLSXRuntime!.utils.encode_cell({ r: r - 1, c: c - 1 })]!;
+      const cell = worksheet[XLSX.utils.encode_cell({ r: r - 1, c: c - 1 })]!;
       cell.s = {
         ...(cell.s ?? {}),
         font: { name: "Calibri", sz: 11, bold: true, color: "000000" },
@@ -3131,7 +3080,7 @@ function buildBalanceSheetSheet(
 
   for (let r = 1; r <= data.length; r += 1) {
     for (let c = 1; c <= 4; c += 1) {
-      const address = XLSXRuntime!.utils.encode_cell({ r: r - 1, c: c - 1 });
+      const address = XLSX.utils.encode_cell({ r: r - 1, c: c - 1 });
       const cell =
         worksheet[address] ?? ({ v: "", t: "s" } as XLSX.CellObject);
       worksheet[address] = cell;
@@ -3159,7 +3108,7 @@ function buildBalanceSheetSheet(
   // Header ASSET / LIABILITIES & CAPITAL.
   for (let c = 1; c <= 4; c += 1) {
     const cell = worksheet[
-      XLSXRuntime!.utils.encode_cell({ r: 1, c: c - 1 })
+      XLSX.utils.encode_cell({ r: 1, c: c - 1 })
     ];
     if (!cell) continue;
     cell.s = {
@@ -3193,14 +3142,14 @@ function buildBalanceSheetSheet(
   for (let r = 1; r <= data.length; r += 1) {
     for (const c of [1, 3]) {
       const cell = worksheet[
-        XLSXRuntime!.utils.encode_cell({ r: r - 1, c: c - 1 })
+        XLSX.utils.encode_cell({ r: r - 1, c: c - 1 })
       ];
       if (!cell || typeof cell.v !== "string") continue;
 
       if (sectionLabels.has(cell.v)) {
         for (let tc = 1; tc <= 4; tc += 1) {
           const target = worksheet[
-            XLSXRuntime!.utils.encode_cell({ r: r - 1, c: tc - 1 })
+            XLSX.utils.encode_cell({ r: r - 1, c: tc - 1 })
           ];
           if (!target) continue;
           target.s = {
@@ -3214,7 +3163,7 @@ function buildBalanceSheetSheet(
       if (greenTotals.has(cell.v)) {
         for (let tc = 1; tc <= 2; tc += 1) {
           const target = worksheet[
-            XLSXRuntime!.utils.encode_cell({ r: r - 1, c: tc - 1 })
+            XLSX.utils.encode_cell({ r: r - 1, c: tc - 1 })
           ];
           if (!target) continue;
           target.s = {
@@ -3229,7 +3178,7 @@ function buildBalanceSheetSheet(
       if (yellowTotals.has(cell.v)) {
         for (let tc = 1; tc <= 4; tc += 1) {
           const target = worksheet[
-            XLSXRuntime!.utils.encode_cell({ r: r - 1, c: tc - 1 })
+            XLSX.utils.encode_cell({ r: r - 1, c: tc - 1 })
           ];
           if (!target) continue;
           target.s = {
@@ -3247,7 +3196,7 @@ function buildBalanceSheetSheet(
   const balanceRow = data.length;
   for (let c = 1; c <= 4; c += 1) {
     const cell = worksheet[
-      XLSXRuntime!.utils.encode_cell({ r: balanceRow - 1, c: c - 1 })
+      XLSX.utils.encode_cell({ r: balanceRow - 1, c: c - 1 })
     ];
     if (!cell) continue;
     cell.s = {
@@ -3262,7 +3211,7 @@ function buildBalanceSheetSheet(
   for (let r = 3; r <= data.length; r += 1) {
     for (const c of [2, 4]) {
       const cell = worksheet[
-        XLSXRuntime!.utils.encode_cell({ r: r - 1, c: c - 1 })
+        XLSX.utils.encode_cell({ r: r - 1, c: c - 1 })
       ];
       if (cell) {
         cell.z = accountingFormat;
@@ -3748,7 +3697,7 @@ function buildFbPnlSheet(
     bottom: boolean,
   ) => {
     for (let c = 1; c <= 16; c += 1) {
-      const address = XLSXRuntime!.utils.encode_cell({
+      const address = XLSX.utils.encode_cell({
         r: row - 1,
         c: c - 1,
       });
@@ -3776,7 +3725,7 @@ function buildFbPnlSheet(
 
   for (let r = 1; r <= rows.length; r += 1) {
     for (let c = 1; c <= 16; c += 1) {
-      const address = XLSXRuntime!.utils.encode_cell({
+      const address = XLSX.utils.encode_cell({
         r: r - 1,
         c: c - 1,
       });
@@ -3827,7 +3776,7 @@ function buildFbPnlSheet(
 
   for (let r = 1; r <= 2; r += 1) {
     for (let c = 1; c <= 16; c += 1) {
-      const address = XLSXRuntime!.utils.encode_cell({
+      const address = XLSX.utils.encode_cell({
         r: r - 1,
         c: c - 1,
       });
@@ -3880,7 +3829,7 @@ function buildFbPnlSheet(
 
   /* J separator: always blank, no fill, left + right border. */
   for (let r = 1; r <= rows.length; r += 1) {
-    const address = XLSXRuntime!.utils.encode_cell({
+    const address = XLSX.utils.encode_cell({
       r: r - 1,
       c: 9,
     });
@@ -3910,7 +3859,7 @@ function buildFbPnlSheet(
 
   for (const r of [4]) {
     for (let c = 1; c <= 16; c += 1) {
-      const address = XLSXRuntime!.utils.encode_cell({
+      const address = XLSX.utils.encode_cell({
         r: r - 1,
         c: c - 1,
       });
@@ -3925,7 +3874,7 @@ function buildFbPnlSheet(
 
   for (const r of sectionRows) {
     for (let c = 1; c <= 16; c += 1) {
-      const address = XLSXRuntime!.utils.encode_cell({
+      const address = XLSX.utils.encode_cell({
         r: r - 1,
         c: c - 1,
       });
@@ -3941,7 +3890,7 @@ function buildFbPnlSheet(
   for (const r of totalRows) {
     setHorizontalBorder(r, true, true);
     for (let c = 1; c <= 16; c += 1) {
-      const address = XLSXRuntime!.utils.encode_cell({
+      const address = XLSX.utils.encode_cell({
         r: r - 1,
         c: c - 1,
       });
@@ -3957,7 +3906,7 @@ function buildFbPnlSheet(
   /* Re-apply exact vertical map after every horizontal-border pass. */
   for (let r = 1; r <= rows.length; r += 1) {
     for (let c = 1; c <= 16; c += 1) {
-      const address = XLSXRuntime!.utils.encode_cell({
+      const address = XLSX.utils.encode_cell({
         r: r - 1,
         c: c - 1,
       });
@@ -3968,7 +3917,7 @@ function buildFbPnlSheet(
 
   /* J remains a complete separator, including on total rows. */
   for (let r = 1; r <= rows.length; r += 1) {
-    const address = XLSXRuntime!.utils.encode_cell({
+    const address = XLSX.utils.encode_cell({
       r: r - 1,
       c: 9,
     });
@@ -4173,7 +4122,7 @@ function buildExpenseDivisionSheet(
 
   for (let r = 1; r <= rows.length; r += 1) {
     for (let c = 1; c <= 16; c += 1) {
-      const address = XLSXRuntime!.utils.encode_cell({ r: r - 1, c: c - 1 });
+      const address = XLSX.utils.encode_cell({ r: r - 1, c: c - 1 });
       const cell =
         worksheet[address] ?? ({ v: "", t: "s" } as XLSX.CellObject);
       worksheet[address] = cell;
@@ -4216,7 +4165,7 @@ function buildExpenseDivisionSheet(
   // Header: all actual header groups are the same green.
   for (let r = 1; r <= 2; r += 1) {
     for (let c = 1; c <= 16; c += 1) {
-      const address = XLSXRuntime!.utils.encode_cell({ r: r - 1, c: c - 1 });
+      const address = XLSX.utils.encode_cell({ r: r - 1, c: c - 1 });
       const cell = worksheet[address]!;
       if (c === 10) {
         // J = separator, deliberately no fill.
@@ -4246,7 +4195,7 @@ function buildExpenseDivisionSheet(
   for (const row of sectionRows) {
     for (let c = 1; c <= 16; c += 1) {
       const cell = worksheet[
-        XLSXRuntime!.utils.encode_cell({ r: row - 1, c: c - 1 })
+        XLSX.utils.encode_cell({ r: row - 1, c: c - 1 })
       ];
       if (!cell) continue;
       cell.s = {
@@ -4259,7 +4208,7 @@ function buildExpenseDivisionSheet(
   for (const row of totalRows) {
     for (let c = 1; c <= 16; c += 1) {
       const cell = worksheet[
-        XLSXRuntime!.utils.encode_cell({ r: row - 1, c: c - 1 })
+        XLSX.utils.encode_cell({ r: row - 1, c: c - 1 })
       ];
       if (!cell) continue;
       cell.s = {
@@ -4278,7 +4227,7 @@ function buildExpenseDivisionSheet(
   for (let r = 1; r <= rows.length; r += 1) {
     for (let c = 1; c <= 16; c += 1) {
       const cell = worksheet[
-        XLSXRuntime!.utils.encode_cell({ r: r - 1, c: c - 1 })
+        XLSX.utils.encode_cell({ r: r - 1, c: c - 1 })
       ];
       if (!cell) continue;
 
@@ -4329,11 +4278,6 @@ export function generateMisWorkbook({
   balanceSheetRows,
   coaRows,
 }: MisWorkbookParams): XLSX.WorkBook {
-  if (!XLSXRuntime) {
-    throw new Error(
-      "Library xlsx-js-style belum dimuat. Gunakan downloadMisWorkbook() untuk export.",
-    );
-  }
 
   if (!entityId) {
     throw new Error(
@@ -4361,7 +4305,7 @@ export function generateMisWorkbook({
     );
   }
 
-  const workbook = XLSXRuntime!.utils.book_new();
+  const workbook = XLSX.utils.book_new();
 
   const macroSheet = buildMacroSheet(
     macroRows,
@@ -4369,7 +4313,7 @@ export function generateMisWorkbook({
     month,
   );
 
-  XLSXRuntime!.utils.book_append_sheet(
+  XLSX.utils.book_append_sheet(
     workbook,
     macroSheet,
     "MACRO",
@@ -4380,7 +4324,7 @@ export function generateMisWorkbook({
     year,
   );
 
-  XLSXRuntime!.utils.book_append_sheet(
+  XLSX.utils.book_append_sheet(
     workbook,
     coaSheet,
     "COA",
@@ -4391,7 +4335,7 @@ export function generateMisWorkbook({
     month,
   );
 
-  XLSXRuntime!.utils.book_append_sheet(
+  XLSX.utils.book_append_sheet(
     workbook,
     periodSheet,
     "Period",
@@ -4403,7 +4347,7 @@ export function generateMisWorkbook({
     month,
   );
 
-  XLSXRuntime!.utils.book_append_sheet(
+  XLSX.utils.book_append_sheet(
     workbook,
     bsDetailSheet,
     "BS Detail",
@@ -4415,7 +4359,7 @@ export function generateMisWorkbook({
     month,
   );
 
-  XLSXRuntime!.utils.book_append_sheet(
+  XLSX.utils.book_append_sheet(
     workbook,
     balanceSheetSheet,
     "Balance Sheet",
@@ -4427,7 +4371,7 @@ export function generateMisWorkbook({
       year,
     );
 
-  XLSXRuntime!.utils.book_append_sheet(
+  XLSX.utils.book_append_sheet(
     workbook,
     yearSummarySheet,
     "Year Summary",
@@ -4440,13 +4384,13 @@ export function generateMisWorkbook({
       month,
     );
 
-  XLSXRuntime!.utils.book_append_sheet(
+  XLSX.utils.book_append_sheet(
     workbook,
     incomeStatementSheet,
     "Income Statement",
   );
 
-  XLSXRuntime!.utils.book_append_sheet(
+  XLSX.utils.book_append_sheet(
     workbook,
     buildFbPnlSheet(macroRows),
     "F&B - P&L",
@@ -4466,7 +4410,7 @@ export function generateMisWorkbook({
   ];
 
   for (const config of expenseSheetConfigs) {
-    XLSXRuntime!.utils.book_append_sheet(
+    XLSX.utils.book_append_sheet(
       workbook,
       buildExpenseDivisionSheet(
         config.name,
@@ -4495,9 +4439,8 @@ export function downloadMisWorkbook({
   fileName,
 }: MisWorkbookParams & {
   fileName?: string;
-}): Promise<void> {
-  return loadXlsx().then(() => {
-    const workbook = generateMisWorkbook({
+}): void {
+  const workbook = generateMisWorkbook({
     entityId,
     year,
     month,
@@ -4520,7 +4463,7 @@ export function downloadMisWorkbook({
     fileName ??
     `MIS_Report_${safeMonthName}_${year}.xlsx`;
 
-  const workbookBuffer = XLSXRuntime!.write(workbook, {
+  const workbookBuffer = XLSX.write(workbook, {
     bookType: "xlsx",
     type: "array",
   });
@@ -4541,6 +4484,5 @@ export function downloadMisWorkbook({
   link.click();
   document.body.removeChild(link);
 
-    URL.revokeObjectURL(url);
-  });
+  URL.revokeObjectURL(url);
 }
