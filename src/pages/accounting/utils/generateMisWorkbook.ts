@@ -760,22 +760,41 @@ function buildMacroSheet(
       item.december,
     ];
 
-    for (const value of monthlyActuals) {
+    for (let monthIndex = 0; monthIndex < 12; monthIndex += 1) {
+      const actualValue = monthlyActuals[monthIndex];
+
+      const budgetValue =
+        monthIndex === month - 1
+          ? item.budget
+          : 0;
+
+      const lastYearValue =
+        monthIndex === month - 1
+          ? item.last_year
+          : 0;
+
       row.push(
-        formatNumber(value),
-        0,
-        0,
+        formatNumber(actualValue),
+        formatNumber(budgetValue),
+        formatNumber(lastYearValue),
       );
     }
 
     /*
-     * TOTAL
-     */
+    * TOTAL
+    *
+    * AV = Actual YTD
+    * AW = Budget YTD
+    * AX = Last Year YTD
+    */
+    const totalActual = numberValue(item.ytd);
+    const totalBudget = numberValue(item.ytd_budget);
+    const totalLastYear = numberValue(item.last_year_ytd);
 
     row.push(
-      formatNumber(item.actual),
-      formatNumber(item.budget),
-      formatNumber(item.last_year),
+      formatNumber(totalActual),
+      formatNumber(totalBudget),
+      formatNumber(totalLastYear),
     );
 
     rows.push(row);
@@ -996,14 +1015,37 @@ function buildMacroSheet(
   styleHeader(
     worksheet,
     3,
-    49,
+    50,
   );
 
   styleHeader(
     worksheet,
     4,
-    49,
+    50,
   );
+
+  /*
+  * AX4:AX5 = TOTAL LAST YEAR
+  * Full border supaya header TOTAL sampai AX
+  * membentuk kotak lengkap.
+  */
+  for (const address of ["AX4", "AX5"]) {
+    const cell =
+      worksheet[address] ??
+      ({ v: "", t: "s" } as XLSX.CellObject);
+
+    worksheet[address] = cell;
+
+    cell.s = {
+      ...(cell.s ?? {}),
+      border: {
+        top: { style: "thin", color: "000000" },
+        bottom: { style: "thin", color: "000000" },
+        left: { style: "thin", color: "000000" },
+        right: { style: "thin", color: "000000" },
+      },
+    };
+  }
 
   // K adalah separator: kosong dan tanpa fill pada header.
   for (const address of ["K4", "K5"]) {
