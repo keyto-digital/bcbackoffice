@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   ChevronDown,
@@ -233,10 +233,21 @@ export default function MisMacroPage() {
     useState(currentMonth);
 
   const [exporting, setExporting] =
-    useState(false);
+  useState(false);
 
   const [exportError, setExportError] =
     useState<string | null>(null);
+
+  const coaCacheRef = useRef<
+    {
+      code: string;
+      name: string;
+      category_code: string;
+      normal_balance: string;
+      is_active: boolean;
+      is_posting: boolean;
+    }[] | null
+  >(null);
 
   const [search, setSearch] =
     useState("");
@@ -303,52 +314,44 @@ export default function MisMacroPage() {
       * export bisa terjadi sebelum fetch async tersebut selesai.
       * Query dibatasi ke entity aktif agar akun entity lain tidak ikut.
       */
-      const {
-        data: coaData,
-        error: coaError,
-      } = await supabase
-        .from("accounts")
-        .select(
-          "code, name, category_code, normal_balance, is_active, is_posting",
-        )
-        .order("code", {
-          ascending: true,
-        });
+      let coaRows = coaCacheRef.current;
 
-      if (coaError) {
-        throw new Error(
-          `Gagal mengambil COA: ${coaError.message}`,
-        );
-      }
+        if (!coaRows) {
+          const {
+            data: coaData,
+            error: coaError,
+          } = await supabase
+            .from("accounts")
+            .select(
+              "code, name, category_code, normal_balance, is_active, is_posting",
+            )
+            .order("code", {
+              ascending: true,
+            });
 
-      const coaRows = (coaData ?? []).map(
-        (account) => ({
-          code: account.code,
-          name: account.name,
-          category_code: account.category_code,
-          normal_balance: account.normal_balance,
-          is_active: account.is_active,
-          is_posting: account.is_posting,
-        }),
-      );
+          if (coaError) {
+            throw new Error(
+              `Gagal mengambil COA: ${coaError.message}`,
+            );
+          }
+
+          coaRows = (coaData ?? []).map(
+            (account) => ({
+              code: account.code,
+              name: account.name,
+              category_code: account.category_code,
+              normal_balance: account.normal_balance,
+              is_active: account.is_active,
+              is_posting: account.is_posting,
+            }),
+          );
+
+          coaCacheRef.current = coaRows;
+        }
 
       const { downloadMisWorkbook } = await import(
         "../utils/generateMisWorkbook"
       );
-
-      console.log("[MIS EXPORT] PERIOD:", {
-  year,
-  month,
-  monthLabel:
-    MONTHS.find(
-      (item) => item.value === month,
-    )?.label,
-});
-
-console.log(
-  "[MIS EXPORT] FIRST ROW:",
-  rows[0],
-);
 
       downloadMisWorkbook({
         entityId,

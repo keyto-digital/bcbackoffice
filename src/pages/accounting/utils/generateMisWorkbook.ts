@@ -1740,11 +1740,44 @@ function buildYearSummarySheet(
   };
 
 
-  const byCode = (code: string): MisMacroExportRow | undefined =>
-    macroRows.find((item) => item.account_code === code);
+  const macroByCode = new Map<
+    string,
+    MisMacroExportRow
+  >();
 
-  const byPrefix = (prefix: string): MisMacroExportRow[] =>
-    macroRows.filter((item) => item.account_code.startsWith(prefix));
+  const macroByPrefix = new Map<
+    string,
+    MisMacroExportRow[]
+  >();
+
+  for (const item of macroRows) {
+    // Index berdasarkan account_code
+    macroByCode.set(
+      item.account_code,
+      item,
+    );
+
+    // Index berdasarkan 3 digit awal account code
+    const prefix = item.account_code.slice(0, 3);
+
+    const existing = macroByPrefix.get(prefix);
+
+    if (existing) {
+      existing.push(item);
+    } else {
+      macroByPrefix.set(prefix, [item]);
+    }
+  }
+
+  const byCode = (
+    code: string,
+  ): MisMacroExportRow | undefined =>
+    macroByCode.get(code);
+
+  const byPrefix = (
+    prefix: string,
+  ): MisMacroExportRow[] =>
+    macroByPrefix.get(prefix) ?? [];
 
   const revenueItems: MisMacroExportRow[] = [
     byCode("411101"),
