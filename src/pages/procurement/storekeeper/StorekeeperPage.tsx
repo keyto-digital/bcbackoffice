@@ -302,9 +302,20 @@ export default function StorekeeperPage(): JSX.Element {
     popup.document.close();
   }, [filteredStocks, dateFrom, dateTo, totalValue]);
 
-  const handleTransfer = () => transaction.openTransaction("TRANSFER");
-  const handleOpname = () => transaction.openTransaction("OPNAME");
-  const handleAdjustment = () => transaction.openTransaction("ADJUSTMENT");
+  const handleTransfer = () => {
+    if (!access?.transfer) return;
+    transaction.openTransaction("TRANSFER");
+  };
+
+  const handleOpname = () => {
+    if (!access?.opname) return;
+    transaction.openTransaction("OPNAME");
+  };
+
+  const handleAdjustment = () => {
+    if (!access?.adjustment) return;
+    transaction.openTransaction("ADJUSTMENT");
+  };
 
   return (
     <div className="w-full pr-2 space-y-4">
@@ -321,29 +332,35 @@ export default function StorekeeperPage(): JSX.Element {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={handleTransfer}
-            className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white"
-          >
-            Transfer Stok
-          </button>
+          {access?.transfer && (
+            <button
+              type="button"
+              onClick={handleTransfer}
+              className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white"
+            >
+              Transfer Stok
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={handleOpname}
-            className="rounded-md border border-amber-500 px-3 py-2 text-sm font-medium text-amber-700"
-          >
-            Stock Opname
-          </button>
+          {access?.opname && (
+            <button
+              type="button"
+              onClick={handleOpname}
+              className="rounded-md border border-amber-500 px-3 py-2 text-sm font-medium text-amber-700"
+            >
+              Stock Opname
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={handleAdjustment}
-            className="rounded-md border border-indigo-500 px-3 py-2 text-sm font-medium text-indigo-700"
-          >
-            Adjustment
-          </button>
+          {access?.adjustment && (
+            <button
+              type="button"
+              onClick={handleAdjustment}
+              className="rounded-md border border-indigo-500 px-3 py-2 text-sm font-medium text-indigo-700"
+            >
+              Adjustment
+            </button>
+          )}
 
           <button
             type="button"

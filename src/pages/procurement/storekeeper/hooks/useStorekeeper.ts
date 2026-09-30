@@ -140,6 +140,9 @@ export function useStorekeeper() {
     view: false,
     print: false,
     export: false,
+    transfer: false,
+    opname: false,
+    adjustment: false,
   });
 
   // ---------------------------------------------------------------------
@@ -373,18 +376,29 @@ export function useStorekeeper() {
   // ---------------------------------------------------------------------
 
   const loadAccess = useCallback(async () => {
-    const [view, print, exportExcel] = await Promise.all([
+    const [
+      view,
+      print,
+      exportExcel,
+      transfer,
+      opname,
+      adjustment,
+    ] = await Promise.all([
       hasAccess("storekeeper.view"),
-
       hasAccess("storekeeper.print"),
-
       hasAccess("storekeeper.export"),
+      hasAccess("storekeeper.transfer"),
+      hasAccess("storekeeper.opname"),
+      hasAccess("storekeeper.adjustment"),
     ]);
 
     setAccess({
       view,
       print,
       export: exportExcel,
+      transfer,
+      opname,
+      adjustment,
     });
   }, []);
 

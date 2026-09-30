@@ -172,6 +172,47 @@ function getVariancePercent(
   );
 }
 
+function getMisSign(
+  categoryCode: string,
+) {
+  if (
+    categoryCode === "REVENUE" ||
+    categoryCode === "OTHER_INCOME"
+  ) {
+    return 1;
+  }
+
+  if (
+    categoryCode === "COGS" ||
+    categoryCode === "EXPENSE" ||
+    categoryCode === "OTHER_EXPENSE"
+  ) {
+    return -1;
+  }
+
+  return 0;
+}
+
+function getMisNetValue(
+  rows: MisMacroRow[],
+  field:
+    | "last_month"
+    | "actual"
+    | "budget"
+    | "last_year"
+    | "ytd"
+    | "ytd_budget"
+    | "last_year_ytd",
+) {
+  return rows.reduce(
+    (total, row) =>
+      total +
+      getMisSign(row.category_code) *
+        Number(row[field] ?? 0),
+    0,
+  );
+}
+
 export default function MisMacroPage() {
   const currentYear =
     new Date().getFullYear();
@@ -295,6 +336,20 @@ export default function MisMacroPage() {
         "../utils/generateMisWorkbook"
       );
 
+      console.log("[MIS EXPORT] PERIOD:", {
+  year,
+  month,
+  monthLabel:
+    MONTHS.find(
+      (item) => item.value === month,
+    )?.label,
+});
+
+console.log(
+  "[MIS EXPORT] FIRST ROW:",
+  rows[0],
+);
+
       downloadMisWorkbook({
         entityId,
         year,
@@ -413,29 +468,37 @@ export default function MisMacroPage() {
   ====================================================== */
 
   const summary = useMemo(() => {
-    return rows.reduce(
-      (result, row) => {
-        result.actual += row.actual;
-        result.budget += row.budget;
-        result.ytd += row.ytd;
-        result.ytdBudget +=
-          row.ytd_budget;
-        result.lastYear +=
-          row.last_year;
-        result.lastYearYtd +=
-          row.last_year_ytd;
+    return {
+      actual: getMisNetValue(
+        rows,
+        "actual",
+      ),
 
-        return result;
-      },
-      {
-        actual: 0,
-        budget: 0,
-        ytd: 0,
-        ytdBudget: 0,
-        lastYear: 0,
-        lastYearYtd: 0,
-      },
-    );
+      budget: getMisNetValue(
+        rows,
+        "budget",
+      ),
+
+      ytd: getMisNetValue(
+        rows,
+        "ytd",
+      ),
+
+      ytdBudget: getMisNetValue(
+        rows,
+        "ytd_budget",
+      ),
+
+      lastYear: getMisNetValue(
+        rows,
+        "last_year",
+      ),
+
+      lastYearYtd: getMisNetValue(
+        rows,
+        "last_year_ytd",
+      ),
+    };
   }, [rows]);
 
   /* ======================================================
@@ -1162,19 +1225,18 @@ export default function MisMacroPage() {
 
                   {MONTHS.map(
                     (item) => {
-                      const total =
-                        rows.reduce(
-                          (
-                            sum,
-                            row,
-                          ) =>
-                            sum +
+                      const total = rows.reduce(
+                        (sum, row) =>
+                          sum +
+                          getMisSign(
+                            row.category_code,
+                          ) *
                             getMonthValue(
                               row,
                               item.key,
                             ),
-                          0,
-                        );
+                        0,
+                      );
 
                       return (
                         <div
@@ -1191,11 +1253,9 @@ export default function MisMacroPage() {
 
                   <div className="border-r border-slate-200 bg-slate-50 px-2 py-3 text-right">
                     {formatNumber(
-                      rows.reduce(
-                        (sum, row) =>
-                          sum +
-                          row.last_month,
-                        0,
+                      getMisNetValue(
+                        rows,
+                        "last_month",
                       ),
                     )}
                   </div>

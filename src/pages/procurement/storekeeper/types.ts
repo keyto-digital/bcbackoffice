@@ -75,11 +75,14 @@ export interface MovementRow {
   store: MovementStore | null;
 }
 
-export interface StorekeeperAccess {
+export type StorekeeperAccess = {
   view: boolean;
   print: boolean;
   export: boolean;
-}
+  transfer: boolean;
+  opname: boolean;
+  adjustment: boolean;
+};
 
 export interface TransactionForm {
   kind: TransactionKind | null;

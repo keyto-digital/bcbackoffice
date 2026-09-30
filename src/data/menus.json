@@ -411,6 +411,24 @@
         "path": "/general-store",
         "component": "StorekeeperPage"
       },
+      {
+        "label": "storekeeper.transfer",
+        "access": "storekeeper.transfer",
+        "path": "/general-store/transfer",
+        "component": "StorekeeperPage"
+      },
+      {
+        "label": "storekeeper.opname",
+        "access": "storekeeper.opname",
+        "path": "/general-store/opname",
+        "component": "StorekeeperPage"
+      },
+      {
+        "label": "storekeeper.adjustment",
+        "access": "storekeeper.adjustment",
+        "path": "/general-store/adjustment",
+        "component": "StorekeeperPage"
+      },
        {
         "label": "Kartu Stok",
         "access": "Storekeeper -> Kartu Stok",
