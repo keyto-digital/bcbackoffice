@@ -695,16 +695,27 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
    * TRANSFER
    */
   const handleTransfer = async () => {
-    for (const row of transferDetails) {
-      if (row.qty_transfer <= 0) {
-        alert(
-          `Qty Transfer untuk ${row.item_name ?? "item"} harus lebih dari 0.`,
-        );
+    if (!transferHeader) return;
 
-        return;
-      }
+    // Hanya item dengan Qty Transfer > 0 yang benar-benar diproses.
+    const activeRows = transferDetails.filter(
+      (row) => Number(row.qty_transfer) > 0,
+    );
 
-      if (row.qty_transfer > row.qty_approved) {
+    // Minimal harus ada 1 item yang ditransfer.
+    if (activeRows.length === 0) {
+      alert(
+        "Tidak ada item yang akan ditransfer. Isi minimal 1 Qty Transfer lebih dari 0.",
+      );
+      return;
+    }
+
+    // Validasi hanya item yang akan diproses.
+    for (const row of activeRows) {
+      const qtyTransfer = Number(row.qty_transfer);
+      const qtyApproved = Number(row.qty_approved);
+
+      if (qtyTransfer > qtyApproved) {
         alert(
           `Qty Transfer untuk ${
             row.item_name ?? "item"
@@ -715,15 +726,14 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
       }
     }
 
-    if (!transferHeader) return;
-
-    const currentUser = JSON.parse(localStorage.getItem("custom_user") || "{}");
+    const currentUser = JSON.parse(
+      localStorage.getItem("custom_user") || "{}",
+    );
 
     const userId = currentUser.id;
 
     if (!userId) {
       alert("User login tidak ditemukan.");
-
       return;
     }
 
@@ -731,8 +741,7 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
       await completeRequest(
         transferHeader.id,
         userId,
-
-        transferDetails.map((row) => ({
+        activeRows.map((row) => ({
           id: row.id!,
           qty_transfer: Number(row.qty_transfer),
         })),
@@ -741,9 +750,7 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
       alert("Transfer berhasil.");
 
       setShowTransfer(false);
-
       setTransferHeader(null);
-
       setTransferDetails([]);
 
       await fetchRequests({
@@ -754,7 +761,11 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
         endDate,
       });
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Terjadi kesalahan.");
+      alert(
+        err instanceof Error
+          ? err.message
+          : "Terjadi kesalahan.",
+      );
     }
   };
 

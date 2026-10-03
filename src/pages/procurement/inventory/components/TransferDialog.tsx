@@ -238,31 +238,28 @@ export default function TransferDialog({
               type="button"
               disabled={saving}
               onClick={() => {
-                for (
-                  const row of details
-                ) {
+                const activeRows = details.filter(
+                  (row) => Number(row.qty_transfer) > 0,
+                );
+
+                // Minimal harus ada 1 item yang benar-benar ditransfer
+                if (activeRows.length === 0) {
+                  alert(
+                    "Tidak ada item yang akan ditransfer. Isi minimal 1 Qty Transfer lebih dari 0.",
+                  );
+                  return;
+                }
+
+                // Validasi hanya item yang memang akan diproses
+                for (const row of activeRows) {
                   if (
-                    Number(
-                      row.qty_transfer,
-                    ) <= 0
+                    Number(row.qty_transfer) >
+                    Number(row.qty_approved)
                   ) {
                     alert(
-                      "Qty Transfer harus lebih dari 0.",
-                    );
-
-                    return;
-                  }
-
-                  if (
-                    Number(
-                      row.qty_transfer,
-                    ) >
-                    Number(
-                      row.qty_approved,
-                    )
-                  ) {
-                    alert(
-                      "Qty Transfer tidak boleh melebihi Qty Approved.",
+                      `Qty Transfer untuk ${
+                        row.item_name ?? "item"
+                      } tidak boleh melebihi Qty Approved.`,
                     );
 
                     return;
