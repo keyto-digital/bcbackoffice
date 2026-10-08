@@ -848,12 +848,23 @@ export default function Jurnal() {
   }
 
   function totalDebit() {
-    return rows.reduce((s, r) => s + r.debit, 0);
-  }
+  return rows.reduce((s, r) => s + Number(r.debit || 0), 0);
+}
 
-  function totalCredit() {
-    return rows.reduce((s, r) => s + r.credit, 0);
-  }
+function totalCredit() {
+  return rows.reduce((s, r) => s + Number(r.credit || 0), 0);
+}
+
+function formatJournalTotal(value: number) {
+  return value.toLocaleString("id-ID", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function journalDifference() {
+  return Number((totalDebit() - totalCredit()).toFixed(2));
+}
 
   // ================== SAVE JURNAL =================
   const saveJurnal = async () => {
@@ -1678,10 +1689,42 @@ export default function Jurnal() {
                 + Tambah Baris
               </button>
 
-              {/* TOTAL */}
-              <div className="mt-3 font-semibold text-sm">
-                Total Debit: {formatNumber(totalDebit())} | Total Kredit:{" "}
-                {formatNumber(totalCredit())}
+              {/* TOTAL JURNAL */}
+              <div className="mt-3 border-t pt-3 text-sm">
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-1 font-semibold">
+                  <span>
+                    Total Debit:{" "}
+                    {formatJournalTotal(totalDebit())}
+                  </span>
+
+                  <span>
+                    Total Kredit:{" "}
+                    {formatJournalTotal(totalCredit())}
+                  </span>
+
+                  <span
+                    className={
+                      journalDifference() === 0
+                        ? "text-green-600"
+                        : "text-red-600"
+                    }
+                  >
+                    Selisih:{" "}
+                    {formatJournalTotal(Math.abs(journalDifference()))}
+                  </span>
+                </div>
+
+                {journalDifference() !== 0 && (
+                  <div className="mt-1 text-red-600 font-medium">
+                    ⚠ Debit dan Kredit belum balance.
+                  </div>
+                )}
+
+                {journalDifference() === 0 && (
+                  <div className="mt-1 text-green-600 font-medium">
+                    ✓ Jurnal balance.
+                  </div>
+                )}
               </div>
 
               {/* ACTION */}
