@@ -2616,6 +2616,15 @@ function buildIncomeStatementSheet(
       `IF(${totalColumn}${revenueTotalRow}=0,0,${valueColumn}${row}/${totalColumn}${revenueTotalRow})`,
     );
 
+  const ratioFormulaByRevenueRow = (
+    valueColumn: string,
+    row: number,
+    revenueRow: number,
+  ) =>
+    formulaCell(
+      `IF(${valueColumn}${revenueRow}=0,0,${valueColumn}${row}/${valueColumn}${revenueRow})`,
+    );
+
   /*
    * Row 9 is intentionally fixed by the SUMMARY layout:
    * row 3 REVENUE, rows 4-8 five summary accounts, row 9 TOTAL REVENUE.
@@ -2665,22 +2674,56 @@ function buildIncomeStatementSheet(
     const row = rows.length + 1;
     const items = itemsForLine(line);
 
+    // KHUSUS COGS row 11 dan 12:
+    // row 11 dibandingkan dengan Revenue row 4
+    // row 12 dibandingkan dengan Revenue row 5
+    const useRevenueRowRatio = row === 11 || row === 12;
+    const revenueRow = row - 7;
+
     rows.push([
       sumFormula(items, "D"),
-      ratioFormula("A", row, "A"),
+
+      useRevenueRowRatio
+        ? ratioFormulaByRevenueRow("A", row, revenueRow)
+        : ratioFormula("A", row, "A"),
+
       sumFormula(items, "G"),
-      ratioFormula("C", row, "C"),
+
+      useRevenueRowRatio
+        ? ratioFormulaByRevenueRow("C", row, revenueRow)
+        : ratioFormula("C", row, "C"),
+
       sumFormula(items, "F"),
-      ratioFormula("E", row, "E"),
+
+      useRevenueRowRatio
+        ? ratioFormulaByRevenueRow("E", row, revenueRow)
+        : ratioFormula("E", row, "E"),
+
       sumFormula(items, "E"),
-      ratioFormula("G", row, "G"),
+
+      useRevenueRowRatio
+        ? ratioFormulaByRevenueRow("G", row, revenueRow)
+        : ratioFormula("G", row, "G"),
+
       line.label,
+
       sumFormula(items, "J"),
-      ratioFormula("J", row, "J"),
+
+      useRevenueRowRatio
+        ? ratioFormulaByRevenueRow("J", row, revenueRow)
+        : ratioFormula("J", row, "J"),
+
       sumFormula(items, "I"),
-      ratioFormula("L", row, "L"),
+
+      useRevenueRowRatio
+        ? ratioFormulaByRevenueRow("L", row, revenueRow)
+        : ratioFormula("L", row, "L"),
+
       sumFormula(items, "H"),
-      ratioFormula("N", row, "N"),
+
+      useRevenueRowRatio
+        ? ratioFormulaByRevenueRow("N", row, revenueRow)
+        : ratioFormula("N", row, "N"),
     ]);
   };
 
