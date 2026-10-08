@@ -120,6 +120,15 @@ function rupiah(value: number) {
   }).format(Number(value || 0));
 }
 
+function rupiahDecimal(value: number) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(value || 0));
+}
+
 function getLineNumber(value: string | number): number {
   const text = String(value ?? "").trim();
 
@@ -249,6 +258,25 @@ export default function ReceivingPage() {
       ),
     [lines],
   );
+
+  const totalSettlement = useMemo(
+    () =>
+      settlements.reduce((total, settlement) => {
+        const method = methods.find(
+          (row) => row.id === settlement.settlement_method_id,
+        );
+
+        // CREDIT_TERM / Tempo tidak dibayar sekarang.
+        if (method?.settlement_type === "CREDIT_TERM") {
+          return total;
+        }
+
+        return total + Number(settlement.amount || 0);
+      }, 0),
+    [settlements, methods],
+  );
+
+  const settlementDifference = totalSettlement - totalReceiving;
 
   const loadData = async (): Promise<void> => {
     setLoading(true);
@@ -449,16 +477,43 @@ export default function ReceivingPage() {
     setShowForm(false);
   };
 
-  const calculateSupplierDueDate = (invoiceDate: string, termDays: number) => {
+  const calculateSupplierDueDate = (
+    invoiceDate: string,
+    termDays: number,
+  ): string => {
     if (!invoiceDate) return "";
 
-    const date = new Date(`${invoiceDate}T00:00:00`);
+    const parts = invoiceDate.slice(0, 10).split("-");
+
+    if (parts.length !== 3) {
+      return "";
+    }
+
+    const year = Number(parts[0]);
+    const month = Number(parts[1]);
+    const day = Number(parts[2]);
+
+    if (
+      !Number.isInteger(year) ||
+      !Number.isInteger(month) ||
+      !Number.isInteger(day)
+    ) {
+      return "";
+    }
+
+    const date = new Date(year, month - 1, day);
 
     if (Number.isNaN(date.getTime())) {
       return "";
     }
-    date.setDate(date.getDate() + termDays);
-    return date.toISOString().slice(0, 10);
+
+    date.setDate(date.getDate() + Number(termDays || 0));
+
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+
+    return `${yyyy}-${mm}-${dd}`;
   };
 
   const supplierDueDate = calculateSupplierDueDate(
@@ -512,9 +567,15 @@ export default function ReceivingPage() {
     );
   };
 
-  const handleEditDraft = async (record: ReceivingRecord) => {
-    setSaving(true);
-    setError(null);
+ const handleEditDraft = async (record: ReceivingRecord) => {
+  // Scroll ke bagian paling atas halaman agar form edit langsung terlihat
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth",
+  });
+
+  setSaving(true);
+  setError(null);
 
     const { data, error } = await supabase
       .from("receiving_records")
@@ -800,6 +861,18 @@ export default function ReceivingPage() {
       return method?.settlement_type === "CREDIT_TERM";
     });
 
+    if (settlementDifference > 0.005) {
+      window.alert(
+        `Total settlement melebihi Total Receiving sebesar ${rupiahDecimal(
+          settlementDifference,
+        )}.\n\n` +
+          `Total Receiving: ${rupiahDecimal(totalReceiving)}\n` +
+          `Total Settlement: ${rupiahDecimal(totalSettlement)}\n\n` +
+          "Periksa kembali nominal settlement sebelum menyimpan.",
+      );
+      return;
+    }
+
     if (hasCreditTerm) {
       if (!supplierInvoiceNumber.trim()) {
         window.alert("No. Invoice Supplier wajib diisi untuk Receiving Tempo.");
@@ -886,15 +959,6 @@ export default function ReceivingPage() {
 
     if (!confirmed) return;
 
-    const customUserId = getCustomUserId();
-
-    if (!customUserId) {
-      setError(
-        "User aplikasi tidak ditemukan. Silakan login kembali sebelum melakukan posting.",
-      );
-      return;
-    }
-
     setSaving(true);
     setError(null);
 
@@ -902,14 +966,30 @@ export default function ReceivingPage() {
       "post_receiving_record",
       {
         p_receiving_record_id: record.id,
-        p_custom_user_id: customUserId,
       },
     );
 
     setSaving(false);
 
     if (postError) {
-      setError(postError.message);
+      console.error("POST RECEIVING ERROR:", {
+        message: postError.message,
+        details: postError.details,
+        hint: postError.hint,
+        code: postError.code,
+      });
+
+      setError(
+        [
+          postError.message,
+          postError.details,
+          postError.hint,
+          postError.code ? `Code: ${postError.code}` : "",
+        ]
+          .filter(Boolean)
+          .join(" | "),
+      );
+
       return;
     }
 
@@ -1786,6 +1866,7 @@ export default function ReceivingPage() {
                   <input
                     type="number"
                     min="0"
+                    step="0.01"
                     value={settlement.amount}
                     disabled={method?.settlement_type === "CREDIT_TERM"}
                     onChange={(event) =>
@@ -1811,11 +1892,53 @@ export default function ReceivingPage() {
             })}
           </div>
 
-          <div className="flex items-center justify-between rounded-lg bg-gray-50 p-4">
-            <span className="font-semibold text-gray-900">Total Receiving</span>
-            <span className="text-lg font-bold text-gray-900">
-              {rupiah(totalReceiving)}
-            </span>
+          <div className="rounded-lg bg-gray-50 p-4">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-gray-900">
+                Total Receiving
+              </span>
+
+              <span className="text-lg font-bold text-gray-900">
+                {rupiahDecimal(totalReceiving)}
+              </span>
+            </div>
+
+            <div className="mt-2 flex items-center justify-between border-t border-gray-200 pt-2">
+              <span className="text-sm text-gray-600">
+                Total Settlement
+              </span>
+
+              <span className="text-sm font-semibold text-gray-800">
+                {rupiah(totalSettlement)}
+              </span>
+            </div>
+
+            {Math.abs(settlementDifference) > 0.005 && (
+              <div
+                className={`mt-2 flex items-center justify-between border-t pt-2 ${
+                  settlementDifference > 0
+                    ? "border-red-200 text-red-700"
+                    : "border-orange-200 text-orange-700"
+                }`}
+              >
+                <span className="text-sm font-semibold">
+                  {settlementDifference > 0
+                    ? "Lebih Bayar / Selisih"
+                    : "Sisa / Selisih"}
+                </span>
+
+                <span className="text-sm font-bold">
+                  {rupiahDecimal(Math.abs(settlementDifference))}
+                </span>
+              </div>
+            )}
+
+            {settlementDifference > 0.005 && (
+              <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <strong>Perhatian:</strong> Total settlement melebihi Total
+                Receiving. Periksa kembali nominal pembayaran sebelum menyimpan.
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-3">
@@ -2049,7 +2172,7 @@ export default function ReceivingPage() {
                         </td>
 
                         <td className="px-3 py-3 text-right font-bold">
-                          {rupiah(detailRecord.grand_total)}
+                          {rupiahDecimal(detailRecord.grand_total)}
                         </td>
 
                         <td />
@@ -2185,7 +2308,7 @@ export default function ReceivingPage() {
                       {record.supplier_invoice_number || "-"}
                       {record.supplier_invoice_date && (
                         <div className="text-xs text-gray-500">
-                          {record.supplier_invoice_date}
+                          {formatDateIndonesia(record.supplier_invoice_date)}
                         </div>
                       )}
                     </td>
