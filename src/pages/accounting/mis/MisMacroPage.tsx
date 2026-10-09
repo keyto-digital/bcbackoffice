@@ -269,7 +269,9 @@ export default function MisMacroPage() {
 
   const balanceSheetAsOfDate =
     year && month
-      ? new Date(year, month, 0).toISOString().slice(0, 10)
+      ? `${year}-${String(month).padStart(2, "0")}-${String(
+          new Date(year, month, 0).getDate(),
+        ).padStart(2, "0")}`
       : null;
 
   const {

@@ -2968,9 +2968,20 @@ function buildBalanceSheetSheet(
 ): XLSX.WorkSheet {
   const lastDay = new Date(year, month, 0).getDate();
 
-  const assets = rows.filter((row) => row.category_code === "ASSET");
-  const liabilities = rows.filter((row) => row.category_code === "LIABILITY");
-  const equity = rows.filter((row) => row.category_code === "EQUITY");
+  const normalizeCategory = (value: string): string =>
+    value.trim().toUpperCase();
+
+  const assets = rows.filter(
+    (row) => normalizeCategory(row.category_code) === "ASSET",
+  );
+
+  const liabilities = rows.filter((row) =>
+    ["LIAB", "LIABILITY"].includes(normalizeCategory(row.category_code)),
+  );
+
+  const equity = rows.filter(
+    (row) => normalizeCategory(row.category_code) === "EQUITY",
+  );
   const currentProfit = rows.find(
     (row) => row.category_code === "CURRENT_PROFIT" ||
       row.account_code === "321103" ||
