@@ -521,8 +521,19 @@ export default function ReceivingPage() {
     supplierPaymentTermDays,
   );
 
-  const choosePo = async (poId: string) => {
-    const po = purchaseOrders.find((row) => row.id === poId);
+  const choosePo = async (
+    poId: string,
+    poOverride?: PurchaseOrder,
+    preserveExistingValues = false,
+  ) => {
+    const po = poOverride ?? purchaseOrders.find((row) => row.id === poId);
+    // Jika PO diganti saat mengedit draft, data yang terikat ke PO lama
+    // (invoice supplier dan settlement/deposit) tidak boleh ikut terbawa.
+    if (!preserveExistingValues && poId !== selectedPoId) {
+      setSupplierInvoiceNumber("");
+      setSupplierInvoiceDate("");
+      setSettlements([]);
+    }
 
     setSelectedPoId(poId);
 
@@ -672,8 +683,13 @@ export default function ReceivingPage() {
 
     setSupplierInvoiceDate(data.supplier_invoice_date ?? "");
 
-    // load ulang PO supaya deposit ikut muncul
-    await choosePo(data.purchase_order_id);
+    // Gunakan objek PO hasil query langsung. setPurchaseOrders bersifat
+    // asynchronous, jadi choosePo tidak boleh bergantung pada state lama.
+    await choosePo(
+      data.purchase_order_id,
+      editPo as unknown as PurchaseOrder,
+      true,
+    );
 
     // detail barang
     setLines(
@@ -893,6 +909,7 @@ export default function ReceivingPage() {
     const { data, error: saveError } = editingId
       ? await supabase.rpc("update_receiving_record_draft", {
           p_receiving_record_id: editingId,
+          p_purchase_order_id: selectedPo.id,
           p_receiving_date: receivingDate,
           p_store_id: storeId,
           p_notes: notes || null,
@@ -920,7 +937,17 @@ export default function ReceivingPage() {
     setSaving(false);
 
     if (saveError) {
-      setError(saveError.message);
+      console.error("SAVE RECEIVING DRAFT ERROR:", {
+        message: saveError.message,
+        details: saveError.details,
+        hint: saveError.hint,
+        code: saveError.code,
+      });
+      setError(
+        [saveError.message, saveError.details, saveError.hint, saveError.code]
+          .filter(Boolean)
+          .join(" | "),
+      );
       return;
     }
 
