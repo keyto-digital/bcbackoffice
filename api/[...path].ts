@@ -1,14 +1,23 @@
-import type { Request, Response } from "express";
-import app from "../backend/index.js";
 
-// Vercel rewrites legacy public endpoints such as /login to /api/login.
-// Strip the /api prefix before passing the request to the existing Express routes.
-export default function handler(req: Request, res: Response): void {
+import type { VercelRequest, VercelResponse } from "@vercel/node";
+import * as backendModule from "../backend/index.js";
+
+const backendApp = (
+  (backendModule as unknown as { default?: unknown }).default ??
+  backendModule
+) as (req: VercelRequest, res: VercelResponse) => unknown;
+
+export default function handler(
+  req: VercelRequest,
+  res: VercelResponse
+) {
   const originalUrl = req.url || "/";
+
   if (originalUrl === "/api") {
     req.url = "/";
   } else if (originalUrl.startsWith("/api/")) {
     req.url = originalUrl.slice(4);
   }
-  app(req, res);
+
+  return backendApp(req, res);
 }

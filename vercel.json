@@ -3,8 +3,13 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
-    { "source": "/login", "destination": "/api/login" },
-    { "source": "/receiving/delete-draft", "destination": "/api/receiving/delete-draft" },
-    { "source": "/(.*)", "destination": "/" }
+    {
+      "source": "/login",
+      "destination": "/api/login"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/"
+    }
   ]
 }
