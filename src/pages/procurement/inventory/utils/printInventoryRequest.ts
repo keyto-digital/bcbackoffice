@@ -112,21 +112,29 @@ body{
 }
 
 .print-half{
-  height:136.5mm;
-  max-height:136.5mm;
+  /*
+   * Sisakan ruang toleransi agar dua blok tidak melewati area cetak A4
+   * akibat pembulatan ukuran oleh browser/printer.
+   */
+  height:135mm;
+  max-height:135mm;
   box-sizing:border-box;
   overflow:hidden;
   position:relative;
+  break-inside:avoid;
+  page-break-inside:avoid;
 }
 
-.print-half:nth-child(2n){
+/* Pindah halaman hanya setelah pasangan blok selesai,
+   dan jangan pernah memaksa halaman baru setelah blok terakhir. */
+.print-half:nth-child(2n):not(:last-child){
   break-after:page;
   page-break-after:always;
 }
 
 .print-half:last-child{
-  break-after:auto;
-  page-break-after:auto;
+  break-after:auto !important;
+  page-break-after:auto !important;
 }
 
 table{
