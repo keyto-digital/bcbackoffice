@@ -156,14 +156,19 @@ th{
   padding:3px 4px;
 }
 
-.print-table{
-  width:100%;
-  table-layout:fixed;
+.print-table {
+  width: 100%;
+  max-width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  box-sizing: border-box;
 }
 
 .print-table th,
-.print-table td{
-  vertical-align:middle;
+.print-table td {
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+  vertical-align: middle;
 }
 
 .print-table th:nth-child(3),
@@ -197,8 +202,11 @@ th{
 }
 
 .print-table th:nth-child(7),
-.print-table td:nth-child(7){
-  width:19%;
+.print-table td:nth-child(7) {
+  width: 19%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .header{
