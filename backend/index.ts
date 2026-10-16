@@ -280,6 +280,11 @@ app.post(
   },
 );
 
-// Start server
-const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
-app.listen(PORT, () => console.log(`✅ Backend running on port ${PORT}`));
+// Export Express app so the same backend can run as a Vercel Function.
+// In local development it still starts the usual HTTP server.
+export default app;
+
+if (process.env.VERCEL !== "1") {
+  const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
+  app.listen(PORT, () => console.log(`✅ Backend running on port ${PORT}`));
+}
