@@ -285,6 +285,11 @@ app.post(
 export default app;
 
 if (process.env.VERCEL !== "1") {
-  const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
-  app.listen(PORT, () => console.log(`✅ Backend running on port ${PORT}`));
+  const PORT = process.env.PORT
+    ? Number(process.env.PORT)
+    : 3001;
+
+  app.listen(PORT, () => {
+    console.log(`Backend berjalan di port ${PORT}`);
+  });
 }
