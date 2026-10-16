@@ -1192,13 +1192,16 @@ export default function ReceivingPage() {
     await loadData();
   };
 
+  
   const deleteReceivingDraft = async (record: ReceivingRecord) => {
     const confirmed = window.confirm(
       `Hapus Draft Receiving ${record.receiving_number}?`,
     );
+
     if (!confirmed) return;
 
     const token = getCustomAuthToken();
+
     if (!token) {
       setError("Sesi login tidak ditemukan. Silakan login ulang.");
       return;
@@ -1208,26 +1211,41 @@ export default function ReceivingPage() {
     setError(null);
 
     try {
-      const apiUrl = (import.meta.env.VITE_AUTH_API_URL || "http://localhost:3001")
-        .replace(/\/+$/, "");
-      const response = await fetch(`${apiUrl}/receiving/delete-draft`, {
+      // Lokal menggunakan backend Express port 3001.
+      // Production menggunakan Vercel Function.
+      const apiUrl = import.meta.env.PROD
+        ? "/api/receiving/delete-draft"
+        : "http://localhost:3001/receiving/delete-draft";
+
+      const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ receivingRecordId: record.id }),
+        body: JSON.stringify({
+          receivingRecordId: record.id,
+        }),
       });
 
       const payload = await response.json().catch(() => null);
+
       if (!response.ok || !payload?.success) {
-        throw new Error(payload?.message || "Gagal menghapus Draft Receiving.");
+        throw new Error(
+          payload?.message || "Gagal menghapus Draft Receiving.",
+        );
       }
 
-      const result = payload.result as { receiving_number?: string };
+      const result = payload.result as {
+        receiving_number?: string;
+      };
+
       window.alert(
-        `Draft Receiving ${result?.receiving_number || record.receiving_number} dihapus.`,
+        `Draft Receiving ${
+          result?.receiving_number || record.receiving_number
+        } dihapus.`,
       );
+
       await loadData();
     } catch (err) {
       setError(
@@ -1239,6 +1257,7 @@ export default function ReceivingPage() {
       setSaving(false);
     }
   };
+
 
   const exportReceivingExcel = async () => {
     try {
