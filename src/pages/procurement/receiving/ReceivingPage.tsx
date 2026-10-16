@@ -3,7 +3,7 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { hasAccess } from "@/lib/hasAccess";
 import { supabase } from "@/lib/supabaseClient";
-import { getCustomUserId } from "@/lib/authUser";
+import { getCustomAuthToken, getCustomUserId } from "@/lib/authUser";
 import { usePagination } from "@/lib/pagination/usePagination";
 import { formatDateIndonesia } from "@/pages/procurement/utils/date";
 import { createPaginationMeta } from "@/lib/pagination/types";
@@ -1196,33 +1196,47 @@ export default function ReceivingPage() {
     const confirmed = window.confirm(
       `Hapus Draft Receiving ${record.receiving_number}?`,
     );
-
     if (!confirmed) return;
 
-    setSaving(true);
-
-    const { data, error: deleteError } = await supabase.rpc(
-      "delete_receiving_record_draft",
-      {
-        p_receiving_record_id: record.id,
-      },
-    );
-
-    setSaving(false);
-
-    if (deleteError) {
-      setError(deleteError.message);
+    const token = getCustomAuthToken();
+    if (!token) {
+      setError("Sesi login tidak ditemukan. Silakan login ulang.");
       return;
     }
 
-    const result = data as {
-      success: boolean;
-      receiving_number: string;
-    };
+    setSaving(true);
+    setError(null);
 
-    if (result.success) {
-      window.alert(`Draft Receiving ${result.receiving_number} dihapus.`);
-      loadData();
+    try {
+      const apiUrl = (import.meta.env.VITE_AUTH_API_URL || "http://localhost:3001")
+        .replace(/\/+$/, "");
+      const response = await fetch(`${apiUrl}/receiving/delete-draft`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ receivingRecordId: record.id }),
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.message || "Gagal menghapus Draft Receiving.");
+      }
+
+      const result = payload.result as { receiving_number?: string };
+      window.alert(
+        `Draft Receiving ${result?.receiving_number || record.receiving_number} dihapus.`,
+      );
+      await loadData();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Gagal menghapus Draft Receiving.",
+      );
+    } finally {
+      setSaving(false);
     }
   };
 

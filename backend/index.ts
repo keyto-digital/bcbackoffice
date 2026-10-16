@@ -2,7 +2,8 @@ import "dotenv/config";
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
-import "./login";
+import { registerLoginRoute } from "./login";
+import { verifyCustomToken } from "./authToken";
 
 const app = express();
 app.use(cors());
@@ -12,10 +13,15 @@ app.use(express.json());
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in backend/.env");
+  console.error(
+    "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in backend/.env",
+  );
   process.exit(1);
 }
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+// Route login custom_users memakai server Express utama ini (tidak membuat server kedua).
+registerLoginRoute(app, supabase);
 
 // Types
 interface AuthenticatedRequest extends Request {
@@ -35,15 +41,22 @@ interface UpdateUserPayload extends CreateUserPayload {
 }
 
 // Middleware: require manajemen role
-const requireManajemen = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+const requireManajemen = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith("Bearer ")) {
-      return res.status(401).json({ success: false, message: "Missing Authorization header" });
+      return res
+        .status(401)
+        .json({ success: false, message: "Missing Authorization header" });
     }
 
     const token = authHeader.split(" ")[1];
-    const { data: getUserData, error: getUserError } = await supabase.auth.getUser(token);
+    const { data: getUserData, error: getUserError } =
+      await supabase.auth.getUser(token);
     if (getUserError || !getUserData?.user) {
       return res.status(401).json({ success: false, message: "Invalid token" });
     }
@@ -55,9 +68,17 @@ const requireManajemen = async (req: AuthenticatedRequest, res: Response, next: 
       .eq("id", userId)
       .maybeSingle();
 
-    if (rowError) return res.status(500).json({ success: false, message: rowError.message });
+    if (rowError)
+      return res
+        .status(500)
+        .json({ success: false, message: rowError.message });
     if (row?.role !== "manajemen") {
-      return res.status(403).json({ success: false, message: "Access denied. Requires manajemen role" });
+      return res
+        .status(403)
+        .json({
+          success: false,
+          message: "Access denied. Requires manajemen role",
+        });
     }
 
     req.userId = userId;
@@ -69,97 +90,195 @@ const requireManajemen = async (req: AuthenticatedRequest, res: Response, next: 
   }
 };
 
+// Middleware khusus custom_users. Hak akses diambil ulang dari database, bukan dari localStorage.
+interface ReceivingAuthRequest extends Request { customUserId?: string; }
+const requireReceivingDeleteAccess = async (
+  req: ReceivingAuthRequest, res: Response, next: NextFunction,
+) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.status(401).json({ success: false, message: "Silakan login ulang." });
+    }
+    const payload = verifyCustomToken(authHeader.slice("Bearer ".length).trim());
+    if (!payload) {
+      return res.status(401).json({ success: false, message: "Sesi login tidak valid atau kedaluwarsa. Silakan login ulang." });
+    }
+    const { data: user, error } = await supabase
+      .from("custom_users").select("id, access").eq("id", payload.sub).maybeSingle();
+    if (error) {
+      console.error("Receiving auth lookup failed:", error.message);
+      return res.status(500).json({ success: false, message: "Gagal memverifikasi hak akses." });
+    }
+    if (!user) return res.status(401).json({ success: false, message: "Akun tidak ditemukan atau sudah dinonaktifkan." });
+    const access = Array.isArray(user.access) ? user.access : [];
+    if (!access.includes("receiving.delete_draft")) {
+      return res.status(403).json({ success: false, message: "Anda tidak memiliki akses receiving.delete_draft." });
+    }
+    req.customUserId = String(user.id);
+    return next();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Verifikasi akses gagal.";
+    console.error("Receiving delete access error:", message);
+    return res.status(401).json({ success: false, message: "Sesi login tidak valid. Silakan login ulang." });
+  }
+};
+
+app.post("/receiving/delete-draft", requireReceivingDeleteAccess, async (req: Request, res: Response) => {
+  const receivingRecordId = req.body?.receivingRecordId;
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (typeof receivingRecordId !== "string" || !uuidPattern.test(receivingRecordId)) {
+    return res.status(400).json({ success: false, message: "ID Receiving tidak valid." });
+  }
+  try {
+    const { data, error } = await supabase.rpc("delete_receiving_record_draft", {
+      p_receiving_record_id: receivingRecordId,
+    });
+    if (error) {
+      console.error("delete_receiving_record_draft failed:", error.message, error.code);
+      return res.status(error.code === "42501" ? 403 : 400).json({
+        success: false,
+        message: error.code === "42501"
+          ? "Backend belum memiliki izin menjalankan fungsi penghapusan Receiving."
+          : error.message,
+        code: error.code,
+      });
+    }
+    const result = Array.isArray(data) ? data[0] : data;
+    if (!result || result.success !== true) {
+      return res.status(400).json({ success: false, message: result?.message || result?.error || "Penghapusan Receiving tidak berhasil." });
+    }
+    return res.json({ success: true, result });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Gagal menghapus Receiving Draft.";
+    console.error("Receiving draft delete error:", message);
+    return res.status(500).json({ success: false, message });
+  }
+});
+
 // Health check
 app.get("/", (_req, res) => res.send("Backend OK"));
 
 // Create user
-app.post("/create-user", requireManajemen, async (req: Request<{}, {}, CreateUserPayload>, res: Response) => {
-  const { name, email, password, role, access } = req.body;
-  if (!email || !password || !name) {
-    return res.status(400).json({ success: false, message: "name, email, password required" });
-  }
-
-  try {
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({ email, password });
-    if (authError) throw authError;
-
-    const authId = authData?.user?.id;
-    if (!authId) throw new Error("Failed to get created auth user id");
-
-    const { error: dbError } = await supabase.from("users").insert({
-      id: authId,
-      name,
-      email,
-      role: role ?? "staff",
-      access: Array.isArray(access) ? access : [],
-    });
-    if (dbError) throw dbError;
-
-    res.json({ success: true, user: { id: authId, name, email, role, access } });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Create user failed";
-    console.error("create-user error:", err);
-    res.status(400).json({ success: false, message });
-  }
-});
-
-// Update user
-app.post("/update-user", requireManajemen, async (req: Request<{}, {}, UpdateUserPayload>, res: Response) => {
-  const { id, name, role, access, password } = req.body;
-  if (!id || !name) return res.status(400).json({ success: false, message: "id & name required" });
-
-  try {
-    if (password) {
-      const { error: pwError } = await supabase.auth.admin.updateUserById(id, { password });
-      if (pwError) throw pwError;
+app.post(
+  "/create-user",
+  requireManajemen,
+  async (req: Request<{}, {}, CreateUserPayload>, res: Response) => {
+    const { name, email, password, role, access } = req.body;
+    if (!email || !password || !name) {
+      return res
+        .status(400)
+        .json({ success: false, message: "name, email, password required" });
     }
 
-    const { error: dbError } = await supabase
-      .from("users")
-      .update({ name, role, access: Array.isArray(access) ? access : [] })
-      .eq("id", id);
-    if (dbError) throw dbError;
+    try {
+      const { data: authData, error: authError } =
+        await supabase.auth.admin.createUser({ email, password });
+      if (authError) throw authError;
 
-    res.json({ success: true });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Update user failed";
-    console.error("update-user error:", err);
-    res.status(400).json({ success: false, message });
-  }
-});
+      const authId = authData?.user?.id;
+      if (!authId) throw new Error("Failed to get created auth user id");
+
+      const { error: dbError } = await supabase.from("users").insert({
+        id: authId,
+        name,
+        email,
+        role: role ?? "staff",
+        access: Array.isArray(access) ? access : [],
+      });
+      if (dbError) throw dbError;
+
+      res.json({
+        success: true,
+        user: { id: authId, name, email, role, access },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Create user failed";
+      console.error("create-user error:", err);
+      res.status(400).json({ success: false, message });
+    }
+  },
+);
+
+// Update user
+app.post(
+  "/update-user",
+  requireManajemen,
+  async (req: Request<{}, {}, UpdateUserPayload>, res: Response) => {
+    const { id, name, role, access, password } = req.body;
+    if (!id || !name)
+      return res
+        .status(400)
+        .json({ success: false, message: "id & name required" });
+
+    try {
+      if (password) {
+        const { error: pwError } = await supabase.auth.admin.updateUserById(
+          id,
+          { password },
+        );
+        if (pwError) throw pwError;
+      }
+
+      const { error: dbError } = await supabase
+        .from("users")
+        .update({ name, role, access: Array.isArray(access) ? access : [] })
+        .eq("id", id);
+      if (dbError) throw dbError;
+
+      res.json({ success: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Update user failed";
+      console.error("update-user error:", err);
+      res.status(400).json({ success: false, message });
+    }
+  },
+);
 
 // List users
-app.get("/list-users", requireManajemen, async (_req: Request, res: Response) => {
-  try {
-    const { data, error } = await supabase.from("users").select("*");
-    if (error) throw error;
-    res.json({ users: data });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "List users failed";
-    console.error("list-users error:", err);
-    res.status(500).json({ success: false, message });
-  }
-});
+app.get(
+  "/list-users",
+  requireManajemen,
+  async (_req: Request, res: Response) => {
+    try {
+      const { data, error } = await supabase.from("users").select("*");
+      if (error) throw error;
+      res.json({ users: data });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "List users failed";
+      console.error("list-users error:", err);
+      res.status(500).json({ success: false, message });
+    }
+  },
+);
 
 // Delete user
-app.post("/delete-user", requireManajemen, async (req: Request<{}, {}, { id: string }>, res: Response) => {
-  const { id } = req.body;
-  if (!id) return res.status(400).json({ success: false, message: "id required" });
+app.post(
+  "/delete-user",
+  requireManajemen,
+  async (req: Request<{}, {}, { id: string }>, res: Response) => {
+    const { id } = req.body;
+    if (!id)
+      return res.status(400).json({ success: false, message: "id required" });
 
-  try {
-    const { error: authError } = await supabase.auth.admin.deleteUser(id);
-    if (authError) throw authError;
+    try {
+      const { error: authError } = await supabase.auth.admin.deleteUser(id);
+      if (authError) throw authError;
 
-    const { error: dbError } = await supabase.from("users").delete().eq("id", id);
-    if (dbError) throw dbError;
+      const { error: dbError } = await supabase
+        .from("users")
+        .delete()
+        .eq("id", id);
+      if (dbError) throw dbError;
 
-    res.json({ success: true });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Delete user failed";
-    console.error("delete-user error:", err);
-    res.status(500).json({ success: false, message });
-  }
-});
+      res.json({ success: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Delete user failed";
+      console.error("delete-user error:", err);
+      res.status(500).json({ success: false, message });
+    }
+  },
+);
 
 // Start server
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;

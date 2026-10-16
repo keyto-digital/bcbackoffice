@@ -1,65 +1,36 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import "dotenv/config";
-import express, { Request, Response } from "express";
+import type { Express, Request, Response } from "express";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
-import cors from "cors";
-import { createClient } from "@supabase/supabase-js";
+import { createCustomToken } from "./authToken";
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+interface LoginPayload { username?: string; password?: string; }
 
-const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Route didaftarkan ke app Express utama; file ini tidak membuat app/server baru.
+export function registerLoginRoute(app: Express, supabase: SupabaseClient): void {
+  app.post("/login", async (req: Request<{}, {}, LoginPayload>, res: Response) => {
+    try {
+      const username = req.body?.username?.trim();
+      const password = req.body?.password;
+      if (!username || !password) return res.status(400).json({ success: false, message: "Username dan password wajib diisi." });
 
-interface LoginPayload {
-  username: string;
-  password: string;
+      const { data: user, error } = await supabase.from("custom_users")
+        .select("id, name, password, role, access, entity_id, default_store_id, store_access_scope")
+        .eq("name", username).maybeSingle();
+      if (error) {
+        console.error("Custom login lookup failed:", error.message);
+        return res.status(500).json({ success: false, message: "Gagal memverifikasi akun." });
+      }
+      if (!user || typeof user.password !== "string") return res.status(401).json({ success: false, message: "Username atau password salah." });
+      if (!(await bcrypt.compare(password, user.password))) return res.status(401).json({ success: false, message: "Username atau password salah." });
+      if (!Array.isArray(user.access)) return res.status(403).json({ success: false, message: "Akses akun belum dikonfigurasi." });
+
+      const token = createCustomToken(String(user.id));
+      const { password: _passwordHash, ...safeUser } = user;
+      return res.json({ success: true, user: safeUser, token });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Login gagal.";
+      console.error("Custom login error:", message);
+      return res.status(500).json({ success: false, message });
+    }
+  });
 }
-
-app.post("/login", async (req: Request<{}, {}, LoginPayload>, res: Response) => {
-  try {
-    const { username, password } = req.body;
-
-    // 🔐 Log input dari frontend
-    console.log("🔐 Login payload:", { username, password });
-
-    if (!username || !password) {
-      return res.status(400).json({ success: false, message: "Name & password wajib diisi" });
-    }
-
-    const { data: user, error } = await supabase
-      .from("custom_users")
-      .select("id, name, password, role, access")
-      .ilike("name", username)
-      .maybeSingle();
-
-    // 🔍 Log hasil query Supabase
-    console.log("🔍 Supabase result:", user);
-
-    if (error) {
-      console.error("❌ Supabase error:", error.message);
-      return res.status(500).json({ success: false, message: "Gagal mengambil data user" });
-    }
-
-    if (!user) {
-      return res.status(401).json({ success: false, message: "User tidak ditemukan" });
-    }
-
-    // 🔑 Log perbandingan password
-    console.log("🔑 Comparing:", password, "vs", user.password);
-
-    const isValid = bcrypt.compareSync(password, user.password);
-    if (!isValid) {
-      return res.status(401).json({ success: false, message: "Password salah" });
-    }
-
-    const { password: _, ...safeUser } = user;
-    res.json({ success: true, user: safeUser });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Login gagal";
-    console.error("Login error:", err);
-    res.status(500).json({ success: false, message });
-  }
-});
