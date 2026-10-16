@@ -113,11 +113,11 @@ body{
 
 .print-half{
   /*
-   * Sisakan ruang toleransi agar dua blok tidak melewati area cetak A4
-   * akibat pembulatan ukuran oleh browser/printer.
+   * Dua blok per halaman A4. Sisakan ruang cukup besar agar tidak
+   * terjadi overflow akibat pembulatan browser/printer.
    */
-  height:135mm;
-  max-height:135mm;
+  height:132mm;
+  max-height:132mm;
   box-sizing:border-box;
   overflow:hidden;
   position:relative;
@@ -125,8 +125,7 @@ body{
   page-break-inside:avoid;
 }
 
-/* Pindah halaman hanya setelah pasangan blok selesai,
-   dan jangan pernah memaksa halaman baru setelah blok terakhir. */
+/* Page break hanya setelah blok kedua jika masih ada blok berikutnya. */
 .print-half:nth-child(2n):not(:last-child){
   break-after:page;
   page-break-after:always;
