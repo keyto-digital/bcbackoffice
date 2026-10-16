@@ -9,6 +9,10 @@
       "destination": "/api/login"
     },
     {
+      "source": "/receiving/delete-draft",
+      "destination": "/api/receiving/delete-draft"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/"
     }
