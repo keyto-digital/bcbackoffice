@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import app from "../backend/index";
+import app from "../backend/index.js";
 
 // Vercel rewrites legacy public endpoints such as /login to /api/login.
 // Strip the /api prefix before passing the request to the existing Express routes.
