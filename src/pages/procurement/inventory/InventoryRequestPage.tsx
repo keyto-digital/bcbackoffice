@@ -697,23 +697,21 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
   const handleTransfer = async () => {
     if (!transferHeader) return;
 
-    // Hanya item dengan Qty Transfer > 0 yang benar-benar diproses.
-    const activeRows = transferDetails.filter(
-      (row) => Number(row.qty_transfer) > 0,
-    );
-
-    // Minimal harus ada 1 item yang ditransfer.
-    if (activeRows.length === 0) {
-      alert(
-        "Tidak ada item yang akan ditransfer. Isi minimal 1 Qty Transfer lebih dari 0.",
-      );
+    if (transferDetails.length === 0) {
+      alert("Tidak ada detail item untuk ditransfer.");
       return;
     }
 
-    // Validasi hanya item yang akan diproses.
-    for (const row of activeRows) {
+    // Qty Transfer boleh 0. Semua baris harus dikirim ke RPC agar
+    // item yang tidak dikeluarkan tetap tersimpan sebagai transfer 0.
+    for (const row of transferDetails) {
       const qtyTransfer = Number(row.qty_transfer);
       const qtyApproved = Number(row.qty_approved);
+
+      if (!Number.isFinite(qtyTransfer) || qtyTransfer < 0) {
+        alert(`Qty Transfer untuk ${row.item_name ?? "item"} harus 0 atau lebih.`);
+        return;
+      }
 
       if (qtyTransfer > qtyApproved) {
         alert(
@@ -741,7 +739,7 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
       await completeRequest(
         transferHeader.id,
         userId,
-        activeRows.map((row) => ({
+        transferDetails.map((row) => ({
           id: row.id!,
           qty_transfer: Number(row.qty_transfer),
         })),
@@ -761,11 +759,68 @@ export default function InventoryRequestPage({ entityId = null }: Props) {
         endDate,
       });
     } catch (err: unknown) {
-      alert(
+      const errorMessage =
         err instanceof Error
           ? err.message
-          : "Terjadi kesalahan.",
-      );
+          : typeof err === "object" &&
+              err !== null &&
+              "message" in err &&
+              typeof err.message === "string"
+            ? err.message
+            : "";
+
+      // Jika stok sumber tidak cukup, cari item yang stoknya kurang
+      // agar pesan menyebut nama barang dan jumlah stok aktual.
+      if (
+        errorMessage.toLowerCase().includes("stok") &&
+        (errorMessage.toLowerCase().includes("tidak mencukupi") ||
+          errorMessage.toLowerCase().includes("tidak cukup"))
+      ) {
+        try {
+          const rowsToTransfer = transferDetails.filter(
+            (row) => Number(row.qty_transfer) > 0,
+          );
+          const itemIds = rowsToTransfer
+            .map((row) => row.item_id)
+            .filter((id): id is string => Boolean(id));
+
+          if (itemIds.length > 0 && transferHeader.source_store_id) {
+            const { data: stocks, error: stockError } = await supabase
+              .from("item_store_stocks")
+              .select("item_id, quantity_on_hand")
+              .eq("store_id", transferHeader.source_store_id)
+              .in("item_id", itemIds);
+
+            if (!stockError) {
+              const insufficientRow = rowsToTransfer.find((row) => {
+                const stock = stocks?.find(
+                  (entry) => entry.item_id === row.item_id,
+                );
+                const available = Number(stock?.quantity_on_hand ?? 0);
+                return Number(row.qty_transfer) > available;
+              });
+
+              if (insufficientRow) {
+                const stock = stocks?.find(
+                  (entry) => entry.item_id === insufficientRow.item_id,
+                );
+                const available = Number(stock?.quantity_on_hand ?? 0);
+                const itemName = insufficientRow.item_name ?? "Barang";
+                alert(
+                  available <= 0
+                    ? `Tidak bisa transfer ${itemName} karena stok di gudang asal nol (tersedia: 0).`
+                    : `Tidak bisa transfer ${itemName}. Stok di gudang asal hanya ${available}, sedangkan jumlah transfer ${Number(insufficientRow.qty_transfer)}.`,
+                );
+                return;
+              }
+            }
+          }
+        } catch {
+          // Jika pengecekan stok tambahan gagal, tampilkan pesan asli di bawah.
+        }
+      }
+
+      alert(errorMessage || "Terjadi kesalahan saat transfer.");
     }
   };
 
