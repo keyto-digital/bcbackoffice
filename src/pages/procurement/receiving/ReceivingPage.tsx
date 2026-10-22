@@ -1881,7 +1881,7 @@ export default function ReceivingPage() {
                   Settlement Pembayaran
                 </h3>
                 <p className="text-sm text-gray-500">
-                  Kosongkan jika seluruh nilai masuk AP Trade/Tempo.
+                  Nominal positif menjadi kredit; nominal minus menjadi debit pada akun metode settlement. Kosongkan jika seluruh nilai masuk AP Trade/Tempo.
                 </p>
               </div>
 
@@ -1925,7 +1925,6 @@ export default function ReceivingPage() {
 
                   <input
                     type="number"
-                    min="0"
                     step="0.01"
                     value={settlement.amount}
                     disabled={method?.settlement_type === "CREDIT_TERM"}
@@ -1933,10 +1932,15 @@ export default function ReceivingPage() {
                       updateSettlement(
                         index,
                         "amount",
-                        Number(event.target.value || 0),
+                        event.target.value === "" ? 0 : Number(event.target.value),
                       )
                     }
-                    placeholder="Nominal"
+                    placeholder="Nominal (minus = debit)"
+                    title={
+                      method?.settlement_type === "CREDIT_TERM"
+                        ? "Tempo tidak menggunakan nominal."
+                        : "Nominal positif = kredit; nominal negatif = debit."
+                    }
                     className="rounded-md border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
                   />
 
