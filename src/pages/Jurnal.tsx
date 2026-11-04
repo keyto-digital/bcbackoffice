@@ -63,6 +63,25 @@ function formatUpdatedAt(value?: string | null) {
   return `${tanggal} ${waktu}`;
 }
 
+// Supabase PostgrestError tidak selalu merupakan instance dari Error.
+function getSupabaseErrorMessage(
+  error: unknown,
+  fallback: string,
+): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (error && typeof error === "object" && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message.trim()) {
+      return message;
+    }
+  }
+
+  return fallback;
+}
+
 // ================= PAGE =================
 export default function Jurnal() {
   /*
@@ -761,10 +780,13 @@ export default function Jurnal() {
       } else {
         await loadData();
       }
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Gagal menghapus jurnal.";
+    } catch (error: unknown) {
+      const message = getSupabaseErrorMessage(
+        error,
+        "Gagal menghapus jurnal.",
+      );
 
+      console.error("Detail error hapus jurnal:", error);
       alert("❌ Gagal hapus jurnal: " + message);
     }
   };
@@ -1013,8 +1035,12 @@ function journalDifference() {
       resetForm();
       await loadData();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Unknown error";
+      const message = getSupabaseErrorMessage(
+        err,
+        "Terjadi kesalahan saat menyimpan jurnal.",
+      );
 
+      console.error("Detail error simpan jurnal:", err);
       alert("❌ Gagal simpan: " + message);
     }
   };
