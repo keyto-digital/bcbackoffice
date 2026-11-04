@@ -1006,16 +1006,20 @@ export default function ReceivingPage() {
         code: postError.code,
       });
 
-      setError(
-        [
-          postError.message,
-          postError.details,
-          postError.hint,
-          postError.code ? `Code: ${postError.code}` : "",
-        ]
-          .filter(Boolean)
-          .join(" | "),
-      );
+      // Jangan tampilkan kode teknis P0001 kepada pengguna.
+      if (postError.code === "P0001") {
+        setError(postError.message);
+      } else {
+        setError(
+          [
+            postError.message,
+            postError.details,
+            postError.hint,
+          ]
+            .filter(Boolean)
+            .join(" | ") || "Gagal melakukan posting receiving.",
+        );
+      }
 
       return;
     }

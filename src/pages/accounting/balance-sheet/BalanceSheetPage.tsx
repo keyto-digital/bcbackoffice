@@ -189,14 +189,6 @@ export default function BalanceSheetPage() {
           offset += FETCH_SIZE;
         }
 
-        console.log("[BALANCE SHEET FETCH]", {
-  asOfDate,
-  entityId: selectedEntityId || "ALL",
-  totalJournalDetails: allDetails.length,
-  fetchSize: FETCH_SIZE,
-  expectedPages: Math.ceil(allDetails.length / FETCH_SIZE),
-});
-
         if (!cancelled) {
           setJournals(
             allDetails.map((detail) => ({

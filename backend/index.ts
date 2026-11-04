@@ -156,6 +156,181 @@ app.post("/receiving/delete-draft", requireReceivingDeleteAccess, async (req: Re
   }
 });
 
+interface PeriodLockAuthRequest extends Request {
+  customUserId?: string;
+}
+
+// lock period management middleware
+const requirePeriodLockManage = async (
+  req: PeriodLockAuthRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.status(401).json({
+        success: false,
+        message: "Silakan login ulang.",
+      });
+    }
+
+    const payload = verifyCustomToken(
+      authHeader.slice("Bearer ".length).trim(),
+    );
+
+    if (!payload) {
+      return res.status(401).json({
+        success: false,
+        message: "Sesi login tidak valid atau kedaluwarsa.",
+      });
+    }
+
+    const { data: user, error } = await supabase
+      .from("custom_users")
+      .select("id, access")
+      .eq("id", payload.sub)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Period lock auth lookup failed:", error.message);
+
+      return res.status(500).json({
+        success: false,
+        message: "Gagal memverifikasi hak akses.",
+      });
+    }
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Akun tidak ditemukan atau sudah dinonaktifkan.",
+      });
+    }
+
+    const access = Array.isArray(user.access) ? user.access : [];
+
+    if (!access.includes("accounting.period_lock.manage")) {
+      return res.status(403).json({
+        success: false,
+        message: "Anda tidak memiliki akses pengaturan periode akuntansi.",
+      });
+    }
+
+    req.customUserId = String(user.id);
+
+    return next();
+  } catch (err) {
+    console.error("Period lock middleware error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Terjadi kesalahan saat memverifikasi akses.",
+    });
+  }
+};
+
+app.get(
+  "/accounting/period-lock",
+  requirePeriodLockManage,
+  async (_req: PeriodLockAuthRequest, res: Response) => {
+    try {
+      const { data, error } = await supabase
+        .from("accounting_period_settings")
+        .select("is_enabled, locked_through_date, updated_at")
+        .eq("id", 1)
+        .single();
+
+      if (error) throw error;
+
+      return res.json({
+        success: true,
+        data,
+      });
+    } catch (err) {
+      console.error("Get period lock error:", err);
+
+      return res.status(500).json({
+        success: false,
+        message: "Gagal mengambil pengaturan periode akuntansi.",
+      });
+    }
+  },
+);
+
+app.put(
+  "/accounting/period-lock",
+  requirePeriodLockManage,
+  async (req: PeriodLockAuthRequest, res: Response) => {
+    try {
+      const { is_enabled, locked_through_date } = req.body ?? {};
+
+      if (typeof is_enabled !== "boolean") {
+        return res.status(400).json({
+          success: false,
+          message: "Status penguncian tidak valid.",
+        });
+      }
+
+      if (
+        locked_through_date !== null &&
+        locked_through_date !== undefined &&
+        (
+          typeof locked_through_date !== "string" ||
+          !/^\d{4}-\d{2}-\d{2}$/.test(locked_through_date) ||
+          !Number.isFinite(Date.parse(`${locked_through_date}T00:00:00Z`)) ||
+          new Date(`${locked_through_date}T00:00:00Z`)
+            .toISOString()
+            .slice(0, 10) !== locked_through_date
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Tanggal penguncian tidak valid.",
+        });
+      }
+
+      if (is_enabled && !locked_through_date) {
+        return res.status(400).json({
+          success: false,
+          message: "Tanggal terakhir periode yang dikunci wajib diisi.",
+        });
+      }
+
+      const { data, error } = await supabase
+        .from("accounting_period_settings")
+        .update({
+          is_enabled,
+          locked_through_date: locked_through_date || null,
+          updated_at: new Date().toISOString(),
+          updated_by: req.customUserId,
+        })
+        .eq("id", 1)
+        .select("is_enabled, locked_through_date, updated_at")
+        .single();
+
+      if (error) throw error;
+
+      return res.json({
+        success: true,
+        message: is_enabled
+          ? "Penguncian periode akuntansi berhasil disimpan."
+          : "Penguncian periode akuntansi berhasil dinonaktifkan.",
+        data,
+      });
+    } catch (err) {
+      console.error("Save period lock error:", err);
+
+      return res.status(500).json({
+        success: false,
+        message: "Gagal menyimpan pengaturan periode akuntansi.",
+      });
+    }
+  },
+);
+
+
 // Health check
 app.get("/", (_req, res) => res.send("Backend OK"));
 
