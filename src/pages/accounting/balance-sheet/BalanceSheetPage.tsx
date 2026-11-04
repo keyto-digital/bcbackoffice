@@ -123,6 +123,7 @@ export default function BalanceSheetPage() {
         let offset = 0;
 
         type JournalDetailRow = JournalDetail & {
+          id: string;
           journals:
             | {
                 entity_id: string | null;
@@ -142,17 +143,21 @@ export default function BalanceSheetPage() {
             .from("journal_details")
             .select(
               `
-              account_id,
-              debit,
-              credit,
-              journals!inner (
-                entity_id,
-                tanggal
-              )
-            `,
+                id,
+                account_id,
+                debit,
+                credit,
+                journals!inner (
+                  entity_id,
+                  tanggal
+                )
+              `,
             )
             .lte("journals.tanggal", asOfDate)
             .order("journal_id", {
+              ascending: true,
+            })
+            .order("id", {
               ascending: true,
             })
             .range(offset, offset + FETCH_SIZE - 1);
@@ -183,6 +188,14 @@ export default function BalanceSheetPage() {
 
           offset += FETCH_SIZE;
         }
+
+        console.log("[BALANCE SHEET FETCH]", {
+  asOfDate,
+  entityId: selectedEntityId || "ALL",
+  totalJournalDetails: allDetails.length,
+  fetchSize: FETCH_SIZE,
+  expectedPages: Math.ceil(allDetails.length / FETCH_SIZE),
+});
 
         if (!cancelled) {
           setJournals(
