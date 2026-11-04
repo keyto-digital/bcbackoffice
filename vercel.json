@@ -13,6 +13,10 @@
       "destination": "/api/receiving/delete-draft"
     },
     {
+      "source": "/accounting/period-lock",
+      "destination": "/api/accounting/period-lock"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/"
     }
