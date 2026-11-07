@@ -83,7 +83,7 @@ export default function OpnameReportPage() {
           selisih: item.difference,
           nilai: item.value,
           akunBiaya: item.account_code
-            ? `${item.account_code} - ${item.account_name ?? ""}`
+            ? `${item.account_name ?? ""}`
             : item.account_name ?? "-",
           user: doc.created_by ?? "-",
           posting: doc.created_at,
